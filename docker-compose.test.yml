@@ -1,0 +1,33 @@
+services:
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: riposte-social-test-db
+    environment:
+      POSTGRES_DB: ${TEST_POSTGRES_DB:-riposte_social_test}
+      POSTGRES_USER: ${TEST_POSTGRES_USER:-riposte_social_test_user}
+      POSTGRES_PASSWORD: ${TEST_POSTGRES_PASSWORD:-test_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "${TEST_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${TEST_POSTGRES_USER:-riposte_social_test_user} -d ${TEST_POSTGRES_DB:-riposte_social_test}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - riposte-social-test-network
+
+volumes:
+  postgres_test_data:
+    driver: local
+
+networks:
+  riposte-social-test-network:
+    driver: bridge

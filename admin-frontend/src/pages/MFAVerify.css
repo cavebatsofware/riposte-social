@@ -1,0 +1,54 @@
+.mfa-verify-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+  background-color: var(--color-gray-100);
+}
+
+.mfa-verify-card {
+  max-width: 400px;
+  width: 100%;
+  padding: var(--spacing-8);
+  text-align: center;
+}
+
+.mfa-verify-icon {
+  margin-bottom: var(--spacing-4);
+  color: var(--color-primary);
+}
+
+.mfa-verify-card h1 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-2);
+}
+
+.mfa-verify-card p {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--spacing-6);
+}
+
+.mfa-code-input {
+  text-align: center;
+  font-size: var(--font-size-2xl);
+  font-family: var(--font-family-mono);
+  letter-spacing: 0.5em;
+  padding: var(--spacing-4) !important;
+}
+
+.mfa-verify-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  margin-top: var(--spacing-4);
+}
+
+.mfa-verify-actions .btn-primary,
+.mfa-verify-actions .btn-secondary {
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+}

@@ -1,0 +1,99 @@
+.access-logs-page {
+  width: 100%;
+}
+
+/* Stats Grid */
+.logs-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-5);
+  margin-bottom: var(--spacing-6);
+}
+
+.stat-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-5);
+  text-align: center;
+}
+
+.stat-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--spacing-2);
+}
+
+.stat-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+}
+
+/* Method Badges */
+.badge-method {
+  font-family: var(--font-family-mono);
+  font-weight: var(--font-weight-bold);
+}
+
+.badge-get {
+  background-color: var(--color-info-light);
+  color: var(--color-info);
+}
+
+.badge-post {
+  background-color: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.badge-put {
+  background-color: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.badge-delete {
+  background-color: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.badge-patch {
+  background-color: #f3e8ff;
+  color: #7c3aed;
+}
+
+/* Status Badges - solid colors for better visibility */
+.badge-success {
+  background-color: var(--color-success);
+  color: var(--color-white);
+}
+
+.badge-failed {
+  background-color: var(--color-danger);
+  color: var(--color-white);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .logs-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+  }
+
+  .stat-card {
+    padding: var(--spacing-3);
+  }
+
+  .stat-label {
+    font-size: var(--font-size-xs);
+  }
+
+  .stat-value {
+    font-size: var(--font-size-xl);
+  }
+
+  .badge {
+    padding: var(--spacing-1);
+    font-size: 0.65rem;
+  }
+}

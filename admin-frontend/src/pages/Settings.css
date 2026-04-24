@@ -1,0 +1,207 @@
+.settings-page {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-5);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-normal);
+}
+
+.setting-item:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.setting-info {
+  flex: 1;
+}
+
+.setting-label {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-1);
+}
+
+.setting-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  margin-bottom: var(--spacing-2);
+}
+
+.setting-category {
+  margin-top: var(--spacing-2);
+}
+
+.setting-category .badge {
+  background: var(--color-gray-100);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-1) var(--spacing-3);
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.setting-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  min-width: 80px;
+  text-align: right;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--color-gray-300);
+  transition: var(--transition-normal);
+  border-radius: var(--radius-full);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--color-white);
+  transition: var(--transition-normal);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+
+input:checked + .toggle-slider {
+  background-color: var(--color-primary);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Text Input */
+.text-input-container {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.text-input {
+  min-width: 300px;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-900);
+  background: var(--color-white);
+  transition: var(--transition-normal);
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+}
+
+.text-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--color-gray-50);
+}
+
+/* Save Status */
+.save-status {
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.save-status.saving {
+  color: var(--color-gray-600);
+  background: var(--color-gray-100);
+}
+
+.save-status.saved {
+  color: #059669;
+  background: #d1fae5;
+  font-weight: var(--font-weight-medium);
+}
+
+/* Save Button */
+.btn-save {
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  white-space: nowrap;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: var(--color-primary-dark, #2563eb);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .setting-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-4);
+  }
+
+  .setting-control {
+    justify-content: space-between;
+  }
+
+  .setting-value {
+    text-align: left;
+  }
+}

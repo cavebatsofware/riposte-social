@@ -1,0 +1,39 @@
+{
+  "name": "riposte-social",
+  "version": "0.1.0",
+  "description": "A self-hosted social media sharing platform.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:watch": "vite build --watch",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "Grant DeFayette <grant@cavebatsofware.com>",
+  "license": "GPL-3.0-only",
+  "type": "commonjs",
+  "dependencies": {
+    "@uiw/react-md-editor": "^4.0.8",
+    "@xterm/xterm": "^5.5.0",
+    "apexcharts": "^5.3.6",
+    "react": "^19.2.0",
+    "react-apexcharts": "^1.8.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "cypress": "^15.5.0",
+    "vite": "^7.1.10",
+    "vite-plugin-compression": "^0.5.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/social.cavebatsofware.com/riposte-social.git"
+  },
+  "bugs": {
+    "url": "https://github.com/social.cavebatsofware.com/riposte-social/issues"
+  },
+  "homepage": "https://github.com/social.cavebatsofware.com/riposte-social#readme"
+}

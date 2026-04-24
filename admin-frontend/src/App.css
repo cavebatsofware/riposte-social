@@ -1,0 +1,49 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Auth pages container */
+.container {
+  max-width: 420px;
+  margin: var(--spacing-12) auto;
+  padding: var(--spacing-5);
+}
+
+/* Auth card */
+.container .card {
+  padding: var(--spacing-8);
+}
+
+.container .card h1 {
+  margin-bottom: var(--spacing-2);
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray-900);
+}
+
+.container .card p {
+  margin-bottom: var(--spacing-6);
+  color: var(--color-gray-500);
+}
+
+/* Full width button for auth forms */
+.container .btn {
+  width: 100%;
+  padding: var(--spacing-3) var(--spacing-4);
+  font-size: var(--font-size-base);
+}
+
+/* Auth page link */
+.link {
+  text-align: center;
+  margin-top: var(--spacing-5);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+}
+
+.link a {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}

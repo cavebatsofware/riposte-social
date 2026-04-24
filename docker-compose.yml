@@ -1,0 +1,38 @@
+services:
+  # PostgreSQL database for local development
+  postgres:
+    image: postgres:16-alpine
+    container_name: riposte-social-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-riposte_social}
+      POSTGRES_USER: ${POSTGRES_USER:-riposte_social_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password_change_in_production}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-riposte_social_user} -d ${POSTGRES_DB:-riposte_social}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - riposte-social-network
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  riposte-social-network:
+    driver: bridge

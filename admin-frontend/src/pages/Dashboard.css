@@ -1,0 +1,95 @@
+.dashboard-content {
+  width: 100%;
+}
+
+.welcome-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-6);
+  margin-bottom: var(--spacing-8);
+}
+
+.welcome-card h2 {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-2);
+}
+
+.welcome-card p {
+  color: var(--color-gray-500);
+  font-style: italic;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--spacing-5);
+}
+
+.feature-card {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-6);
+  text-align: center;
+  transition: box-shadow var(--transition-normal);
+}
+
+.feature-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.feature-card h3 {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-2);
+}
+
+.feature-card p {
+  color: var(--color-gray-500);
+  margin-bottom: var(--spacing-5);
+  font-size: var(--font-size-sm);
+}
+
+.btn-feature {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2) var(--spacing-5);
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: background-color var(--transition-fast);
+}
+
+.btn-feature:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-feature:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.metrics-section {
+  margin-bottom: var(--spacing-8);
+}
+
+.chart-container {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-5);
+  margin-bottom: var(--spacing-6);
+}

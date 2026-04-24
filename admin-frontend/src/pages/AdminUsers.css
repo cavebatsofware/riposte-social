@@ -1,0 +1,323 @@
+.admin-users-page {
+  width: 100%;
+}
+
+/* Stats Grid */
+.users-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--spacing-5);
+  margin-bottom: var(--spacing-6);
+}
+
+/* Current user highlighting */
+.current-user-row {
+  background-color: var(--color-primary-light);
+}
+
+.current-user-row:hover {
+  background-color: var(--color-primary-light);
+}
+
+.current-user-email {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* Badge variants */
+.badge-warning {
+  background-color: var(--color-warning);
+  color: var(--color-white);
+}
+
+.badge-gray {
+  background-color: var(--color-gray-400);
+  color: var(--color-white);
+}
+
+.badge-danger {
+  background-color: var(--color-danger);
+  color: var(--color-white);
+}
+
+.badge-info {
+  background-color: var(--color-info);
+  color: var(--color-white);
+}
+
+.badge-small {
+  font-size: var(--font-size-xs);
+  padding: var(--spacing-1);
+}
+
+/* Text muted */
+.text-muted {
+  color: var(--color-gray-400);
+  font-style: italic;
+}
+
+/* Small button */
+.btn-sm {
+  padding: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-sm);
+}
+
+/* Modal Styles (shared with AccessCodes) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: var(--spacing-4);
+}
+
+.modal-content {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-5);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: var(--font-size-2xl);
+  cursor: pointer;
+  color: var(--color-gray-500);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.modal-close:hover {
+  background-color: var(--color-gray-100);
+  color: var(--color-gray-700);
+}
+
+.modal-body {
+  padding: var(--spacing-5);
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: var(--spacing-5);
+  border-top: 1px solid var(--color-gray-200);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-3);
+}
+
+/* User info in modal */
+.user-info-summary {
+  background-color: var(--color-gray-50);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-700);
+}
+
+/* Setting item in modal (toggle switch pattern from Settings page) */
+.setting-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-4);
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-3);
+  transition: box-shadow var(--transition-normal);
+}
+
+.setting-item:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.setting-info {
+  flex: 1;
+  margin-right: var(--spacing-4);
+}
+
+.setting-label {
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-1);
+}
+
+.setting-description {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.setting-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-500);
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: var(--color-gray-300);
+  transition: var(--transition-normal);
+  border-radius: var(--radius-full);
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--color-white);
+  transition: var(--transition-normal);
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+}
+
+input:checked + .toggle-slider {
+  background-color: var(--color-primary);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(22px);
+}
+
+input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Danger setting styling */
+.danger-setting {
+  border-color: var(--color-danger-light);
+  background-color: rgba(220, 38, 38, 0.05);
+}
+
+.danger-setting input:checked + .toggle-slider {
+  background-color: var(--color-danger);
+}
+
+.danger-label {
+  color: var(--color-danger);
+}
+
+.warning-text {
+  color: var(--color-warning);
+}
+
+/* Larger modal for more content */
+.modal-large {
+  max-width: 600px;
+}
+
+/* Setting section divider */
+.setting-section {
+  margin-top: var(--spacing-5);
+  padding-top: var(--spacing-5);
+  border-top: 1px solid var(--color-gray-200);
+}
+
+.setting-section h3 {
+  margin: 0 0 var(--spacing-2) 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-gray-900);
+}
+
+.setting-section .setting-description {
+  margin-bottom: var(--spacing-4);
+}
+
+/* Password form container in modal */
+.password-form-container {
+  background-color: var(--color-gray-50);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .users-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-3);
+  }
+
+  .modal-content {
+    max-width: 100%;
+    margin: var(--spacing-2);
+  }
+
+  .setting-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--spacing-3);
+  }
+
+  .setting-info {
+    margin-right: 0;
+  }
+
+  .setting-control {
+    justify-content: space-between;
+  }
+
+  .setting-value {
+    text-align: left;
+  }
+}

@@ -1,0 +1,56 @@
+# Rust build files
+/target/
+**/*.rs.bk
+
+# Cargo package files
+Cargo.lock
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS system files
+.DS_Store
+
+# Logs
+*.log
+
+# Byebug command history file.
+.byebug_history
+
+# Node modules (if using frontend)
+node_modules/
+
+# Admin frontend build artifacts
+assets/admin/
+admin-frontend/dist/
+
+# Coverage
+coverage/
+*.profraw
+
+# Misc
+*.tmp
+*.bak
+*.pdf
+.env
+
+# Database
+backups/
+*.sql
+*.dump
+
+# Docker
+docker-compose.override.yml
+
+admin-assets/
+
+# Public frontend build artifacts
+public-assets/
+public-frontend/dist/
+public-frontend/node_modules/
+
+# Crates
+crates/
