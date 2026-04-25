@@ -25,6 +25,7 @@ node_modules/
 
 # Admin frontend build artifacts
 assets/admin/
+social-assets/
 admin-frontend/dist/
 
 # Coverage
@@ -36,6 +37,7 @@ coverage/
 *.bak
 *.pdf
 .env
+
 
 # Database
 backups/

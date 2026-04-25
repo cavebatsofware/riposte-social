@@ -166,7 +166,7 @@ async fn main() -> anyhow::Result<()> {
         .with_same_site(SameSite::Lax);
 
     // Setup admin auth backend
-    let admin_backend = admin::AdminAuthBackend::new(state.db.clone());
+    let admin_backend = admin::UserAuthBackend::new(state.db.clone());
 
     // Setup email service
     let email_service = Arc::new(email::EmailService::new(state.settings.clone()).await?);

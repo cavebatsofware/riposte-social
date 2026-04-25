@@ -203,6 +203,20 @@ impl OidcService {
 
         let email_verified = claims.email_verified().unwrap_or(false);
 
+        // OIDC `sub` is the stable, provider-issued user identifier. Required
+        // for the unified UserAuthBackend's OIDC-linkage hard boundary.
+        let sub = claims.subject().to_string();
+
+        // Optional display name from `name` / `preferred_username` claims.
+        let display_name = claims
+            .name()
+            .and_then(|localized| localized.get(None).map(|s| s.as_str().to_string()))
+            .or_else(|| {
+                claims
+                    .preferred_username()
+                    .map(|s| s.as_str().to_string())
+            });
+
         // Try extracting roles from ID token first
         let additional = &claims.additional_claims().0;
         let mut roles = self.extract_roles_from_claims(additional);
@@ -230,8 +244,10 @@ impl OidcService {
         }
 
         Ok(OidcUserInfo {
+            sub,
             email,
             email_verified,
+            display_name,
             roles,
         })
     }
@@ -302,7 +318,9 @@ impl OidcService {
 
 #[derive(Debug, Clone)]
 pub struct OidcUserInfo {
+    pub sub: String,
     pub email: String,
     pub email_verified: bool,
+    pub display_name: Option<String>,
     pub roles: Vec<String>,
 }

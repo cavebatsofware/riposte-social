@@ -44,7 +44,7 @@ static DUMMY_HASH: LazyLock<String> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AdminUserAuth {
+pub struct UserAuth {
     pub id: Uuid,
     pub email: String,
     pub email_verified: bool,
@@ -53,10 +53,11 @@ pub struct AdminUserAuth {
     pub active: bool,
     pub force_password_change: bool,
     pub role: String,
+    pub user_type: String,
     pub(crate) session_hash: Vec<u8>,
 }
 
-impl AuthUser for AdminUserAuth {
+impl AuthUser for UserAuth {
     type Id = Uuid;
 
     fn id(&self) -> Self::Id {
@@ -82,12 +83,12 @@ pub(crate) fn compute_session_hash(password_hash: &str, email: &str, totp_secret
 }
 
 #[derive(Clone)]
-pub struct AdminAuthBackend {
+pub struct UserAuthBackend {
     db: DatabaseConnection,
     allowed_domain: String,
 }
 
-impl AdminAuthBackend {
+impl UserAuthBackend {
     pub fn new(db: DatabaseConnection) -> Self {
         let allowed_domain =
             env::var("SITE_DOMAIN").expect("SITE_DOMAIN environment variable must be set");
@@ -553,6 +554,200 @@ impl AdminAuthBackend {
     }
 }
 
+impl UserAuthBackend {
+    /// Local password authentication. Looks up the user by email, runs argon2
+    /// verification, and enforces the OIDC-linkage hard auth-mode boundary:
+    /// if `oidc_sub IS NOT NULL`, the password path is closed regardless of
+    /// what hash they provide. The dummy-hash branch keeps timing parity with
+    /// the non-existent-user case.
+    pub async fn authenticate_password(
+        &self,
+        email: &str,
+        password: &str,
+    ) -> Result<Option<UserAuth>, AuthError> {
+        let user_row = User::find()
+            .filter(user::Column::Email.eq(email))
+            .one(&self.db)
+            .await
+            .map_err(AuthError::from)?;
+
+        // Decide which hash to verify against. OIDC-linked users get the dummy
+        // hash so verify_password runs (timing parity) but fails identically to
+        // a non-existent user.
+        let (hash_to_check, password_path_open) = match &user_row {
+            Some(u) if u.oidc_sub.is_some() => (DUMMY_HASH.as_str(), false),
+            Some(u) => (u.password_hash.as_str(), true),
+            None => (DUMMY_HASH.as_str(), false),
+        };
+
+        let valid = verify_password(password, hash_to_check).map_err(AuthError::from)?;
+
+        if !password_path_open || !valid {
+            return Ok(None);
+        }
+
+        // Safe to unwrap: password_path_open is only true when user_row is Some.
+        let user_row = user_row.unwrap();
+
+        if !user_row.active {
+            return Err(AuthError(anyhow::anyhow!("Account has been deactivated")));
+        }
+
+        if !user_row.email_verified {
+            return Err(AuthError(anyhow::anyhow!(
+                "Email not verified. Please check your email for verification link."
+            )));
+        }
+
+        Ok(Some(self.user_auth_from_model(user_row, /* oidc_login */ false)))
+    }
+
+    /// OIDC authentication. Upserts the user row from the verified OIDC claims,
+    /// applies the role + user_type the caller resolved from the claims, and
+    /// returns a `UserAuth` flagged as already MFA-verified (Keycloak handles
+    /// MFA at the IdP).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn authenticate_oidc(
+        &self,
+        sub: &str,
+        email: &str,
+        email_verified: bool,
+        role: &str,
+        user_type: &str,
+        display_name: Option<&str>,
+        invite_code: Option<&str>,
+    ) -> Result<Option<UserAuth>, AuthError> {
+        let user_row = self
+            .upsert_oidc_user(
+                sub,
+                email,
+                email_verified,
+                role,
+                user_type,
+                display_name,
+                invite_code,
+            )
+            .await
+            .map_err(AuthError::from)?;
+
+        if !user_row.active {
+            return Err(AuthError(anyhow::anyhow!("Account has been deactivated")));
+        }
+
+        Ok(Some(self.user_auth_from_model(user_row, /* oidc_login */ true)))
+    }
+
+    /// Find an existing user by `oidc_sub` (or by email as a fallback for
+    /// pre-OIDC accounts being upgraded to SSO) and update it with the OIDC
+    /// claims; otherwise create a new user row. Always sets `oidc_sub`, which
+    /// closes the password path for this user from this point on.
+    #[allow(clippy::too_many_arguments)]
+    async fn upsert_oidc_user(
+        &self,
+        sub: &str,
+        email: &str,
+        email_verified: bool,
+        role: &str,
+        user_type: &str,
+        display_name: Option<&str>,
+        _invite_code: Option<&str>, // Phase 2 wires this through.
+    ) -> Result<user::Model> {
+        // Prefer match by oidc_sub. Fall back to email for first-time SSO
+        // upgrade of a previously password-only admin/poster account.
+        let by_sub = User::find()
+            .filter(user::Column::OidcSub.eq(sub))
+            .one(&self.db)
+            .await?;
+        let existing = if by_sub.is_some() {
+            by_sub
+        } else {
+            User::find()
+                .filter(user::Column::Email.eq(email))
+                .one(&self.db)
+                .await?
+        };
+
+        if let Some(existing_row) = existing {
+            let mut active: user::ActiveModel = existing_row.into();
+            // Lock the row to OIDC. This is the moment the password path closes.
+            active.oidc_sub = Set(Some(sub.to_string()));
+            // Defense-in-depth: rotate password_hash to a fresh non-usable value
+            // on every OIDC login so leaks of an older hash can't be replayed.
+            active.password_hash = Set(format!("oidc_user_{}", Uuid::new_v4()));
+            active.email = Set(email.to_string());
+            active.email_verified = Set(email_verified);
+            active.role = Set(role.to_string());
+            active.user_type = Set(user_type.to_string());
+            if let Some(name) = display_name {
+                active.display_name = Set(Some(name.to_string()));
+            }
+            active.last_login_at = Set(Some(Utc::now().into()));
+            active.updated_at = Set(Utc::now().into());
+            return Ok(active.update(&self.db).await?);
+        }
+
+        let random_hash = format!("oidc_user_{}", Uuid::new_v4());
+        let new_user = user::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            email: Set(email.to_string()),
+            password_hash: Set(random_hash),
+            email_verified: Set(email_verified),
+            verification_token: Set(None),
+            verification_token_expires_at: Set(None),
+            created_at: Set(Utc::now().into()),
+            updated_at: Set(Utc::now().into()),
+            totp_secret: Set(None),
+            totp_enabled: Set(Some(false)),
+            totp_enabled_at: Set(None),
+            mfa_failed_attempts: Set(Some(0)),
+            mfa_locked_until: Set(None),
+            active: Set(true),
+            deactivated_at: Set(None),
+            force_password_change: Set(false),
+            password_reset_token: Set(None),
+            password_reset_token_expires_at: Set(None),
+            role: Set(role.to_string()),
+            user_type: Set(user_type.to_string()),
+            oidc_sub: Set(Some(sub.to_string())),
+            display_name: Set(display_name.map(|s| s.to_string())),
+            avatar_url: Set(None),
+            last_login_at: Set(Some(Utc::now().into())),
+            invite_code_id: Set(None),
+        };
+        let result = new_user.insert(&self.db).await?;
+        tracing::info!(
+            "Created new OIDC user: {} role={} user_type={}",
+            email,
+            role,
+            user_type
+        );
+        Ok(result)
+    }
+
+    /// Build a `UserAuth` session principal from a user row. `oidc_login=true`
+    /// marks the principal as MFA-verified up front because Keycloak owns MFA
+    /// at the IdP for SSO logins.
+    fn user_auth_from_model(&self, model: user::Model, oidc_login: bool) -> UserAuth {
+        let totp_enabled = model.totp_enabled.unwrap_or(false);
+        let session_hash =
+            compute_session_hash(&model.password_hash, &model.email, model.totp_secret.as_deref());
+        UserAuth {
+            id: model.id,
+            email: model.email,
+            email_verified: model.email_verified,
+            totp_enabled,
+            // OIDC logins are MFA-verified at the IdP; password logins start
+            // unverified if local TOTP is enabled.
+            mfa_verified: oidc_login || !totp_enabled,
+            active: model.active,
+            force_password_change: model.force_password_change,
+            role: model.role,
+            user_type: model.user_type,
+            session_hash,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct AuthError(anyhow::Error);
 
@@ -576,8 +771,8 @@ impl From<sea_orm::DbErr> for AuthError {
     }
 }
 
-impl AuthnBackend for AdminAuthBackend {
-    type User = AdminUserAuth;
+impl AuthnBackend for UserAuthBackend {
+    type User = UserAuth;
     type Credentials = Credentials;
     type Error = AuthError;
 
@@ -585,64 +780,34 @@ impl AuthnBackend for AdminAuthBackend {
         &self,
         creds: Self::Credentials,
     ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
-        let db = self.db.clone();
+        let backend = self.clone();
         async move {
-            let admin = User::find()
-                .filter(user::Column::Email.eq(&creds.email))
-                .one(&db)
-                .await
-                .map_err(AuthError::from)?;
-
-            // Timing attack mitigation: always perform password verification
-            // even if user doesn't exist. This prevents attackers from determining
-            // whether an email exists based on response time differences.
-            let (password_hash, user_exists) = match &admin {
-                Some(a) => (a.password_hash.as_str(), true),
-                None => (DUMMY_HASH.as_str(), false),
-            };
-
-            // Verify password (always runs, even for non-existent users)
-            let valid = verify_password(&creds.password, password_hash).map_err(AuthError::from)?;
-
-            // If user doesn't exist or password is invalid, return None
-            if !user_exists || !valid {
-                return Ok(None);
+            match creds {
+                Credentials::Password { email, password } => {
+                    backend.authenticate_password(&email, &password).await
+                }
+                Credentials::Oidc {
+                    sub,
+                    email,
+                    email_verified,
+                    role,
+                    user_type,
+                    display_name,
+                    invite_code,
+                } => {
+                    backend
+                        .authenticate_oidc(
+                            &sub,
+                            &email,
+                            email_verified,
+                            &role,
+                            &user_type,
+                            display_name.as_deref(),
+                            invite_code.as_deref(),
+                        )
+                        .await
+                }
             }
-
-            // At this point we know admin is Some and password is valid
-            let admin = admin.unwrap();
-
-            // Check if account is active
-            if !admin.active {
-                return Err(AuthError(anyhow::anyhow!("Account has been deactivated")));
-            }
-
-            // Check if email is verified
-            if !admin.email_verified {
-                return Err(AuthError(anyhow::anyhow!(
-                    "Email not verified. Please check your email for verification link."
-                )));
-            }
-
-            let totp_enabled = admin.totp_enabled.unwrap_or(false);
-            let session_hash = compute_session_hash(
-                &admin.password_hash,
-                &admin.email,
-                admin.totp_secret.as_deref(),
-            );
-            Ok(Some(AdminUserAuth {
-                id: admin.id,
-                email: admin.email,
-                email_verified: admin.email_verified,
-                totp_enabled,
-                // If MFA is enabled, start with mfa_verified = false
-                // If MFA is not enabled, mfa_verified = true (no verification needed)
-                mfa_verified: !totp_enabled,
-                active: admin.active,
-                force_password_change: admin.force_password_change,
-                role: admin.role,
-                session_hash,
-            }))
         }
     }
 
@@ -651,43 +816,41 @@ impl AuthnBackend for AdminAuthBackend {
         user_id: &UserId<Self>,
     ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
         let user_id = *user_id;
-        let db = self.db.clone();
+        let backend = self.clone();
         async move {
-            let admin = User::find_by_id(user_id)
-                .one(&db)
+            let model = User::find_by_id(user_id)
+                .one(&backend.db)
                 .await
                 .map_err(AuthError::from)?;
-
-            Ok(admin.map(|a| {
-                let totp_enabled = a.totp_enabled.unwrap_or(false);
-                let session_hash = compute_session_hash(
-                    &a.password_hash,
-                    &a.email,
-                    a.totp_secret.as_deref(),
-                );
-                AdminUserAuth {
-                    id: a.id,
-                    email: a.email,
-                    email_verified: a.email_verified,
-                    totp_enabled,
-                    // If MFA is enabled, start with mfa_verified = false
-                    // The session will be updated to mfa_verified = true after successful MFA verification
-                    // via tower-sessions Session (stored separately from axum-login user state)
-                    mfa_verified: !totp_enabled,
-                    active: a.active,
-                    force_password_change: a.force_password_change,
-                    role: a.role,
-                    session_hash,
-                }
-            }))
+            // mfa_verified is always re-derived from totp_enabled here. The
+            // tower-sessions MFA_VERIFIED_KEY (set after successful TOTP entry
+            // or after OIDC login) is what the auth middleware actually gates
+            // on, so this principal field is just a hint.
+            Ok(model.map(|m| backend.user_auth_from_model(m, /* oidc_login */ false)))
         }
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Credentials {
-    pub email: String,
-    pub password: String,
+/// Authentication credentials for the unified `UserAuthBackend`.
+///
+/// `Password` is the local email+password path. `Oidc` is constructed by the
+/// OIDC callback after a successful Keycloak exchange and carries every field
+/// needed to upsert the user row.
+#[derive(Debug, Clone)]
+pub enum Credentials {
+    Password {
+        email: String,
+        password: String,
+    },
+    Oidc {
+        sub: String,
+        email: String,
+        email_verified: bool,
+        role: String,
+        user_type: String,
+        display_name: Option<String>,
+        invite_code: Option<String>,
+    },
 }
 
 fn hash_password(password: &str) -> Result<String> {

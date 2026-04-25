@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::{app::AppState, middleware::AdminUserInfo, security_callbacks::AccessLogEvent};
+use crate::{app::AppState, middleware::UserInfo, security_callbacks::AccessLogEvent};
 use axum::{
     extract::State,
     http::{Request, StatusCode},
@@ -51,7 +51,7 @@ pub async fn access_log_middleware(
     // Extract admin user info from response extensions (set by require_admin_auth)
     let (admin_user_id, admin_user_email) = response
         .extensions()
-        .get::<AdminUserInfo>()
+        .get::<UserInfo>()
         .map(|info| (Some(info.id), Some(info.email.clone())))
         .unwrap_or((None, None));
 

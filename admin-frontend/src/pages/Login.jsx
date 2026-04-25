@@ -11,7 +11,7 @@ function Login() {
 
   useEffect(() => {
     if (authConfig.oidcEnabled && !user) {
-      window.location.href = '/api/admin/oidc/login';
+      window.location.href = '/api/auth/oidc/login';
     }
   }, [authConfig.oidcEnabled, user]);
 

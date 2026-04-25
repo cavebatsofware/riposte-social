@@ -16,7 +16,7 @@
 use super::auth::verify_password;
 use super::password::PasswordValidator;
 use super::totp;
-use super::{AdminAuthBackend, Credentials};
+use super::{UserAuthBackend, Credentials};
 use crate::email::EmailService;
 use crate::errors::{AppError, AppResult};
 use crate::security_callbacks::AppRateLimitCallbacks;
@@ -38,11 +38,11 @@ use tower_sessions::Session;
 
 use super::MFA_VERIFIED_KEY;
 
-pub type AdminAuthSession = AuthSession<AdminAuthBackend>;
+pub type UserAuthSession = AuthSession<UserAuthBackend>;
 
 #[derive(Clone)]
 pub struct AdminState {
-    pub auth_backend: AdminAuthBackend,
+    pub auth_backend: UserAuthBackend,
     pub email_service: Arc<EmailService>,
     pub settings: SettingsService,
     pub oidc_enabled: bool,
@@ -82,6 +82,12 @@ pub fn admin_api_routes(
 
 #[derive(Deserialize)]
 struct RegisterRequest {
+    email: String,
+    password: String,
+}
+
+#[derive(Deserialize)]
+struct LoginRequest {
     email: String,
     password: String,
 }
@@ -139,10 +145,15 @@ async fn register(
 
 async fn login(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
-    Json(creds): Json<Credentials>,
+    auth_session: UserAuthSession,
+    Json(req): Json<LoginRequest>,
 ) -> AppResult<Json<UserResponse>> {
     require_local_auth(state.oidc_enabled)?;
+
+    let creds = Credentials::Password {
+        email: req.email,
+        password: req.password,
+    };
 
     let user = auth_session
         .authenticate(creds)
@@ -177,7 +188,7 @@ async fn login(
     }))
 }
 
-async fn logout(auth_session: AdminAuthSession) -> AppResult<StatusCode> {
+async fn logout(auth_session: UserAuthSession) -> AppResult<StatusCode> {
     auth_session
         .logout()
         .await
@@ -235,7 +246,7 @@ struct UserResponse {
 
 async fn me(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
     session: Session,
 ) -> AppResult<Json<UserResponse>> {
     let user = auth_session
@@ -298,7 +309,7 @@ struct AuthConfigResponse {
 /// Returns auth configuration so the frontend knows whether to use OIDC or local login
 async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse> {
     let login_url = if state.oidc_enabled {
-        Some("/api/admin/oidc/login".to_string())
+        Some("/api/auth/oidc/login".to_string())
     } else {
         None
     };
@@ -323,7 +334,7 @@ fn require_local_auth(oidc_enabled: bool) -> AppResult<()> {
 // ==================== MFA Endpoints ====================
 
 /// Helper to get authenticated user, returning error if not logged in
-async fn get_authenticated_user(auth_session: &AdminAuthSession) -> AppResult<super::AdminUserAuth> {
+async fn get_authenticated_user(auth_session: &UserAuthSession) -> AppResult<super::UserAuth> {
     auth_session
         .user()
         .await
@@ -341,7 +352,7 @@ struct MfaSetupResponse {
 /// Requires full authentication (not pending MFA)
 async fn mfa_setup(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
 ) -> AppResult<Json<MfaSetupResponse>> {
     require_local_auth(state.oidc_enabled)?;
     let user = get_authenticated_user(&auth_session).await?;
@@ -378,7 +389,7 @@ struct MfaConfirmResponse {
 /// Confirm MFA setup by verifying the code matches the secret
 async fn mfa_confirm_setup(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
     session: Session,
     Json(req): Json<MfaConfirmRequest>,
 ) -> AppResult<Json<MfaConfirmResponse>> {
@@ -428,7 +439,7 @@ struct MfaVerifyResponse {
 /// Verify MFA code during login (after password authentication)
 async fn mfa_verify(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
     session: Session,
     Json(req): Json<MfaVerifyRequest>,
 ) -> AppResult<Json<MfaVerifyResponse>> {
@@ -534,7 +545,7 @@ struct MfaDisableResponse {
 /// Disable MFA for the user (requires password confirmation)
 async fn mfa_disable(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
     session: Session,
     Json(req): Json<MfaDisableRequest>,
 ) -> AppResult<Json<MfaDisableResponse>> {
@@ -605,7 +616,7 @@ struct ChangePasswordResponse {
 /// Change password for the authenticated user (requires current password)
 async fn change_password(
     State(state): State<AdminState>,
-    auth_session: AdminAuthSession,
+    auth_session: UserAuthSession,
     session: Session,
     Json(req): Json<ChangePasswordRequest>,
 ) -> AppResult<Json<ChangePasswordResponse>> {

@@ -13,17 +13,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-pub mod access_codes;
-pub mod access_logs;
-pub mod admin_users;
-pub mod auth;
-pub mod pagination;
-pub mod password;
-pub mod routes;
-pub mod settings;
-pub mod totp;
-
-pub use auth::{UserAuthBackend, UserAuth, Credentials};
-
-/// Session key for MFA verification status. Shared across routes and middleware.
-pub const MFA_VERIFIED_KEY: &str = "mfa_verified";
+//! Authentication routes shared across all user tiers.
+//!
+//! The OIDC flow lives here (not under `admin::`) because Keycloak login serves
+//! administrators, posters, and commenters alike. Local password + MFA still
+//! lives under `admin::routes` for now and is wired to the same
+//! `UserAuthBackend`.
+pub mod oidc_routes;

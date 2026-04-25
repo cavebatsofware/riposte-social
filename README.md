@@ -86,8 +86,8 @@ Admin auth routes:
 - `/api/admin/mfa/disable` - Disable TOTP
 
 OIDC routes (when `OIDC_ENABLED=true`):
-- `/api/admin/oidc/login` - Redirect to identity provider
-- `/api/admin/oidc/callback` - Handle provider callback
+- `/api/auth/oidc/login` - Redirect to identity provider (shared by all user tiers)
+- `/api/auth/oidc/callback` - Handle provider callback; redirects administrators to `/admin`, posters and commenters to `/`
 
 Admin panel routes (require administrator role):
 - `/api/admin/access-codes` - Manage access codes (CRUD + file upload)
@@ -325,7 +325,9 @@ MIGRATE_DB=true cargo run -- migrate
 │   │   ├── mod.rs           # Module exports, shared constants
 │   │   ├── auth.rs          # Auth backend (create, verify, password, MFA)
 │   │   ├── routes.rs        # Admin API endpoints (login, register, MFA, etc.)
-│   │   ├── oidc_routes.rs   # OIDC login/callback handlers
+│   ├── auth/
+│   │   ├── mod.rs           # Auth routes shared across all user tiers
+│   │   └── oidc_routes.rs   # OIDC login/callback (admin, poster, commenter)
 │   │   ├── access_codes.rs  # Access code CRUD with S3 upload
 │   │   ├── access_logs.rs   # Access log queries and dashboard metrics
 │   │   ├── admin_users.rs   # Admin user management

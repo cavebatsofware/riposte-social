@@ -15,7 +15,7 @@
  */
 use crate::admin::pagination::{Paginated, PaginationParams};
 use crate::admin::password::PasswordValidator;
-use crate::admin::AdminAuthBackend;
+use crate::admin::UserAuthBackend;
 use crate::email::EmailService;
 use crate::entities::{user, User};
 use crate::errors::{AppError, AppResult};
@@ -37,7 +37,7 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct AdminUserState {
     pub db: DatabaseConnection,
-    pub auth_backend: AdminAuthBackend,
+    pub auth_backend: UserAuthBackend,
     pub email_service: Arc<EmailService>,
 }
 
@@ -147,7 +147,7 @@ async fn get_admin_user(
 
 async fn update_admin_user(
     State(state): State<AdminUserState>,
-    Extension(current_user): Extension<crate::admin::AdminUserAuth>,
+    Extension(current_user): Extension<crate::admin::UserAuth>,
     Path(user_id): Path<Uuid>,
     Json(req): Json<UpdateAdminUserRequest>,
 ) -> AppResult<Json<AdminUserResponse>> {
@@ -262,7 +262,7 @@ async fn update_admin_user(
 
 async fn resend_verification_email(
     State(state): State<AdminUserState>,
-    Extension(current_user): Extension<crate::admin::AdminUserAuth>,
+    Extension(current_user): Extension<crate::admin::UserAuth>,
     Path(user_id): Path<Uuid>,
 ) -> AppResult<Json<AdminUserResponse>> {
     // Prevent self-action

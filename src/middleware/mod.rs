@@ -19,12 +19,15 @@ pub mod access_log;
 pub mod admin_auth;
 
 pub use access_log::access_log_middleware;
-pub use admin_auth::{require_admin_auth, require_administrator, AuthenticatedUser};
+pub use admin_auth::{
+    require_admin, require_admin_or_poster, require_admin_user_type, require_authenticated,
+    require_role, AuthenticatedUser, ROLES_ADMIN_ONLY, ROLES_ADMIN_OR_POSTER,
+};
 
 /// Minimal admin user info for access logging. Only stores what's needed for audit trail.
 /// Uuid is Copy (16 bytes), email is the only heap allocation.
 #[derive(Clone)]
-pub struct AdminUserInfo {
+pub struct UserInfo {
     pub id: Uuid,
     pub email: String,
 }

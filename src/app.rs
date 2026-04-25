@@ -13,11 +13,12 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::admin::{self, AdminAuthBackend};
+use crate::admin::{self, UserAuthBackend};
+use crate::auth;
 use crate::email::EmailService;
 use crate::entities::{access_code, AccessCode};
 use crate::errors::{AppError, AppResult};
-use crate::middleware::{csrf_middleware, require_admin_auth, require_administrator};
+use crate::middleware::{csrf_middleware, require_authenticated, require_admin};
 use crate::oidc::{OidcConfig, OidcService};
 use crate::s3::S3Service;
 use crate::security_callbacks::AppRateLimitCallbacks;
@@ -326,7 +327,7 @@ async fn download_access(
 #[derive(Clone)]
 pub struct RouterDeps {
     pub state: AppState,
-    pub admin_backend: AdminAuthBackend,
+    pub admin_backend: UserAuthBackend,
     pub email_service: Arc<EmailService>,
     pub session_layer: SessionManagerLayer<PostgresStore>,
 }
@@ -366,16 +367,16 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
-    // OIDC routes
-    let oidc_state = admin::oidc_routes::OidcState {
+    // OIDC routes — shared across all user tiers (admin, poster, commenter).
+    let oidc_state = auth::oidc_routes::OidcState {
         oidc_service: state.oidc.clone(),
         db: state.db.clone(),
     };
     let oidc_routes = Router::new()
-        .route("/api/admin/oidc/login", get(admin::oidc_routes::oidc_login))
+        .route("/api/auth/oidc/login", get(auth::oidc_routes::oidc_login))
         .route(
-            "/api/admin/oidc/callback",
-            get(admin::oidc_routes::oidc_callback),
+            "/api/auth/oidc/callback",
+            get(auth::oidc_routes::oidc_callback),
         )
         .with_state(oidc_state)
         .layer(from_fn_with_state(
@@ -391,8 +392,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
     };
     let access_code_routes = admin::access_codes::access_code_routes()
         .with_state(access_code_state)
-        .layer(from_fn(require_administrator))
-        .layer(from_fn(require_admin_auth))
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
@@ -402,8 +403,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
     };
     let access_log_routes = admin::access_logs::access_log_routes()
         .with_state(access_log_state)
-        .layer(from_fn(require_administrator))
-        .layer(from_fn(require_admin_auth))
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
@@ -415,8 +416,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
     };
     let admin_user_routes = admin::admin_users::admin_user_routes()
         .with_state(admin_user_state)
-        .layer(from_fn(require_administrator))
-        .layer(from_fn(require_admin_auth))
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
@@ -426,8 +427,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
     };
     let settings_routes = admin::settings::settings_routes()
         .with_state(settings_state)
-        .layer(from_fn(require_administrator))
-        .layer(from_fn(require_admin_auth))
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
