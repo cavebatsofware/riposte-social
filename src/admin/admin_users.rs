@@ -17,7 +17,7 @@ use crate::admin::pagination::{Paginated, PaginationParams};
 use crate::admin::password::PasswordValidator;
 use crate::admin::AdminAuthBackend;
 use crate::email::EmailService;
-use crate::entities::{admin_user, AdminUser};
+use crate::entities::{user, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use axum::{
@@ -70,8 +70,8 @@ pub struct AdminUserResponse {
     updated_at: String,
 }
 
-impl From<admin_user::Model> for AdminUserResponse {
-    fn from(model: admin_user::Model) -> Self {
+impl From<user::Model> for AdminUserResponse {
+    fn from(model: user::Model) -> Self {
         let now = Utc::now();
         let mfa_locked = model
             .mfa_locked_until
@@ -114,8 +114,8 @@ async fn list_admin_users(
 ) -> AppResult<Json<Paginated<AdminUserResponse>>> {
     let validated = params.validate();
 
-    let paginator = AdminUser::find()
-        .order_by(admin_user::Column::CreatedAt, Order::Desc)
+    let paginator = User::find()
+        .order_by(user::Column::CreatedAt, Order::Desc)
         .paginate(&state.db, validated.per_page);
 
     let total = paginator.num_items().await?;
@@ -137,7 +137,7 @@ async fn get_admin_user(
     _user: AuthenticatedUser,
     Path(user_id): Path<Uuid>,
 ) -> AppResult<Json<AdminUserResponse>> {
-    let admin = AdminUser::find_by_id(user_id)
+    let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
@@ -159,7 +159,7 @@ async fn update_admin_user(
     }
 
     // Fetch target user
-    let admin = AdminUser::find_by_id(user_id)
+    let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
@@ -219,12 +219,12 @@ async fn update_admin_user(
     }
 
     // Re-fetch user for other updates
-    let admin = AdminUser::find_by_id(user_id)
+    let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
 
-    let mut admin_active: admin_user::ActiveModel = admin.into();
+    let mut admin_active: user::ActiveModel = admin.into();
 
     if let Some(verified) = req.email_verified {
         admin_active.email_verified = Set(verified);

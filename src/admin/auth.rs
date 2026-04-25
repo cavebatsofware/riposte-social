@@ -14,7 +14,7 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use crate::crypto::{decrypt_totp_secret, encrypt_token, encrypt_totp_secret};
-use crate::entities::{admin_user, AdminUser};
+use crate::entities::{user, User};
 use anyhow::Result;
 use argon2::{
     password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
@@ -99,15 +99,15 @@ impl AdminAuthBackend {
         &self,
         email: &str,
         password: &str,
-    ) -> Result<(admin_user::Model, String)> {
+    ) -> Result<(user::Model, String)> {
         // Validate email domain
         if !email.ends_with(&format!("@{}", self.allowed_domain)) {
             anyhow::bail!("Email must be from {} domain", self.allowed_domain);
         }
 
         // Check if user already exists
-        let existing = AdminUser::find()
-            .filter(admin_user::Column::Email.eq(email))
+        let existing = User::find()
+            .filter(user::Column::Email.eq(email))
             .one(&self.db)
             .await?;
 
@@ -123,7 +123,7 @@ impl AdminAuthBackend {
         let encrypted_token = encrypt_token(&verification_token)?;
         let verification_expires = Utc::now() + chrono::Duration::hours(24);
 
-        let admin = admin_user::ActiveModel {
+        let admin = user::ActiveModel {
             id: Set(Uuid::new_v4()),
             email: Set(email.to_string()),
             password_hash: Set(password_hash),
@@ -142,7 +142,13 @@ impl AdminAuthBackend {
             force_password_change: Set(false),
             password_reset_token: Set(None),
             password_reset_token_expires_at: Set(None),
-            role: Set("administrator".to_string()),
+            role: Set(user::ROLE_ADMINISTRATOR.to_string()),
+            user_type: Set(user::USER_TYPE_ADMIN.to_string()),
+            oidc_sub: Set(None),
+            display_name: Set(None),
+            avatar_url: Set(None),
+            last_login_at: Set(None),
+            invite_code_id: Set(None),
         };
 
         let result = admin.insert(&self.db).await?;
@@ -150,8 +156,8 @@ impl AdminAuthBackend {
         Ok((result, verification_token))
     }
 
-    pub async fn get_admin_by_id(&self, id: Uuid) -> Result<Option<admin_user::Model>> {
-        let admin = AdminUser::find_by_id(id).one(&self.db).await?;
+    pub async fn get_admin_by_id(&self, id: Uuid) -> Result<Option<user::Model>> {
+        let admin = User::find_by_id(id).one(&self.db).await?;
         Ok(admin)
     }
 
@@ -160,8 +166,8 @@ impl AdminAuthBackend {
         user_id: Uuid,
         totp_secret: Option<String>,
         totp_enabled: bool,
-    ) -> Result<admin_user::Model> {
-        let admin = AdminUser::find_by_id(user_id)
+    ) -> Result<user::Model> {
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -172,7 +178,7 @@ impl AdminAuthBackend {
             None => None,
         };
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.totp_secret = Set(encrypted_secret);
         admin_active.totp_enabled = Set(Some(totp_enabled));
         admin_active.totp_enabled_at = Set(if totp_enabled {
@@ -193,7 +199,7 @@ impl AdminAuthBackend {
 
     /// Get the decrypted TOTP secret for a user
     pub async fn get_totp_secret(&self, user_id: Uuid) -> Result<Option<String>> {
-        let admin = AdminUser::find_by_id(user_id)
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -209,7 +215,7 @@ impl AdminAuthBackend {
 
     /// Check if the user is currently locked out from MFA attempts
     pub async fn is_mfa_locked(&self, user_id: Uuid) -> Result<bool> {
-        let admin = AdminUser::find_by_id(user_id)
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -225,7 +231,7 @@ impl AdminAuthBackend {
     /// Record a failed MFA attempt and lock account if threshold exceeded
     /// Returns (new_attempt_count, is_now_locked)
     pub async fn record_mfa_failure(&self, user_id: Uuid) -> Result<(i32, bool)> {
-        let admin = AdminUser::find_by_id(user_id)
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -233,7 +239,7 @@ impl AdminAuthBackend {
         let current_attempts = admin.mfa_failed_attempts.unwrap_or(0);
         let new_attempts = current_attempts + 1;
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.mfa_failed_attempts = Set(Some(new_attempts));
 
         // Lock account after 3 failed attempts for 24 hours
@@ -254,12 +260,12 @@ impl AdminAuthBackend {
 
     /// Reset MFA failure count after successful verification
     pub async fn reset_mfa_failures(&self, user_id: Uuid) -> Result<()> {
-        let admin = AdminUser::find_by_id(user_id)
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.mfa_failed_attempts = Set(Some(0));
         admin_active.mfa_locked_until = Set(None);
         admin_active.updated_at = Set(Utc::now().into());
@@ -274,15 +280,15 @@ impl AdminAuthBackend {
         &self,
         user_id: Uuid,
         current_user_id: Uuid,
-    ) -> Result<admin_user::Model> {
+    ) -> Result<user::Model> {
         // Prevent self-deactivation
         if user_id == current_user_id {
             anyhow::bail!("Cannot deactivate your own account");
         }
 
         // Check if this is the last active admin
-        let active_count = AdminUser::find()
-            .filter(admin_user::Column::Active.eq(true))
+        let active_count = User::find()
+            .filter(user::Column::Active.eq(true))
             .count(&self.db)
             .await?;
 
@@ -290,7 +296,7 @@ impl AdminAuthBackend {
             anyhow::bail!("Cannot deactivate the last active administrator");
         }
 
-        let admin = AdminUser::find_by_id(user_id)
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -299,7 +305,7 @@ impl AdminAuthBackend {
             anyhow::bail!("User is already deactivated");
         }
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.active = Set(false);
         admin_active.deactivated_at = Set(Some(Utc::now().into()));
         // Clear sensitive data on deactivation
@@ -320,8 +326,8 @@ impl AdminAuthBackend {
 
     /// Reactivate a user account
     /// Sets email_verified to false so user must re-verify
-    pub async fn reactivate_user(&self, user_id: Uuid) -> Result<(admin_user::Model, String)> {
-        let admin = AdminUser::find_by_id(user_id)
+    pub async fn reactivate_user(&self, user_id: Uuid) -> Result<(user::Model, String)> {
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -335,7 +341,7 @@ impl AdminAuthBackend {
         let encrypted_token = encrypt_token(&verification_token)?;
         let verification_expires = Utc::now() + chrono::Duration::hours(24);
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.active = Set(true);
         admin_active.deactivated_at = Set(None);
         admin_active.email_verified = Set(false);
@@ -354,15 +360,15 @@ impl AdminAuthBackend {
         user_id: Uuid,
         new_password: &str,
         force_change: bool,
-    ) -> Result<admin_user::Model> {
-        let admin = AdminUser::find_by_id(user_id)
+    ) -> Result<user::Model> {
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
 
         let password_hash = hash_password(new_password)?;
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.password_hash = Set(password_hash);
         admin_active.force_password_change = Set(force_change);
         admin_active.updated_at = Set(Utc::now().into());
@@ -375,8 +381,8 @@ impl AdminAuthBackend {
     /// Returns the plaintext token (to be sent via email) if successful
     /// Returns None if user not found (for enumeration protection)
     pub async fn create_password_reset_token(&self, email: &str) -> Result<Option<String>> {
-        let admin = AdminUser::find()
-            .filter(admin_user::Column::Email.eq(email))
+        let admin = User::find()
+            .filter(user::Column::Email.eq(email))
             .one(&self.db)
             .await?;
 
@@ -397,7 +403,7 @@ impl AdminAuthBackend {
         let encrypted_token = encrypt_token(&reset_token)?;
         let token_expires = Utc::now() + chrono::Duration::hours(1);
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.password_reset_token = Set(Some(encrypted_token));
         admin_active.password_reset_token_expires_at = Set(Some(token_expires.into()));
         admin_active.updated_at = Set(Utc::now().into());
@@ -408,12 +414,12 @@ impl AdminAuthBackend {
 
     /// Validate a password reset token
     /// Returns the user if token is valid and not expired
-    pub async fn validate_reset_token(&self, token: &str) -> Result<Option<admin_user::Model>> {
+    pub async fn validate_reset_token(&self, token: &str) -> Result<Option<user::Model>> {
         use crate::crypto::decrypt_token;
 
         // Find all users with non-null reset tokens
-        let admins = AdminUser::find()
-            .filter(admin_user::Column::PasswordResetToken.is_not_null())
+        let admins = User::find()
+            .filter(user::Column::PasswordResetToken.is_not_null())
             .all(&self.db)
             .await?;
 
@@ -444,7 +450,7 @@ impl AdminAuthBackend {
         &self,
         token: &str,
         new_password: &str,
-    ) -> Result<admin_user::Model> {
+    ) -> Result<user::Model> {
         let admin = self
             .validate_reset_token(token)
             .await?
@@ -452,7 +458,7 @@ impl AdminAuthBackend {
 
         let password_hash = hash_password(new_password)?;
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.password_hash = Set(password_hash);
         admin_active.force_password_change = Set(false);
         // Clear token after use (single-use). Cooldown still works via
@@ -465,9 +471,9 @@ impl AdminAuthBackend {
     }
 
     /// Get a user by email (for password reset flow)
-    pub async fn get_admin_by_email(&self, email: &str) -> Result<Option<admin_user::Model>> {
-        let admin = AdminUser::find()
-            .filter(admin_user::Column::Email.eq(email))
+    pub async fn get_admin_by_email(&self, email: &str) -> Result<Option<user::Model>> {
+        let admin = User::find()
+            .filter(user::Column::Email.eq(email))
             .one(&self.db)
             .await?;
         Ok(admin)
@@ -478,8 +484,8 @@ impl AdminAuthBackend {
     pub async fn regenerate_verification_token(
         &self,
         user_id: Uuid,
-    ) -> Result<(admin_user::Model, String)> {
-        let admin = AdminUser::find_by_id(user_id)
+    ) -> Result<(user::Model, String)> {
+        let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
             .ok_or_else(|| anyhow::anyhow!("User not found"))?;
@@ -497,7 +503,7 @@ impl AdminAuthBackend {
         let encrypted_token = encrypt_token(&verification_token)?;
         let verification_expires = Utc::now() + chrono::Duration::hours(24);
 
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.verification_token = Set(Some(encrypted_token));
         admin_active.verification_token_expires_at = Set(Some(verification_expires.into()));
         admin_active.updated_at = Set(Utc::now().into());
@@ -506,12 +512,12 @@ impl AdminAuthBackend {
         Ok((updated, verification_token))
     }
 
-    pub async fn verify_email(&self, token: &str) -> Result<admin_user::Model> {
+    pub async fn verify_email(&self, token: &str) -> Result<user::Model> {
         use crate::crypto::decrypt_token;
 
         // Tokens are stored encrypted, so we must decrypt and compare
-        let admins = AdminUser::find()
-            .filter(admin_user::Column::VerificationToken.is_not_null())
+        let admins = User::find()
+            .filter(user::Column::VerificationToken.is_not_null())
             .all(&self.db)
             .await?;
 
@@ -535,7 +541,7 @@ impl AdminAuthBackend {
         }
 
         // Mark as verified
-        let mut admin_active: admin_user::ActiveModel = admin.into();
+        let mut admin_active: user::ActiveModel = admin.into();
         admin_active.email_verified = Set(true);
         admin_active.verification_token = Set(None);
         admin_active.verification_token_expires_at = Set(None);
@@ -581,8 +587,8 @@ impl AuthnBackend for AdminAuthBackend {
     ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
         let db = self.db.clone();
         async move {
-            let admin = AdminUser::find()
-                .filter(admin_user::Column::Email.eq(&creds.email))
+            let admin = User::find()
+                .filter(user::Column::Email.eq(&creds.email))
                 .one(&db)
                 .await
                 .map_err(AuthError::from)?;
@@ -647,7 +653,7 @@ impl AuthnBackend for AdminAuthBackend {
         let user_id = *user_id;
         let db = self.db.clone();
         async move {
-            let admin = AdminUser::find_by_id(user_id)
+            let admin = User::find_by_id(user_id)
                 .one(&db)
                 .await
                 .map_err(AuthError::from)?;

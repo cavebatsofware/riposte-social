@@ -16,8 +16,17 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
+// Role values stored in `role` column. `viewer` is retired.
+pub const ROLE_ADMINISTRATOR: &str = "administrator";
+pub const ROLE_POSTER: &str = "poster";
+pub const ROLE_COMMENTER: &str = "commenter";
+
+// user_type values distinguish admin-panel users from regular social users.
+pub const USER_TYPE_ADMIN: &str = "admin_user";
+pub const USER_TYPE_REGULAR: &str = "regular_user";
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "admin_users")]
+#[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
@@ -44,6 +53,32 @@ pub struct Model {
     pub password_reset_token_expires_at: Option<DateTimeWithTimeZone>,
     // Role-based access control
     pub role: String,
+    // Unified user model — added in Phase 1 of the MVP plan.
+    pub user_type: String,
+    pub oidc_sub: Option<String>,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub last_login_at: Option<DateTimeWithTimeZone>,
+    // FK to invite_code.id. Constraint added in Phase 2 when invite_code exists.
+    pub invite_code_id: Option<Uuid>,
+}
+
+impl Model {
+    pub fn is_admin_user_type(&self) -> bool {
+        self.user_type == USER_TYPE_ADMIN
+    }
+
+    pub fn is_administrator(&self) -> bool {
+        self.role == ROLE_ADMINISTRATOR
+    }
+
+    pub fn is_poster(&self) -> bool {
+        self.role == ROLE_POSTER
+    }
+
+    pub fn is_oidc_linked(&self) -> bool {
+        self.oidc_sub.is_some()
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

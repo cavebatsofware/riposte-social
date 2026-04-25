@@ -38,6 +38,7 @@ mod m20251202_000003_add_admin_user_to_access_log;
 mod m20260220_000001_add_role_to_admin_users;
 mod m20260413_000001_add_subscriber_index_and_access_code_fk;
 mod m20260414_000001_seed_feature_gate_settings;
+mod m20260424_000001_rename_admin_users_to_users;
 
 pub struct Migrator;
 
@@ -67,6 +68,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260220_000001_add_role_to_admin_users::Migration),
             Box::new(m20260413_000001_add_subscriber_index_and_access_code_fk::Migration),
             Box::new(m20260414_000001_seed_feature_gate_settings::Migration),
+            Box::new(m20260424_000001_rename_admin_users_to_users::Migration),
         ]
     }
 }

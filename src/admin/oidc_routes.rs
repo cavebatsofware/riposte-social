@@ -15,7 +15,7 @@
  */
 use crate::admin::auth::AdminAuthBackend;
 use crate::admin::AdminUserAuth;
-use crate::entities::{admin_user, AdminUser};
+use crate::entities::{user, User};
 use crate::errors::{AppError, AppResult};
 use crate::oidc::OidcService;
 use axum::{
@@ -178,22 +178,27 @@ async fn find_or_create_oidc_user(
     email_verified: bool,
     roles: &[String],
     admin_role_name: &str,
-) -> anyhow::Result<admin_user::Model> {
-    let app_role = if roles.iter().any(|r| r == admin_role_name) {
-        "administrator"
+) -> anyhow::Result<user::Model> {
+    // Phase 1 note: OIDC users who are not administrators are provisioned as
+    // commenters. Phase 2 will gate this on invite acceptance; for now any
+    // valid OIDC login without the admin claim gets a commenter row.
+    let (app_role, app_user_type) = if roles.iter().any(|r| r == admin_role_name) {
+        (user::ROLE_ADMINISTRATOR, user::USER_TYPE_ADMIN)
     } else {
-        "viewer"
+        (user::ROLE_COMMENTER, user::USER_TYPE_REGULAR)
     };
 
-    let existing = AdminUser::find()
-        .filter(admin_user::Column::Email.eq(email))
+    let existing = User::find()
+        .filter(user::Column::Email.eq(email))
         .one(db)
         .await?;
 
     if let Some(existing_user) = existing {
-        let mut active: admin_user::ActiveModel = existing_user.into();
+        let mut active: user::ActiveModel = existing_user.into();
         active.email_verified = Set(email_verified);
         active.role = Set(app_role.to_string());
+        active.user_type = Set(app_user_type.to_string());
+        active.last_login_at = Set(Some(Utc::now().into()));
         active.updated_at = Set(Utc::now().into());
         let updated = active.update(db).await?;
         return Ok(updated);
@@ -203,7 +208,10 @@ async fn find_or_create_oidc_user(
     // Password hash is set to a random unusable value since OIDC users don't use passwords
     let random_hash = format!("oidc_user_{}", Uuid::new_v4());
 
-    let new_user = admin_user::ActiveModel {
+    // Phase 1e TODO: plumb oidc_sub through from OidcUserInfo so it's Set(...)
+    // here, not None. Until then, the hard auth-mode boundary relies solely on
+    // the random non-usable password_hash.
+    let new_user = user::ActiveModel {
         id: Set(Uuid::new_v4()),
         email: Set(email.to_string()),
         password_hash: Set(random_hash),
@@ -223,6 +231,12 @@ async fn find_or_create_oidc_user(
         password_reset_token: Set(None),
         password_reset_token_expires_at: Set(None),
         role: Set(app_role.to_string()),
+        user_type: Set(app_user_type.to_string()),
+        oidc_sub: Set(None),
+        display_name: Set(None),
+        avatar_url: Set(None),
+        last_login_at: Set(Some(Utc::now().into())),
+        invite_code_id: Set(None),
     };
 
     let result = new_user.insert(db).await?;
