@@ -5,8 +5,12 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "dev:social": "vite --config vite.social.config.js",
+    "build": "npm run build:admin && npm run build:social",
+    "build:admin": "vite build",
+    "build:social": "vite build --config vite.social.config.js",
     "build:watch": "vite build --watch",
+    "build:watch:social": "vite build --config vite.social.config.js --watch",
     "preview": "vite preview"
   },
   "keywords": [],

@@ -303,18 +303,24 @@ test: test-db-up
 .PHONY: dev
 dev: db-up frontend-build
 	@echo "🔧 Starting development servers with hot reload..."
-	@echo "⚛️  Admin frontend will watch for changes"
+	@echo "⚛️  Admin + social frontends will watch for changes"
 	@echo "🦀 Cargo will watch for Rust changes"
 	@echo "📝 Press Ctrl+C to stop all servers"
 	@echo ""
 	DEV_MODE=true \
-	make -j2 admin-watch rust-watch
+	make -j3 admin-watch social-watch rust-watch
 
 # Admin frontend watch mode (auto-rebuild on changes)
 .PHONY: admin-watch
 admin-watch:
 	@echo "⚛️  Starting Admin frontend in watch mode..."
 	@npm run build:watch
+
+# Social frontend watch mode (auto-rebuild on changes)
+.PHONY: social-watch
+social-watch:
+	@echo "⚛️  Starting Social frontend in watch mode..."
+	@npm run build:watch:social
 
 # Rust watch mode (auto-reload on changes using cargo-watch)
 .PHONY: rust-watch
@@ -379,8 +385,19 @@ admin-build:
 		echo "📦 Installing dependencies first..."; \
 		npm install; \
 	fi
-	npm run build
+	npm run build:admin
 	@echo "✅ Admin frontend built to admin-assets/"
+
+# Build social frontend for production
+.PHONY: social-build
+social-build:
+	@echo "🔨 Building social frontend..."
+	@if [ ! -d "node_modules" ]; then \
+		echo "📦 Installing dependencies first..."; \
+		npm install; \
+	fi
+	npm run build:social
+	@echo "✅ Social frontend built to social-assets/"
 
 # Build public Astro site
 .PHONY: public-build
@@ -412,5 +429,5 @@ public-build:
 
 # Build all frontends
 .PHONY: frontend-build
-frontend-build: admin-build
+frontend-build: admin-build social-build
 	@echo "✅ All frontends built!"

@@ -13,30 +13,4 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-// Library interface for riposte-social
-// This allows tests to access internal modules
-
-pub mod admin;
-pub mod app;
-pub mod contact;
-pub mod crypto;
-pub mod database;
-pub mod docx;
-pub mod email;
-pub mod engagement;
-pub mod entities;
-pub mod errors;
-pub mod imports;
-pub mod invites;
-pub mod metrics;
-pub mod middleware;
-pub mod migration;
-pub mod oidc;
-pub mod posts;
-pub mod s3;
-pub mod security_callbacks;
-pub mod settings;
-pub mod subscribe;
-
-#[cfg(any(test, feature = "e2e_testing"))]
-pub mod tests;
+// Post CRUD, feed query, and media upload. Populated in Phase 3 of the MVP plan.

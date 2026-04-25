@@ -95,6 +95,20 @@ async fn serve_admin_spa() -> AppResult<impl IntoResponse> {
     Ok(response)
 }
 
+async fn serve_social_spa() -> AppResult<impl IntoResponse> {
+    let html_content = tokio::fs::read_to_string("social-assets/index.html")
+        .await
+        .map_err(AppError::FileSystem)?;
+
+    let response = (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        html_content,
+    );
+
+    Ok(response)
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Initialize tracing
@@ -185,7 +199,8 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/admin", get(serve_admin_spa))
         .route("/admin/{*path}", get(serve_admin_spa))
-        // Code-gated document assets (CSS, JS, icons)
+        // Code-gated document assets (CSS, JS, icons). Will be retired in Phase 6
+        // when the document-access feature is removed.
         .nest_service(
             "/assets",
             tower::ServiceBuilder::new()
@@ -195,15 +210,19 @@ async fn main() -> anyhow::Result<()> {
                 ))
                 .service(ServeDir::new("./assets").precompressed_gzip()),
         )
-        // Public Astro site - serve from root as fallback
-        .fallback_service(
+        // Social SPA bundle assets (vite output under social-assets/app/*).
+        .nest_service(
+            "/app",
             tower::ServiceBuilder::new()
                 .layer(SetResponseHeaderLayer::if_not_present(
                     header::CACHE_CONTROL,
-                    header::HeaderValue::from_static("public, max-age=0"), // 1 minute
+                    header::HeaderValue::from_static("public, max-age=31536000, immutable"),
                 ))
-                .service(ServeDir::new("./public-assets").precompressed_gzip()),
-        );
+                .service(ServeDir::new("./social-assets/app").precompressed_gzip()),
+        )
+        // Social SPA fallback: any unmatched path serves index.html so React
+        // Router handles client-side routing.
+        .fallback(serve_social_spa);
 
     // Configure IP extraction strategy based on environment
     // DEV_MODE=true uses socket address (direct connections without proxy)

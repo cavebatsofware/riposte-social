@@ -7,17 +7,24 @@
 
 > Generated from [cavebatsofware-site-template](https://github.com/cavebatsofware/cavebatsofware-site-template) via `cargo generate`.
 
-A self-hosted social media sharing platform.
+A self-hosted social media platform for family and close friends. Own your posts, own your timeline, own your guest list.
 
-Features:
-- Code-gated document access for controlled distribution (e.g., resumes, proposals)
-- Admin panel (React SPA) with email verification, MFA/TOTP, and RBAC
-- OIDC/Keycloak SSO integration (optional, replaces local auth when enabled)
-- Runtime feature gates for access codes, contact form, and subscriptions
-- PostgreSQL database with SeaORM and automatic migrations
+> **Status:** MVP in active development. See [`~/.claude/plans/this-is-a-new-snug-dijkstra.md`](.) for the phased roadmap. Not yet production-ready.
+
+Features (planned MVP):
+- **Three-tier access** — administrator, poster (trusted authors), and commenter (invite-only friends). Anonymous visitors see a public feed.
+- **Invite flow** — admins issue invite codes; invitees land on a welcome splash over the public feed; a persistent cookie re-surfaces the splash until accepted or expired.
+- **Markdown posts with media** — compose with links and inline images; attach photos and video (S3-backed). Imported Facebook posts populate history with original timestamps.
+- **Reactions and comments** — any authenticated user can react or comment; admins moderate via soft-delete.
+- **OIDC/Keycloak SSO** — primary auth mode. Federates to Facebook/Google/etc. Password + MFA fallback when OIDC is disabled.
+- **Facebook export import** — drag-drop the FB data export ZIP; the server dedupes, re-hosts media, and preserves publish dates.
+
+Platform foundations (from the template):
+- PostgreSQL + SeaORM with automatic migrations
 - Two-tier rate limiting, request screening, and access logging
 - Prometheus metrics and AES-256-GCM encryption at rest
-- S3-compatible document storage (AWS, OCI, MinIO)
+- S3-compatible media storage (AWS, OCI, MinIO)
+- Admin panel (React SPA) with email verification, MFA/TOTP, and RBAC
 
 ## Quick Start
 
