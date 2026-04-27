@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::admin_user;
+use riposte_social::entities::user;
 use common::{
     build_test_server, create_verified_admin, generate_totp_code, get_csrf_token, login_as,
     test_email, TEST_PASSWORD, TEST_TOTP_SECRET,
@@ -24,7 +24,7 @@ use common::{
 use axum::http::StatusCode;
 use sea_orm::{ActiveModelTrait, Set};
 
-// ==================== require_admin_auth tests ====================
+// ==================== require_authenticated tests ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_unauthenticated_request_returns_401(pool: sqlx::PgPool) {
@@ -108,7 +108,7 @@ async fn test_force_password_change_blocks_normal_routes(pool: sqlx::PgPool) {
     let email = test_email("mw-forcepw");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.force_password_change = Set(true);
     active.update(&db).await.unwrap();
 
@@ -127,7 +127,7 @@ async fn test_force_password_change_allows_change_password_endpoint(pool: sqlx::
     let email = test_email("mw-forcepw-cp");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.force_password_change = Set(true);
     active.update(&db).await.unwrap();
 
@@ -157,7 +157,7 @@ async fn test_force_password_change_allows_logout_endpoint(pool: sqlx::PgPool) {
     let email = test_email("mw-forcepw-lo");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.force_password_change = Set(true);
     active.update(&db).await.unwrap();
 
@@ -177,7 +177,7 @@ async fn test_force_password_change_allows_logout_endpoint(pool: sqlx::PgPool) {
     );
 }
 
-// ==================== require_administrator tests ====================
+// ==================== require_admin tests ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_administrator_role_access_succeeds(pool: sqlx::PgPool) {
@@ -198,7 +198,7 @@ async fn test_non_admin_role_returns_403(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
     // Change role to "viewer" in DB before login
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.role = Set("viewer".to_string());
     active.update(&db).await.unwrap();
 

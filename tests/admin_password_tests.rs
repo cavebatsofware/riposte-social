@@ -47,7 +47,7 @@ async fn build_server_with_spy(
     spy: &EmailSpy,
 ) -> (
     axum_test::TestServer,
-    riposte_social::admin::AdminAuthBackend,
+    riposte_social::admin::UserAuthBackend,
     sea_orm::DatabaseConnection,
 ) {
     let db = riposte_social::tests::test_db_from_pool(pool.clone()).await;

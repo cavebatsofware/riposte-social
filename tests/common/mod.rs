@@ -21,11 +21,11 @@ pub mod ses_mock;
 
 pub use riposte_social::tests::{test_db_from_pool, test_email};
 
-use riposte_social::admin::AdminAuthBackend;
+use riposte_social::admin::UserAuthBackend;
 use riposte_social::app::{AppState, RouterDeps, build_router};
 use riposte_social::middleware::access_log_middleware;
 use riposte_social::email::EmailService;
-use riposte_social::entities::admin_user;
+use riposte_social::entities::user;
 use riposte_social::oidc::{OidcConfig, OidcService};
 use riposte_social::s3::S3Service;
 use riposte_social::security_callbacks::AppRateLimitCallbacks;
@@ -63,14 +63,14 @@ pub struct TestServices {
 
 pub async fn build_test_server(
     pool: sqlx::PgPool,
-) -> (TestServer, AdminAuthBackend, sea_orm::DatabaseConnection) {
+) -> (TestServer, UserAuthBackend, sea_orm::DatabaseConnection) {
     build_test_server_with(pool, TestServices::default()).await
 }
 
 pub async fn build_test_server_with(
     pool: sqlx::PgPool,
     services: TestServices,
-) -> (TestServer, AdminAuthBackend, sea_orm::DatabaseConnection) {
+) -> (TestServer, UserAuthBackend, sea_orm::DatabaseConnection) {
     dotenvy::dotenv().ok();
 
     let db = test_db_from_pool(pool.clone()).await;
@@ -124,7 +124,7 @@ pub async fn build_test_server_with(
         log_successful_attempts: services.log_successful_attempts.unwrap_or(false),
     };
 
-    let admin_backend = AdminAuthBackend::new(db.clone());
+    let admin_backend = UserAuthBackend::new(db.clone());
     let email_service = match services.email {
         Some(email) => email,
         None => {
@@ -180,10 +180,10 @@ pub async fn build_test_server_with(
 }
 
 pub async fn create_verified_admin(
-    backend: &AdminAuthBackend,
+    backend: &UserAuthBackend,
     email: &str,
     password: &str,
-) -> admin_user::Model {
+) -> user::Model {
     let (_admin, token) = backend.create_admin(email, password).await.unwrap();
     backend.verify_email(&token).await.unwrap()
 }

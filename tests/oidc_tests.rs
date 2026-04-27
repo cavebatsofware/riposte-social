@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::{admin_user, AdminUser};
+use riposte_social::entities::{user, User};
 use common::oidc_mock::{extract_query_param, OidcMockServer, OidcMockUser, TEST_CLIENT_ID};
 use common::{build_test_server, build_test_server_with, TestServices};
 
@@ -33,8 +33,8 @@ async fn drive_oidc_flow(
     user: OidcMockUser,
     role_claim: &str,
 ) -> axum_test::TestResponse {
-    // 1. Hit /api/admin/oidc/login to initiate the redirect.
-    let login_resp = server.get("/api/admin/oidc/login").await;
+    // 1. Hit /api/auth/oidc/login to initiate the redirect.
+    let login_resp = server.get("/api/auth/oidc/login").await;
     assert_eq!(
         login_resp.status_code(),
         StatusCode::TEMPORARY_REDIRECT,
@@ -60,7 +60,7 @@ async fn drive_oidc_flow(
     // 4. Call the callback as if the IdP redirected the user back.
     server
         .get(&format!(
-            "/api/admin/oidc/callback?code=fake-auth-code&state={}",
+            "/api/auth/oidc/callback?code=fake-auth-code&state={}",
             state
         ))
         .await
@@ -72,7 +72,7 @@ async fn drive_oidc_flow(
 async fn test_oidc_login_disabled_returns_error(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
-    let response = server.get("/api/admin/oidc/login").await;
+    let response = server.get("/api/auth/oidc/login").await;
 
     // With OIDC disabled, authorization_url() returns Err.
     assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
@@ -91,7 +91,7 @@ async fn test_oidc_login_redirects_to_authorization_endpoint(pool: sqlx::PgPool)
     )
     .await;
 
-    let response = server.get("/api/admin/oidc/login").await;
+    let response = server.get("/api/auth/oidc/login").await;
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
     let location = response
@@ -130,7 +130,7 @@ async fn test_oidc_callback_without_prior_login_returns_error(pool: sqlx::PgPool
     .await;
 
     let response = server
-        .get("/api/admin/oidc/callback?code=fake&state=fake")
+        .get("/api/auth/oidc/callback?code=fake&state=fake")
         .await;
 
     // No session state means the middleware returns 401.
@@ -151,18 +151,18 @@ async fn test_oidc_callback_state_mismatch_returns_error(pool: sqlx::PgPool) {
     .await;
 
     // Do login to populate session with state.
-    let login_resp = server.get("/api/admin/oidc/login").await;
+    let login_resp = server.get("/api/auth/oidc/login").await;
     assert_eq!(login_resp.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
     // Call callback with a WRONG state value.
     let response = server
-        .get("/api/admin/oidc/callback?code=fake&state=WRONG-STATE")
+        .get("/api/auth/oidc/callback?code=fake&state=WRONG-STATE")
         .await;
 
     assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
 
     // No user created in DB.
-    let users = AdminUser::find().all(&db).await.unwrap();
+    let users = User::find().all(&db).await.unwrap();
     assert_eq!(users.len(), 0);
 }
 
@@ -193,12 +193,12 @@ async fn test_oidc_callback_admin_role_creates_administrator(pool: sqlx::PgPool)
         .unwrap();
     assert_eq!(location, "/admin");
 
-    let row = AdminUser::find()
-        .filter(admin_user::Column::Email.eq("admin@keycloak.test"))
+    let row = User::find()
+        .filter(user::Column::Email.eq("admin@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
-        .expect("admin_user row");
+        .expect("user row");
     assert_eq!(row.role, "administrator");
     assert!(row.email_verified);
 }
@@ -221,12 +221,12 @@ async fn test_oidc_callback_non_admin_role_creates_viewer(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
-    let row = AdminUser::find()
-        .filter(admin_user::Column::Email.eq("viewer@keycloak.test"))
+    let row = User::find()
+        .filter(user::Column::Email.eq("viewer@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
-        .expect("admin_user row");
+        .expect("user row");
     assert_eq!(row.role, "viewer");
 }
 
@@ -243,9 +243,9 @@ async fn test_oidc_callback_existing_user_updates_role(pool: sqlx::PgPool) {
     )
     .await;
 
-    // Pre-insert user as viewer.
+    // Pre-insert user as commenter (was viewer before Phase 1; viewer is retired).
     let now = chrono::Utc::now();
-    admin_user::ActiveModel {
+    user::ActiveModel {
         id: Set(uuid::Uuid::new_v4()),
         email: Set("upgrade@keycloak.test".to_string()),
         password_hash: Set("oidc_user_fake".to_string()),
@@ -264,7 +264,12 @@ async fn test_oidc_callback_existing_user_updates_role(pool: sqlx::PgPool) {
         force_password_change: Set(false),
         password_reset_token: Set(None),
         password_reset_token_expires_at: Set(None),
-        role: Set("viewer".to_string()),
+        role: Set("commenter".to_string()),
+        oidc_sub: Set(None),
+        display_name: Set(None),
+        avatar_url: Set(None),
+        last_login_at: Set(None),
+        invite_code_id: Set(None),
     }
     .insert(&db)
     .await
@@ -275,12 +280,12 @@ async fn test_oidc_callback_existing_user_updates_role(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
-    let row = AdminUser::find()
-        .filter(admin_user::Column::Email.eq("upgrade@keycloak.test"))
+    let row = User::find()
+        .filter(user::Column::Email.eq("upgrade@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
-        .expect("admin_user row");
+        .expect("user row");
     assert_eq!(row.role, "administrator");
 }
 
@@ -333,12 +338,12 @@ async fn test_oidc_callback_role_claim_from_access_token_fallback(pool: sqlx::Pg
 
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
-    let row = AdminUser::find()
-        .filter(admin_user::Column::Email.eq("access-tok@keycloak.test"))
+    let row = User::find()
+        .filter(user::Column::Email.eq("access-tok@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
-        .expect("admin_user row");
+        .expect("user row");
     assert_eq!(row.role, "administrator");
 }
 
@@ -362,11 +367,11 @@ async fn test_oidc_callback_custom_role_claim_path(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
-    let row = AdminUser::find()
-        .filter(admin_user::Column::Email.eq("custom-claim@keycloak.test"))
+    let row = User::find()
+        .filter(user::Column::Email.eq("custom-claim@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
-        .expect("admin_user row");
+        .expect("user row");
     assert_eq!(row.role, "administrator");
 }

@@ -42,10 +42,10 @@ function Layout({ children }) {
                 Access Logs
               </button>
               <button
-                className={`nav-link ${isActive("/admin-users") ? "active" : ""}`}
-                onClick={() => navigate("/admin-users")}
+                className={`nav-link ${isActive("/users") ? "active" : ""}`}
+                onClick={() => navigate("/users")}
               >
-                Admin Users
+                Users
               </button>
               <button
                 className={`nav-link ${isActive("/settings") ? "active" : ""}`}

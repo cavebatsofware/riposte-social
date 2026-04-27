@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::admin_user;
+use riposte_social::entities::user;
 use common::{
     build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
@@ -41,7 +41,7 @@ async fn test_list_users_viewer_returns_403(pool: sqlx::PgPool) {
     let email = test_email("au-list-viewer");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.role = Set("viewer".to_string());
     active.update(&db).await.unwrap();
 
@@ -263,7 +263,7 @@ async fn test_update_user_reset_mfa_lockout(pool: sqlx::PgPool) {
 
     // Set MFA failures on target
     let target_id = target.id;
-    let mut active: admin_user::ActiveModel = target.into();
+    let mut active: user::ActiveModel = target.into();
     active.mfa_failed_attempts = Set(Some(5));
     active.update(&db).await.unwrap();
 

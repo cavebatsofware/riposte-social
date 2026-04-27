@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::{admin_user, subscriber, Subscriber};
+use riposte_social::entities::{user, subscriber, Subscriber};
 use riposte_social::settings::SettingsService;
 use common::ses_mock::{
     build_test_email_service, build_test_email_service_err, EmailSpy,
@@ -56,7 +56,7 @@ async fn build_server_with_spy(
     spy: &EmailSpy,
 ) -> (
     axum_test::TestServer,
-    riposte_social::admin::AdminAuthBackend,
+    riposte_social::admin::UserAuthBackend,
     sea_orm::DatabaseConnection,
 ) {
     let db = riposte_social::tests::test_db_from_pool(pool.clone()).await;
@@ -77,7 +77,7 @@ async fn build_server_with_ses_err(
     pool: sqlx::PgPool,
 ) -> (
     axum_test::TestServer,
-    riposte_social::admin::AdminAuthBackend,
+    riposte_social::admin::UserAuthBackend,
     sea_orm::DatabaseConnection,
 ) {
     let db = riposte_social::tests::test_db_from_pool(pool.clone()).await;
@@ -297,7 +297,7 @@ async fn test_admin_resend_verification_sends_email(pool: sqlx::PgPool) {
     let target = create_verified_admin(&backend, &target_email, TEST_PASSWORD).await;
 
     // Make the target unverified so resend-verification has a reason to run.
-    let mut active: admin_user::ActiveModel = target.clone().into();
+    let mut active: user::ActiveModel = target.clone().into();
     active.email_verified = Set(false);
     active.update(&db).await.unwrap();
 
@@ -332,7 +332,7 @@ async fn test_admin_reactivation_triggers_verification_email(pool: sqlx::PgPool)
     let target = create_verified_admin(&backend, &target_email, TEST_PASSWORD).await;
 
     // Deactivate the target directly so we can exercise the reactivation branch.
-    let mut active: admin_user::ActiveModel = target.clone().into();
+    let mut active: user::ActiveModel = target.clone().into();
     active.active = Set(false);
     active.deactivated_at = Set(Some(Utc::now().into()));
     active.update(&db).await.unwrap();

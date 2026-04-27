@@ -20,10 +20,10 @@
 //! - `require_authenticated` — apply to any route that needs a logged-in user
 //!   (commenter, poster, or administrator). Inserts `UserAuth` into request
 //!   extensions and `UserInfo` into response extensions for access logging.
-//! - `require_admin`, `require_admin_or_poster`, `require_admin_user_type` —
-//!   apply *after* `require_authenticated` to gate by role / user_type.
+//! - `require_admin`, `require_admin_or_poster`, or the parameterized
+//!   `require_role` — apply *after* `require_authenticated` to gate by role.
 use crate::admin::{UserAuth, UserAuthBackend, MFA_VERIFIED_KEY};
-use crate::entities::user::{ROLE_ADMINISTRATOR, ROLE_POSTER, USER_TYPE_ADMIN};
+use crate::entities::user::{ROLE_ADMINISTRATOR, ROLE_POSTER};
 use crate::middleware::UserInfo;
 use axum::{
     body::Body,
@@ -143,17 +143,6 @@ pub async fn require_admin_or_poster(request: Request<Body>, next: Next) -> Resp
     }
 }
 
-/// Require `user_type = admin_user` (administrator OR poster). Apply *after*
-/// `require_authenticated`. Used for admin-panel routes that posters may also
-/// access (e.g. their own profile/security settings) but commenters cannot.
-pub async fn require_admin_user_type(request: Request<Body>, next: Next) -> Response {
-    match request.extensions().get::<UserAuth>() {
-        Some(user) if user.user_type == USER_TYPE_ADMIN => next.run(request).await,
-        Some(user) => deny_role(user, "admin_user user_type"),
-        None => internal_misuse("require_admin_user_type"),
-    }
-}
-
 /// Generic role gate parameterized by an allowed role list. Apply *after*
 /// `require_authenticated` via `from_fn_with_state`. Use this when the named
 /// gates above don't fit (e.g. arbitrary role combinations or future tiers).
@@ -183,10 +172,9 @@ pub async fn require_role(
 
 fn deny_role(user: &UserAuth, expected: &str) -> Response {
     tracing::warn!(
-        "Access denied for user {} (role={}, user_type={}): {} required",
+        "Access denied for user {} (role={}): {} required",
         user.email,
         user.role,
-        user.user_type,
         expected
     );
     (

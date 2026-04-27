@@ -21,7 +21,7 @@
 //! discovery document points somewhere valid.
 //!
 //! Tests stage a user via [`OidcMockServer::stage_token`] after extracting
-//! the nonce from the `/login` redirect, then hit `/api/admin/oidc/callback`
+//! the nonce from the `/login` redirect, then hit `/api/auth/oidc/callback`
 //! as usual.
 
 use std::sync::{Arc, Mutex, OnceLock};
@@ -158,7 +158,7 @@ impl OidcMockServer {
             issuer_url: self.issuer_url(),
             client_id: client_id.to_string(),
             client_secret: "test-secret".to_string(),
-            redirect_uri: "http://localhost:3000/api/admin/oidc/callback".to_string(),
+            redirect_uri: "http://localhost:3000/api/auth/oidc/callback".to_string(),
             scopes: vec!["openid".to_string(), "profile".to_string(), "email".to_string()],
             role_claim: role_claim.to_string(),
             admin_role: "admin".to_string(),
@@ -365,7 +365,7 @@ fn insert_at_path(obj: &mut serde_json::Map<String, Value>, path: &str, value: V
 }
 
 /// Extract the `state` query parameter from a `Location` header produced by
-/// `/api/admin/oidc/login`. Test helper.
+/// `/api/auth/oidc/login`. Test helper.
 pub fn extract_query_param(url: &str, key: &str) -> Option<String> {
     let parsed = url::Url::parse(url).ok()?;
     parsed

@@ -20,8 +20,8 @@ pub mod admin_auth;
 
 pub use access_log::access_log_middleware;
 pub use admin_auth::{
-    require_admin, require_admin_or_poster, require_admin_user_type, require_authenticated,
-    require_role, AuthenticatedUser, ROLES_ADMIN_ONLY, ROLES_ADMIN_OR_POSTER,
+    require_admin, require_admin_or_poster, require_authenticated, require_role,
+    AuthenticatedUser, ROLES_ADMIN_ONLY, ROLES_ADMIN_OR_POSTER,
 };
 
 /// Minimal admin user info for access logging. Only stores what's needed for audit trail.

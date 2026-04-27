@@ -120,18 +120,18 @@ pub async fn oidc_callback(
         .await
         .map_err(|e| AppError::AuthError(format!("OIDC token exchange failed: {}", e)))?;
 
-    // Map IdP roles to app role + user_type. OIDC logins without the admin
-    // claim are provisioned as commenters; Phase 2 will gate this on invite
-    // acceptance, but for now any successful OIDC login becomes a commenter
-    // if not flagged as admin.
-    let (app_role, app_user_type) = if user_info
+    // Map IdP roles to an app role. OIDC logins without the admin claim are
+    // provisioned as commenters; Phase 2 will gate this on invite acceptance,
+    // but for now any successful OIDC login becomes a commenter if not flagged
+    // as admin.
+    let app_role = if user_info
         .roles
         .iter()
         .any(|r| r == &state.oidc_service.config.admin_role)
     {
-        (user::ROLE_ADMINISTRATOR, user::USER_TYPE_ADMIN)
+        user::ROLE_ADMINISTRATOR
     } else {
-        (user::ROLE_COMMENTER, user::USER_TYPE_REGULAR)
+        user::ROLE_COMMENTER
     };
 
     let creds = Credentials::Oidc {
@@ -139,7 +139,6 @@ pub async fn oidc_callback(
         email: user_info.email.clone(),
         email_verified: user_info.email_verified,
         role: app_role.to_string(),
-        user_type: app_user_type.to_string(),
         display_name: user_info.display_name,
         invite_code: None, // Phase 2 wires this from the pending_invite cookie.
     };

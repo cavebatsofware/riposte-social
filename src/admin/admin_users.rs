@@ -22,6 +22,7 @@ use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
     response::Json,
     routing::{get, post},
     Extension, Router,
@@ -43,7 +44,10 @@ pub struct AdminUserState {
 
 pub fn admin_user_routes() -> Router<AdminUserState> {
     Router::new()
-        .route("/api/admin/users", get(list_admin_users))
+        .route(
+            "/api/admin/users",
+            get(list_admin_users).post(create_admin_user),
+        )
         .route(
             "/api/admin/users/{id}",
             get(get_admin_user).put(update_admin_user),
@@ -66,6 +70,9 @@ pub struct AdminUserResponse {
     deactivated_at: Option<String>,
     force_password_change: bool,
     role: String,
+    display_name: Option<String>,
+    oidc_linked: bool,
+    last_login_at: Option<String>,
     created_at: String,
     updated_at: String,
 }
@@ -91,6 +98,11 @@ impl From<user::Model> for AdminUserResponse {
                 .map(|t| t.with_timezone(&Utc).to_rfc3339()),
             force_password_change: model.force_password_change,
             role: model.role,
+            display_name: model.display_name,
+            oidc_linked: model.oidc_sub.is_some(),
+            last_login_at: model
+                .last_login_at
+                .map(|t| t.with_timezone(&Utc).to_rfc3339()),
             created_at: model.created_at.with_timezone(&Utc).to_rfc3339(),
             updated_at: model.updated_at.with_timezone(&Utc).to_rfc3339(),
         }
@@ -244,7 +256,11 @@ async fn update_admin_user(
     }
 
     if let Some(ref role) = req.role {
-        let valid_roles = ["administrator", "viewer"];
+        let valid_roles = [
+            user::ROLE_ADMINISTRATOR,
+            user::ROLE_POSTER,
+            user::ROLE_COMMENTER,
+        ];
         if !valid_roles.contains(&role.as_str()) {
             return Err(AppError::ValidationError(format!(
                 "Invalid role '{}'. Valid roles: {:?}",
@@ -293,4 +309,57 @@ async fn resend_verification_email(
     );
 
     Ok(Json(updated.into()))
+}
+
+#[derive(Deserialize)]
+pub struct CreateUserRequest {
+    email: String,
+    password: String,
+    /// One of: `administrator`, `poster`, `commenter`.
+    role: String,
+}
+
+/// POST /api/admin/users — admin-only endpoint to create a new account in any
+/// tier. The created user receives a verification email with a 24-hour token,
+/// the same flow used by self-registration.
+async fn create_admin_user(
+    State(state): State<AdminUserState>,
+    Extension(_current_user): Extension<crate::admin::UserAuth>,
+    Json(req): Json<CreateUserRequest>,
+) -> AppResult<(StatusCode, Json<AdminUserResponse>)> {
+    let valid_roles = [
+        user::ROLE_ADMINISTRATOR,
+        user::ROLE_POSTER,
+        user::ROLE_COMMENTER,
+    ];
+    if !valid_roles.contains(&req.role.as_str()) {
+        return Err(AppError::ValidationError(format!(
+            "Invalid role '{}'. Valid roles: {:?}",
+            req.role, valid_roles
+        )));
+    }
+
+    if let Err(errors) = PasswordValidator::validate(&req.password, &req.email) {
+        return Err(AppError::ValidationError(errors.join("; ")));
+    }
+
+    let (created, verification_token) = state
+        .auth_backend
+        .create_user(&req.email, &req.password, &req.role)
+        .await
+        .map_err(|e| AppError::AuthError(e.to_string()))?;
+
+    if let Err(e) = state
+        .email_service
+        .send_verification_email(&created.email, &verification_token)
+        .await
+    {
+        tracing::warn!(
+            "Failed to send verification email to {}: {}",
+            created.email,
+            e
+        );
+    }
+
+    Ok((StatusCode::CREATED, Json(created.into())))
 }

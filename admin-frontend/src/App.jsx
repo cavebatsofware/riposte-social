@@ -10,7 +10,7 @@ import ForcePasswordChange from "./pages/ForcePasswordChange";
 import Dashboard from "./pages/Dashboard";
 import AccessCodes from "./pages/AccessCodes";
 import AccessLogs from "./pages/AccessLogs";
-import AdminUsers from "./pages/AdminUsers";
+import Users from "./pages/Users";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import "./App.css";
@@ -102,10 +102,10 @@ function App() {
             }
           />
           <Route
-            path="/admin-users"
+            path="/users"
             element={
               <ProtectedRoute>
-                <AdminUsers />
+                <Users />
               </ProtectedRoute>
             }
           />

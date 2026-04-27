@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::{access_code, admin_user};
+use riposte_social::entities::{access_code, user};
 use common::{
     build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
@@ -66,7 +66,7 @@ async fn test_list_access_codes_non_admin_returns_403(pool: sqlx::PgPool) {
     let email = test_email("ac-viewer");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.role = Set("viewer".to_string());
     active.update(&db).await.unwrap();
 
@@ -219,7 +219,7 @@ async fn test_delete_access_code_non_admin_returns_403(pool: sqlx::PgPool) {
     let code = insert_access_code(&db, "viewer-cant-delete", "No Delete", admin.id).await;
 
     // Change role to viewer
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.role = Set("viewer".to_string());
     active.update(&db).await.unwrap();
 

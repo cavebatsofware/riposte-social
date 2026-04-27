@@ -15,7 +15,7 @@
  */
 mod common;
 
-use riposte_social::entities::{access_code, access_log, admin_user};
+use riposte_social::entities::{access_code, access_log, user};
 use common::{
     build_test_server, build_test_server_with, create_verified_admin, get_csrf_token, login_as,
     test_email, TestServices, TEST_PASSWORD,
@@ -93,7 +93,7 @@ async fn test_list_logs_viewer_returns_403(pool: sqlx::PgPool) {
     let email = test_email("al-viewer");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.role = Set("viewer".to_string());
     active.update(&db).await.unwrap();
 

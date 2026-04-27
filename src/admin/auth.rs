@@ -53,7 +53,6 @@ pub struct UserAuth {
     pub active: bool,
     pub force_password_change: bool,
     pub role: String,
-    pub user_type: String,
     pub(crate) session_hash: Vec<u8>,
 }
 
@@ -96,35 +95,38 @@ impl UserAuthBackend {
         Self { db, allowed_domain }
     }
 
-    pub async fn create_admin(
+    /// Create a new local password-mode user with an explicit role. Returns
+    /// the inserted row and the plaintext verification token to email to the
+    /// user. The site-domain check applies to admin-tier accounts
+    /// (administrator/poster); commenters can be from any domain since they
+    /// are invite-onboarded.
+    pub async fn create_user(
         &self,
         email: &str,
         password: &str,
+        role: &str,
     ) -> Result<(user::Model, String)> {
-        // Validate email domain
-        if !email.ends_with(&format!("@{}", self.allowed_domain)) {
+        let is_admin_tier = role == user::ROLE_ADMINISTRATOR || role == user::ROLE_POSTER;
+        if is_admin_tier && !email.ends_with(&format!("@{}", self.allowed_domain)) {
             anyhow::bail!("Email must be from {} domain", self.allowed_domain);
         }
 
-        // Check if user already exists
         let existing = User::find()
             .filter(user::Column::Email.eq(email))
             .one(&self.db)
             .await?;
 
         if existing.is_some() {
-            anyhow::bail!("Admin user with this email already exists");
+            anyhow::bail!("User with this email already exists");
         }
 
-        // Hash password
         let password_hash = hash_password(password)?;
 
-        // Generate verification token
         let verification_token = generate_verification_token();
         let encrypted_token = encrypt_token(&verification_token)?;
         let verification_expires = Utc::now() + chrono::Duration::hours(24);
 
-        let admin = user::ActiveModel {
+        let new_user = user::ActiveModel {
             id: Set(Uuid::new_v4()),
             email: Set(email.to_string()),
             password_hash: Set(password_hash),
@@ -143,8 +145,7 @@ impl UserAuthBackend {
             force_password_change: Set(false),
             password_reset_token: Set(None),
             password_reset_token_expires_at: Set(None),
-            role: Set(user::ROLE_ADMINISTRATOR.to_string()),
-            user_type: Set(user::USER_TYPE_ADMIN.to_string()),
+            role: Set(role.to_string()),
             oidc_sub: Set(None),
             display_name: Set(None),
             avatar_url: Set(None),
@@ -152,9 +153,19 @@ impl UserAuthBackend {
             invite_code_id: Set(None),
         };
 
-        let result = admin.insert(&self.db).await?;
+        let result = new_user.insert(&self.db).await?;
 
         Ok((result, verification_token))
+    }
+
+    /// Convenience wrapper around `create_user` for the bootstrap admin
+    /// registration flow. Always creates an `administrator`.
+    pub async fn create_admin(
+        &self,
+        email: &str,
+        password: &str,
+    ) -> Result<(user::Model, String)> {
+        self.create_user(email, password, user::ROLE_ADMINISTRATOR).await
     }
 
     pub async fn get_admin_by_id(&self, id: Uuid) -> Result<Option<user::Model>> {
@@ -603,30 +614,20 @@ impl UserAuthBackend {
     }
 
     /// OIDC authentication. Upserts the user row from the verified OIDC claims,
-    /// applies the role + user_type the caller resolved from the claims, and
-    /// returns a `UserAuth` flagged as already MFA-verified (Keycloak handles
-    /// MFA at the IdP).
-    #[allow(clippy::too_many_arguments)]
+    /// applies the role the caller resolved from the claims, and returns a
+    /// `UserAuth` flagged as already MFA-verified (Keycloak handles MFA at the
+    /// IdP).
     pub async fn authenticate_oidc(
         &self,
         sub: &str,
         email: &str,
         email_verified: bool,
         role: &str,
-        user_type: &str,
         display_name: Option<&str>,
         invite_code: Option<&str>,
     ) -> Result<Option<UserAuth>, AuthError> {
         let user_row = self
-            .upsert_oidc_user(
-                sub,
-                email,
-                email_verified,
-                role,
-                user_type,
-                display_name,
-                invite_code,
-            )
+            .upsert_oidc_user(sub, email, email_verified, role, display_name, invite_code)
             .await
             .map_err(AuthError::from)?;
 
@@ -641,14 +642,12 @@ impl UserAuthBackend {
     /// pre-OIDC accounts being upgraded to SSO) and update it with the OIDC
     /// claims; otherwise create a new user row. Always sets `oidc_sub`, which
     /// closes the password path for this user from this point on.
-    #[allow(clippy::too_many_arguments)]
     async fn upsert_oidc_user(
         &self,
         sub: &str,
         email: &str,
         email_verified: bool,
         role: &str,
-        user_type: &str,
         display_name: Option<&str>,
         _invite_code: Option<&str>, // Phase 2 wires this through.
     ) -> Result<user::Model> {
@@ -677,7 +676,6 @@ impl UserAuthBackend {
             active.email = Set(email.to_string());
             active.email_verified = Set(email_verified);
             active.role = Set(role.to_string());
-            active.user_type = Set(user_type.to_string());
             if let Some(name) = display_name {
                 active.display_name = Set(Some(name.to_string()));
             }
@@ -707,7 +705,6 @@ impl UserAuthBackend {
             password_reset_token: Set(None),
             password_reset_token_expires_at: Set(None),
             role: Set(role.to_string()),
-            user_type: Set(user_type.to_string()),
             oidc_sub: Set(Some(sub.to_string())),
             display_name: Set(display_name.map(|s| s.to_string())),
             avatar_url: Set(None),
@@ -715,12 +712,7 @@ impl UserAuthBackend {
             invite_code_id: Set(None),
         };
         let result = new_user.insert(&self.db).await?;
-        tracing::info!(
-            "Created new OIDC user: {} role={} user_type={}",
-            email,
-            role,
-            user_type
-        );
+        tracing::info!("Created new OIDC user: {} role={}", email, role);
         Ok(result)
     }
 
@@ -742,7 +734,6 @@ impl UserAuthBackend {
             active: model.active,
             force_password_change: model.force_password_change,
             role: model.role,
-            user_type: model.user_type,
             session_hash,
         }
     }
@@ -791,7 +782,6 @@ impl AuthnBackend for UserAuthBackend {
                     email,
                     email_verified,
                     role,
-                    user_type,
                     display_name,
                     invite_code,
                 } => {
@@ -801,7 +791,6 @@ impl AuthnBackend for UserAuthBackend {
                             &email,
                             email_verified,
                             &role,
-                            &user_type,
                             display_name.as_deref(),
                             invite_code.as_deref(),
                         )
@@ -847,7 +836,6 @@ pub enum Credentials {
         email: String,
         email_verified: bool,
         role: String,
-        user_type: String,
         display_name: Option<String>,
         invite_code: Option<String>,
     },

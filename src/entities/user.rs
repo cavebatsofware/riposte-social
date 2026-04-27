@@ -17,13 +17,11 @@ use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
 // Role values stored in `role` column. `viewer` is retired.
+// The `role` is the single source of truth for tier; `user_type` was retired
+// in m20260425 because it was redundant with `role`.
 pub const ROLE_ADMINISTRATOR: &str = "administrator";
 pub const ROLE_POSTER: &str = "poster";
 pub const ROLE_COMMENTER: &str = "commenter";
-
-// user_type values distinguish admin-panel users from regular social users.
-pub const USER_TYPE_ADMIN: &str = "admin_user";
-pub const USER_TYPE_REGULAR: &str = "regular_user";
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]
@@ -54,7 +52,6 @@ pub struct Model {
     // Role-based access control
     pub role: String,
     // Unified user model — added in Phase 1 of the MVP plan.
-    pub user_type: String,
     pub oidc_sub: Option<String>,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
@@ -64,16 +61,16 @@ pub struct Model {
 }
 
 impl Model {
-    pub fn is_admin_user_type(&self) -> bool {
-        self.user_type == USER_TYPE_ADMIN
-    }
-
     pub fn is_administrator(&self) -> bool {
         self.role == ROLE_ADMINISTRATOR
     }
 
     pub fn is_poster(&self) -> bool {
         self.role == ROLE_POSTER
+    }
+
+    pub fn is_commenter(&self) -> bool {
+        self.role == ROLE_COMMENTER
     }
 
     pub fn is_oidc_linked(&self) -> bool {

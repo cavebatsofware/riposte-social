@@ -4,9 +4,19 @@ import Table from "../components/Table";
 import PasswordChangeForm from "../components/PasswordChangeForm";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
-import "./AdminUsers.css";
+import "./Users.css";
 
-function AdminUsers() {
+const ROLES = [
+  { value: "administrator", label: "Administrator" },
+  { value: "poster", label: "Poster" },
+  { value: "commenter", label: "Commenter" },
+];
+
+function roleLabel(role) {
+  return ROLES.find((r) => r.value === role)?.label || role;
+}
+
+function Users() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +27,7 @@ function AdminUsers() {
   const [total, setTotal] = useState(0);
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     fetchUsers(currentPage);
@@ -90,6 +101,23 @@ function AdminUsers() {
     }
   }
 
+  async function handleCreateUser({ email, password, role }) {
+    const response = await fetchApi("/api/admin/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, role }),
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.error || "Failed to create user");
+    }
+
+    setSuccess(`User created. Verification email sent to ${email}.`);
+    setShowCreateModal(false);
+    await fetchUsers(currentPage);
+  }
+
   const columns = [
     {
       key: "email",
@@ -100,6 +128,20 @@ function AdminUsers() {
           {row.id === currentUser?.id && (
             <span className="badge badge-info badge-small">You</span>
           )}
+          {row.oidc_linked && (
+            <span className="badge badge-info badge-small" title="Authenticates via OIDC">
+              SSO
+            </span>
+          )}
+        </span>
+      ),
+    },
+    {
+      key: "role",
+      header: "Role",
+      render: (value) => (
+        <span className={`badge badge-${value === "administrator" ? "primary" : "gray"}`}>
+          {roleLabel(value)}
         </span>
       ),
     },
@@ -176,7 +218,18 @@ function AdminUsers() {
     <Layout>
       <div className="admin-users-page">
         <header className="page-header">
-          <h1>Admin Users</h1>
+          <h1>Users</h1>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => {
+              setError("");
+              setSuccess("");
+              setShowCreateModal(true);
+            }}
+          >
+            + Create User
+          </button>
         </header>
 
         {error && <div className="alert alert-error">{error}</div>}
@@ -225,6 +278,13 @@ function AdminUsers() {
             user={editingUser}
             onSave={handleUpdateUser}
             onClose={closeEditModal}
+          />
+        )}
+
+        {showCreateModal && (
+          <CreateUserModal
+            onSubmit={handleCreateUser}
+            onClose={() => setShowCreateModal(false)}
           />
         )}
       </div>
@@ -486,4 +546,103 @@ function EditUserModal({ user, onSave, onClose }) {
   );
 }
 
-export default AdminUsers;
+function CreateUserModal({ onSubmit, onClose }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("poster");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setError("");
+    setSubmitting(true);
+    try {
+      await onSubmit({ email, password, role });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Create User</h2>
+          <button className="modal-close" onClick={onClose}>
+            &times;
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body">
+            {error && <div className="alert alert-error">{error}</div>}
+
+            <div className="form-group">
+              <label htmlFor="create-email">Email</label>
+              <input
+                id="create-email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="create-password">Initial password</label>
+              <input
+                id="create-password"
+                type="password"
+                required
+                minLength={12}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min 12 chars; user will be forced to change on first login if set later"
+              />
+              <small className="form-hint">
+                The user will receive a verification email with a 24-hour link.
+              </small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="create-role">Role</label>
+              <select
+                id="create-role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+              >
+                {ROLES.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <small className="form-hint">
+                Commenters normally onboard via invite — manually creating one
+                here is only useful when OIDC is disabled.
+              </small>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? "Creating..." : "Create User"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export default Users;

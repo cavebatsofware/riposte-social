@@ -13,9 +13,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::admin::auth::{verify_password, AdminAuthBackend};
+use crate::admin::auth::{verify_password, UserAuthBackend};
 use crate::admin::Credentials;
-use crate::entities::{admin_user, AdminUser};
+use crate::entities::{user, User};
 use crate::tests::{test_db_from_pool, test_email};
 use axum_login::AuthnBackend;
 use chrono::Utc;
@@ -26,10 +26,10 @@ use uuid::Uuid;
 
 /// Create an admin and immediately verify their email so they can authenticate.
 async fn create_verified_admin(
-    backend: &AdminAuthBackend,
+    backend: &UserAuthBackend,
     email: &str,
     password: &str,
-) -> admin_user::Model {
+) -> user::Model {
     let (_admin, token) = backend.create_admin(email, password).await.unwrap();
     backend.verify_email(&token).await.unwrap()
 }
@@ -41,7 +41,7 @@ const TEST_PASSWORD: &str = "MyStr0ng!Password123";
 #[sqlx::test(migrations = false)]
 async fn test_create_admin_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-create");
 
     let (admin, token) = backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
@@ -59,7 +59,7 @@ async fn test_create_admin_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_create_admin_wrong_domain_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let result = backend
         .create_admin("test@wrongdomain.invalid", TEST_PASSWORD)
@@ -72,7 +72,7 @@ async fn test_create_admin_wrong_domain_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_create_admin_duplicate_email_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-dup");
 
     backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
@@ -87,13 +87,13 @@ async fn test_create_admin_duplicate_email_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-auth");
 
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
     let user = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email: email.clone(),
             password: TEST_PASSWORD.to_string(),
         })
@@ -110,13 +110,13 @@ async fn test_authenticate_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_wrong_password_returns_none(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-wrongpw");
 
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
     let result = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: "WrongPassword!456".to_string(),
         })
@@ -129,11 +129,11 @@ async fn test_authenticate_wrong_password_returns_none(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_nonexistent_user_returns_none(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     // Also verifies timing attack mitigation (dummy hash used for nonexistent users)
     let result = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email: test_email("nobody"),
             password: "SomePassword!123".to_string(),
         })
@@ -146,13 +146,13 @@ async fn test_authenticate_nonexistent_user_returns_none(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_unverified_email_returns_error(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-unverified");
 
     backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
 
     let result = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: TEST_PASSWORD.to_string(),
         })
@@ -165,7 +165,7 @@ async fn test_authenticate_unverified_email_returns_error(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_deactivated_account_returns_error(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email1 = test_email("test-deact1");
     let email2 = test_email("test-deact2");
 
@@ -174,7 +174,7 @@ async fn test_authenticate_deactivated_account_returns_error(pool: sqlx::PgPool)
     backend.deactivate_user(admin.id, other.id).await.unwrap();
 
     let result = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email: email1,
             password: TEST_PASSWORD.to_string(),
         })
@@ -187,7 +187,7 @@ async fn test_authenticate_deactivated_account_returns_error(pool: sqlx::PgPool)
 #[sqlx::test(migrations = false)]
 async fn test_authenticate_user_with_totp_has_mfa_not_verified(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-mfaauth");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -197,7 +197,7 @@ async fn test_authenticate_user_with_totp_has_mfa_not_verified(pool: sqlx::PgPoo
         .unwrap();
 
     let user = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: TEST_PASSWORD.to_string(),
         })
@@ -214,7 +214,7 @@ async fn test_authenticate_user_with_totp_has_mfa_not_verified(pool: sqlx::PgPoo
 #[sqlx::test(migrations = false)]
 async fn test_verify_email_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-verify");
 
     let (_admin, token) = backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
@@ -228,7 +228,7 @@ async fn test_verify_email_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_verify_email_invalid_token_fails(pool: sqlx::PgPool) {
     let _db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(_db.clone());
+    let backend = UserAuthBackend::new(_db.clone());
 
     assert!(backend
         .verify_email("nonexistent-token-12345")
@@ -239,13 +239,13 @@ async fn test_verify_email_invalid_token_fails(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_verify_email_expired_token_fails(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-expired");
 
     let (admin, token) = backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
 
     // Manually expire the token
-    let mut active: admin_user::ActiveModel = admin.into();
+    let mut active: user::ActiveModel = admin.into();
     active.verification_token_expires_at =
         Set(Some((Utc::now() - chrono::Duration::hours(25)).into()));
     active.update(&db).await.unwrap();
@@ -260,7 +260,7 @@ async fn test_verify_email_expired_token_fails(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_change_password_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-changepw");
     let new_password = "NewStr0ng!Password456";
 
@@ -272,7 +272,7 @@ async fn test_change_password_success(pool: sqlx::PgPool) {
 
     // Old password should fail
     assert!(backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email: email.clone(),
             password: TEST_PASSWORD.to_string(),
         })
@@ -282,7 +282,7 @@ async fn test_change_password_success(pool: sqlx::PgPool) {
 
     // New password should work
     assert!(backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: new_password.to_string(),
         })
@@ -294,7 +294,7 @@ async fn test_change_password_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_change_password_with_force_flag(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-forcepw");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -306,7 +306,7 @@ async fn test_change_password_with_force_flag(pool: sqlx::PgPool) {
     assert!(updated.force_password_change);
 
     let user = backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: "TempStr0ng!Password789".to_string(),
         })
@@ -319,7 +319,7 @@ async fn test_change_password_with_force_flag(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_reset_flow(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-reset");
     let new_password = "ResetStr0ng!Password789";
 
@@ -344,7 +344,7 @@ async fn test_password_reset_flow(pool: sqlx::PgPool) {
         .unwrap();
 
     assert!(backend
-        .authenticate(Credentials {
+        .authenticate(Credentials::Password {
             email,
             password: new_password.to_string(),
         })
@@ -356,7 +356,7 @@ async fn test_password_reset_flow(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_reset_token_nonexistent_user(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let result = backend
         .create_password_reset_token(&test_email("nobody"))
@@ -372,7 +372,7 @@ async fn test_password_reset_token_nonexistent_user(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_validate_reset_token_invalid(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     assert!(backend
         .validate_reset_token("bogus-token")
@@ -384,7 +384,7 @@ async fn test_validate_reset_token_invalid(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_reset_cooldown(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-cooldown");
 
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -431,7 +431,7 @@ async fn test_verify_password_incorrect() {
 #[sqlx::test(migrations = false)]
 async fn test_update_totp_enable(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-totp-en");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -452,7 +452,7 @@ async fn test_update_totp_enable(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_update_totp_disable(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-totp-dis");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -471,7 +471,7 @@ async fn test_update_totp_disable(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_totp_secret_roundtrip(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-totp-rt");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -493,7 +493,7 @@ async fn test_get_totp_secret_roundtrip(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_totp_secret_none_when_not_set(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-totp-none");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -503,7 +503,7 @@ async fn test_get_totp_secret_none_when_not_set(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_mfa_lockout_after_failures(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-lockout");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -528,7 +528,7 @@ async fn test_mfa_lockout_after_failures(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_reset_mfa_failures(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-mfa-reset");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -537,7 +537,7 @@ async fn test_reset_mfa_failures(pool: sqlx::PgPool) {
 
     backend.reset_mfa_failures(admin.id).await.unwrap();
 
-    let updated = AdminUser::find_by_id(admin.id)
+    let updated = User::find_by_id(admin.id)
         .one(&db)
         .await
         .unwrap()
@@ -551,7 +551,7 @@ async fn test_reset_mfa_failures(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_deactivate_user_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let u1 = create_verified_admin(&backend, &test_email("test-deact-a"), TEST_PASSWORD).await;
     let u2 = create_verified_admin(&backend, &test_email("test-deact-b"), TEST_PASSWORD).await;
@@ -569,7 +569,7 @@ async fn test_deactivate_user_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_deactivate_self_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let admin = create_verified_admin(&backend, &test_email("test-selfdeact"), TEST_PASSWORD).await;
     create_verified_admin(&backend, &test_email("test-selfdeact2"), TEST_PASSWORD).await;
@@ -585,7 +585,7 @@ async fn test_deactivate_self_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_deactivate_last_admin_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let admin = create_verified_admin(&backend, &test_email("test-lastadmin"), TEST_PASSWORD).await;
 
@@ -597,7 +597,7 @@ async fn test_deactivate_last_admin_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_deactivate_already_deactivated_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let u1 = create_verified_admin(&backend, &test_email("test-dbldeact1"), TEST_PASSWORD).await;
     let u2 = create_verified_admin(&backend, &test_email("test-dbldeact2"), TEST_PASSWORD).await;
@@ -616,7 +616,7 @@ async fn test_deactivate_already_deactivated_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_reactivate_user_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let u1 = create_verified_admin(&backend, &test_email("test-react1"), TEST_PASSWORD).await;
     let u2 = create_verified_admin(&backend, &test_email("test-react2"), TEST_PASSWORD).await;
@@ -633,7 +633,7 @@ async fn test_reactivate_user_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_reactivate_already_active_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let admin =
         create_verified_admin(&backend, &test_email("test-reactactive"), TEST_PASSWORD).await;
@@ -648,7 +648,7 @@ async fn test_reactivate_already_active_rejected(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_user_by_id(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-getuser");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -668,7 +668,7 @@ async fn test_get_user_by_id(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_user_nonexistent(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     assert!(backend.get_user(&Uuid::new_v4()).await.unwrap().is_none());
 }
@@ -676,7 +676,7 @@ async fn test_get_user_nonexistent(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_admin_by_email(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-byemail");
 
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -695,7 +695,7 @@ async fn test_get_admin_by_email(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_admin_by_id(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-byid");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -716,7 +716,7 @@ async fn test_get_admin_by_id(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_regenerate_verification_token_success(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-regen");
 
     let (admin, _) = backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
@@ -731,7 +731,7 @@ async fn test_regenerate_verification_token_success(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_regenerate_verification_token_already_verified(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
     let email = test_email("test-regen-verified");
 
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -744,7 +744,7 @@ async fn test_regenerate_verification_token_already_verified(pool: sqlx::PgPool)
 #[sqlx::test(migrations = false)]
 async fn test_regenerate_verification_token_deactivated_user(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
-    let backend = AdminAuthBackend::new(db.clone());
+    let backend = UserAuthBackend::new(db.clone());
 
     let (u1, _) = backend
         .create_admin(&test_email("test-regen-deact1"), TEST_PASSWORD)
