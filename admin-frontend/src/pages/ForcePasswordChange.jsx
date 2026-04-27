@@ -16,7 +16,7 @@ function ForcePasswordChange() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/change-password", {
+      const response = await fetchApi("/api/me/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

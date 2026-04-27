@@ -76,7 +76,7 @@ async fn test_change_password_success(pool: sqlx::PgPool) {
     let new_password = "NewStr0ng!Password456";
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/change-password")
+        .post("/api/me/password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "current_password": TEST_PASSWORD,
@@ -97,7 +97,7 @@ async fn test_change_password_success(pool: sqlx::PgPool) {
     // Old password should no longer work for login
     let csrf = get_csrf_token(&server).await;
     let old_pw_response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -119,7 +119,7 @@ async fn test_change_password_wrong_current_fails(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/change-password")
+        .post("/api/me/password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "current_password": "WrongPassword123!",
@@ -140,7 +140,7 @@ async fn test_forgot_password_returns_success(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/forgot-password")
+        .post("/api/auth/forgot-password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "email": email }))
         .await;
@@ -169,7 +169,7 @@ async fn test_reset_password_with_valid_token(pool: sqlx::PgPool) {
     let new_password = "ResetStr0ng!Password789";
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/reset-password")
+        .post("/api/auth/reset-password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "token": token,
@@ -194,7 +194,7 @@ async fn test_reset_password_invalid_token_fails(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/reset-password")
+        .post("/api/auth/reset-password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "token": "totally-bogus-token",
@@ -228,7 +228,7 @@ async fn test_forgot_password_verify_mfa_reset_full_flow(pool: sqlx::PgPool) {
     // Step 1: Request password reset
     let csrf = get_csrf_token(&server).await;
     let fp_response = server
-        .post("/api/admin/forgot-password")
+        .post("/api/auth/forgot-password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "email": email }))
         .await;
@@ -238,7 +238,7 @@ async fn test_forgot_password_verify_mfa_reset_full_flow(pool: sqlx::PgPool) {
     let code = generate_totp_code(TEST_TOTP_SECRET, &email);
     let csrf = get_csrf_token(&server).await;
     let mfa_response = server
-        .post("/api/admin/forgot-password/verify-mfa")
+        .post("/api/auth/forgot-password/verify-mfa")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -281,7 +281,7 @@ async fn test_forgot_password_verify_mfa_reset_full_flow(pool: sqlx::PgPool) {
     let new_password = "FlowStr0ng!Password999";
     let csrf = get_csrf_token(&server).await;
     let reset_response = server
-        .post("/api/admin/reset-password")
+        .post("/api/auth/reset-password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "token": token,
@@ -335,7 +335,7 @@ async fn test_forgot_password_verify_mfa_invalid_code_fails(pool: sqlx::PgPool) 
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/forgot-password/verify-mfa")
+        .post("/api/auth/forgot-password/verify-mfa")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,

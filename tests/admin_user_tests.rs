@@ -168,7 +168,7 @@ async fn test_update_user_self_edit_returns_401(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_update_user_change_role_to_viewer(pool: sqlx::PgPool) {
+async fn test_update_user_change_role_to_commenter(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let actor_email = test_email("au-role-actor");
     let target_email = test_email("au-role-target");
@@ -180,12 +180,12 @@ async fn test_update_user_change_role_to_viewer(pool: sqlx::PgPool) {
     let response = server
         .put(&format!("/api/admin/users/{}", target.id))
         .add_header("x-csrf-token", &csrf)
-        .json(&serde_json::json!({"role": "viewer"}))
+        .json(&serde_json::json!({"role": "commenter"}))
         .await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["role"].as_str().unwrap(), "viewer");
+    assert_eq!(json["role"].as_str().unwrap(), "commenter");
 }
 
 #[sqlx::test(migrations = false)]

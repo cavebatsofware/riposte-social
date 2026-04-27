@@ -189,7 +189,7 @@ pub async fn create_verified_admin(
 }
 
 pub async fn get_csrf_token(server: &TestServer) -> String {
-    let response = server.get("/api/admin/csrf-token").await;
+    let response = server.get("/api/auth/csrf-token").await;
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
     json["token"].as_str().unwrap().to_string()
@@ -198,7 +198,7 @@ pub async fn get_csrf_token(server: &TestServer) -> String {
 pub async fn login_as(server: &TestServer, email: &str, password: &str) {
     let token = get_csrf_token(server).await;
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &token)
         .json(&serde_json::json!({
             "email": email,
@@ -236,7 +236,7 @@ pub async fn login_as_with_mfa(server: &TestServer, email: &str, password: &str,
     let code = generate_totp_code(totp_secret, email);
     let csrf = get_csrf_token(server).await;
     let response = server
-        .post("/api/admin/mfa/verify")
+        .post("/api/auth/mfa/verify")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "code": code }))
         .await;

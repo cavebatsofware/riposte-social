@@ -72,7 +72,7 @@ async fn test_register_success(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/register")
+        .post("/api/auth/register")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": test_email("reg-success"),
@@ -110,7 +110,7 @@ async fn test_register_disabled_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/register")
+        .post("/api/auth/register")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": test_email("reg-disabled"),
@@ -132,7 +132,7 @@ async fn test_register_duplicate_email_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/register")
+        .post("/api/auth/register")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -150,7 +150,7 @@ async fn test_register_weak_password_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/register")
+        .post("/api/auth/register")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": test_email("reg-weak"),
@@ -172,7 +172,7 @@ async fn test_login_success_returns_user(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -201,7 +201,7 @@ async fn test_login_wrong_password_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -225,7 +225,7 @@ async fn test_login_unverified_email_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -249,7 +249,7 @@ async fn test_login_mfa_user_returns_mfa_required(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "email": email,
@@ -273,13 +273,13 @@ async fn test_logout_clears_session(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/logout")
+        .post("/api/auth/logout")
         .add_header("x-csrf-token", &csrf)
         .await;
     assert_eq!(response.status_code(), StatusCode::OK);
 
-    // After logout, /api/admin/me should fail
-    let me_response = server.get("/api/admin/me").await;
+    // After logout, /api/me should fail
+    let me_response = server.get("/api/me").await;
     assert_eq!(me_response.status_code(), StatusCode::UNAUTHORIZED);
 }
 
@@ -292,7 +292,7 @@ async fn test_verify_email_via_http(pool: sqlx::PgPool) {
     let (_admin, token) = backend.create_admin(&email, TEST_PASSWORD).await.unwrap();
 
     let response = server
-        .get(&format!("/api/admin/verify-email?token={}", token))
+        .get(&format!("/api/auth/verify-email?token={}", token))
         .await;
 
     assert_eq!(
@@ -315,7 +315,7 @@ async fn test_me_authenticated(pool: sqlx::PgPool) {
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
     login_as(&server, &email, TEST_PASSWORD).await;
 
-    let response = server.get("/api/admin/me").await;
+    let response = server.get("/api/me").await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
@@ -328,7 +328,7 @@ async fn test_me_authenticated(pool: sqlx::PgPool) {
 async fn test_me_unauthenticated_returns_error(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
-    let response = server.get("/api/admin/me").await;
+    let response = server.get("/api/me").await;
 
     assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
 }

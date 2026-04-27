@@ -88,10 +88,10 @@ pub async fn require_authenticated(
         // the lockout. Commenters and OIDC-linked users never have this flag set.
         if user.force_password_change {
             let path = request.uri().path();
-            if path != "/api/admin/change-password"
-                && path != "/api/admin/logout"
-                && path != "/api/admin/me"
-                && path != "/api/admin/csrf-token"
+            if path != "/api/me/password"
+                && path != "/api/auth/logout"
+                && path != "/api/me"
+                && path != "/api/auth/csrf-token"
             {
                 tracing::warn!("Password change required for user: {}", user.email);
                 return (

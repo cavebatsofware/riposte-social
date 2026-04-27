@@ -33,7 +33,7 @@ async fn test_mfa_setup_returns_secret_and_qr(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/setup")
+        .post("/api/me/mfa/setup")
         .add_header("x-csrf-token", &csrf)
         .await;
 
@@ -58,7 +58,7 @@ async fn test_mfa_setup_unauthenticated_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/setup")
+        .post("/api/me/mfa/setup")
         .add_header("x-csrf-token", &csrf)
         .await;
 
@@ -77,7 +77,7 @@ async fn test_mfa_confirm_setup_success(pool: sqlx::PgPool) {
     // Get a setup secret from the endpoint
     let csrf = get_csrf_token(&server).await;
     let setup_response = server
-        .post("/api/admin/mfa/setup")
+        .post("/api/me/mfa/setup")
         .add_header("x-csrf-token", &csrf)
         .await;
     assert_eq!(setup_response.status_code(), StatusCode::OK);
@@ -90,7 +90,7 @@ async fn test_mfa_confirm_setup_success(pool: sqlx::PgPool) {
     // Confirm setup with valid code
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/confirm-setup")
+        .post("/api/me/mfa/confirm-setup")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "secret": secret,
@@ -124,7 +124,7 @@ async fn test_mfa_confirm_setup_invalid_code_fails(pool: sqlx::PgPool) {
     // Get a setup secret
     let csrf = get_csrf_token(&server).await;
     let setup_response = server
-        .post("/api/admin/mfa/setup")
+        .post("/api/me/mfa/setup")
         .add_header("x-csrf-token", &csrf)
         .await;
     let setup_json: serde_json::Value = setup_response.json();
@@ -133,7 +133,7 @@ async fn test_mfa_confirm_setup_invalid_code_fails(pool: sqlx::PgPool) {
     // Try to confirm with an invalid code
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/confirm-setup")
+        .post("/api/me/mfa/confirm-setup")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "secret": secret,
@@ -164,7 +164,7 @@ async fn test_mfa_disable_with_correct_password(pool: sqlx::PgPool) {
     // Disable MFA with correct password
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/disable")
+        .post("/api/me/mfa/disable")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "password": TEST_PASSWORD,
@@ -196,7 +196,7 @@ async fn test_mfa_disable_wrong_password_fails(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/disable")
+        .post("/api/me/mfa/disable")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "password": "WrongPassword123!",
@@ -222,7 +222,7 @@ async fn test_mfa_disable_without_mfa_verification_fails(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/disable")
+        .post("/api/me/mfa/disable")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "password": TEST_PASSWORD,
@@ -251,7 +251,7 @@ async fn test_mfa_verify_already_verified_returns_error(pool: sqlx::PgPool) {
     let code = generate_totp_code(TEST_TOTP_SECRET, &email);
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/mfa/verify")
+        .post("/api/auth/mfa/verify")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "code": code }))
         .await;
@@ -281,7 +281,7 @@ async fn test_mfa_lockout_unlock_retry_cycle(pool: sqlx::PgPool) {
     for _ in 0..3 {
         let csrf = get_csrf_token(&server).await;
         server
-            .post("/api/admin/mfa/verify")
+            .post("/api/auth/mfa/verify")
             .add_header("x-csrf-token", &csrf)
             .json(&serde_json::json!({ "code": "000000" }))
             .await;
@@ -290,7 +290,7 @@ async fn test_mfa_lockout_unlock_retry_cycle(pool: sqlx::PgPool) {
     // Next attempt should indicate lockout
     let csrf = get_csrf_token(&server).await;
     let locked_response = server
-        .post("/api/admin/mfa/verify")
+        .post("/api/auth/mfa/verify")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "code": "000000" }))
         .await;
@@ -304,7 +304,7 @@ async fn test_mfa_lockout_unlock_retry_cycle(pool: sqlx::PgPool) {
     let code = generate_totp_code(TEST_TOTP_SECRET, &target_email);
     let csrf = get_csrf_token(&server).await;
     let retry_response = server
-        .post("/api/admin/mfa/verify")
+        .post("/api/auth/mfa/verify")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "code": code }))
         .await;

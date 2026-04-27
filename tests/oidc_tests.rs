@@ -204,7 +204,7 @@ async fn test_oidc_callback_admin_role_creates_administrator(pool: sqlx::PgPool)
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_oidc_callback_non_admin_role_creates_viewer(pool: sqlx::PgPool) {
+async fn test_oidc_callback_non_admin_role_creates_commenter(pool: sqlx::PgPool) {
     let mock = OidcMockServer::start().await;
     let oidc = mock.build_oidc_service(TEST_CLIENT_ID).await;
     let (server, _backend, db) = build_test_server_with(
@@ -216,18 +216,18 @@ async fn test_oidc_callback_non_admin_role_creates_viewer(pool: sqlx::PgPool) {
     )
     .await;
 
-    let user = OidcMockUser::new("viewer@keycloak.test", vec!["user", "reader"]);
+    let user = OidcMockUser::new("commenter@keycloak.test", vec!["user", "reader"]);
     let response = drive_oidc_flow(&server, &mock, user, "realm_access.roles").await;
 
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
     let row = User::find()
-        .filter(user::Column::Email.eq("viewer@keycloak.test"))
+        .filter(user::Column::Email.eq("commenter@keycloak.test"))
         .one(&db)
         .await
         .unwrap()
         .expect("user row");
-    assert_eq!(row.role, "viewer");
+    assert_eq!(row.role, "commenter");
 }
 
 #[sqlx::test(migrations = false)]

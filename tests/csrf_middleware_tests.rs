@@ -24,7 +24,7 @@ use common::{build_test_server, get_csrf_token};
 async fn test_get_request_exempt_from_csrf(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
-    let response = server.get("/api/admin/auth-config").await;
+    let response = server.get("/api/auth/config").await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
 }
@@ -34,7 +34,7 @@ async fn test_post_without_token_returns_403(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .json(&serde_json::json!({"email": "x@x.com", "password": "pass"}))
         .await;
 
@@ -47,7 +47,7 @@ async fn test_post_with_invalid_token_returns_403(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", "bogus-token")
         .json(&serde_json::json!({"email": "x@x.com", "password": "pass"}))
         .await;
@@ -63,7 +63,7 @@ async fn test_post_with_valid_token_passes_csrf(pool: sqlx::PgPool) {
 
     // POST with valid CSRF token — will fail auth (401) but should NOT be 403/CSRF
     let response = server
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &token)
         .json(&serde_json::json!({"email": "x@x.com", "password": "wrong"}))
         .await;
@@ -113,7 +113,7 @@ async fn test_cross_session_token_rejected(pool: sqlx::PgPool) {
 
     // Use server A's token on server B — should fail
     let response = server_b
-        .post("/api/admin/login")
+        .post("/api/auth/login")
         .add_header("x-csrf-token", &token_a)
         .json(&serde_json::json!({"email": "x@x.com", "password": "pass"}))
         .await;

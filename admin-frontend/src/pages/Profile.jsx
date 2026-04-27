@@ -22,7 +22,7 @@ function Profile() {
     setSuccess("");
 
     try {
-      const response = await fetchApi("/api/admin/change-password", {
+      const response = await fetchApi("/api/me/password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -50,7 +50,7 @@ function Profile() {
     setSuccess("");
 
     try {
-      const response = await fetchApi("/api/admin/mfa/setup", {
+      const response = await fetchApi("/api/me/mfa/setup", {
         method: "POST",
       });
 
@@ -74,7 +74,7 @@ function Profile() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/mfa/confirm-setup", {
+      const response = await fetchApi("/api/me/mfa/confirm-setup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ secret: mfaSetupData.secret, code: verificationCode }),
@@ -104,7 +104,7 @@ function Profile() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/mfa/disable", {
+      const response = await fetchApi("/api/me/mfa/disable", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: disablePassword }),

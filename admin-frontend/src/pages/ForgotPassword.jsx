@@ -18,7 +18,7 @@ function ForgotPassword() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/forgot-password", {
+      const response = await fetchApi("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -44,7 +44,7 @@ function ForgotPassword() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/forgot-password/verify-mfa", {
+      const response = await fetchApi("/api/auth/forgot-password/verify-mfa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, code: mfaCode }),

@@ -86,7 +86,7 @@ async fn test_mfa_enabled_and_verified_returns_200(pool: sqlx::PgPool) {
     let code = generate_totp_code(TEST_TOTP_SECRET, &email);
     let csrf = get_csrf_token(&server).await;
     let mfa_response = server
-        .post("/api/admin/mfa/verify")
+        .post("/api/auth/mfa/verify")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "code": code }))
         .await;
@@ -135,7 +135,7 @@ async fn test_force_password_change_allows_change_password_endpoint(pool: sqlx::
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/change-password")
+        .post("/api/me/password")
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({
             "current_password": TEST_PASSWORD,
@@ -165,7 +165,7 @@ async fn test_force_password_change_allows_logout_endpoint(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .post("/api/admin/logout")
+        .post("/api/auth/logout")
         .add_header("x-csrf-token", &csrf)
         .await;
 

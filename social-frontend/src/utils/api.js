@@ -1,8 +1,5 @@
 /**
  * Fetch wrapper that automatically includes CSRF token from session.
- *
- * TODO(Phase 1): csrf-token endpoint moves from /api/admin/csrf-token to
- * /api/csrf-token when OIDC/auth routes are unified under /api/auth/*.
  */
 
 let csrfToken = null;
@@ -10,7 +7,7 @@ let csrfToken = null;
 async function ensureCsrfToken() {
   if (csrfToken) return csrfToken;
 
-  const response = await fetch("/api/admin/csrf-token", {
+  const response = await fetch("/api/auth/csrf-token", {
     credentials: "include",
   });
 

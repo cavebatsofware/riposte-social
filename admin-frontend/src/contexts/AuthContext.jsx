@@ -25,7 +25,7 @@ export function AuthProvider({ children }) {
 
   async function fetchAuthConfig() {
     try {
-      const response = await fetchApi('/api/admin/auth-config');
+      const response = await fetchApi('/api/auth/config');
       if (response.ok) {
         const data = await response.json();
         setAuthConfig({
@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
 
   async function checkAuth() {
     try {
-      const response = await fetchApi('/api/admin/me');
+      const response = await fetchApi('/api/me');
 
       if (response.ok) {
         const data = await response.json();
@@ -58,7 +58,7 @@ export function AuthProvider({ children }) {
   }
 
   async function login(email, password) {
-    const response = await fetchApi('/api/admin/login', {
+    const response = await fetchApi('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -83,7 +83,7 @@ export function AuthProvider({ children }) {
   }
 
   async function verifyMFA(code) {
-    const response = await fetchApi('/api/admin/mfa/verify', {
+    const response = await fetchApi('/api/auth/mfa/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code }),
@@ -95,7 +95,7 @@ export function AuthProvider({ children }) {
     }
 
     // Refresh user data after MFA verification
-    const meResponse = await fetchApi('/api/admin/me');
+    const meResponse = await fetchApi('/api/me');
     if (meResponse.ok) {
       const userData = await meResponse.json();
       setUser(userData);
@@ -112,7 +112,7 @@ export function AuthProvider({ children }) {
   }
 
   async function register(email, password) {
-    const response = await fetchApi('/api/admin/register', {
+    const response = await fetchApi('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -127,7 +127,7 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await fetchApi('/api/admin/logout', {
+    await fetchApi('/api/auth/logout', {
       method: 'POST',
     });
     clearCsrfToken();

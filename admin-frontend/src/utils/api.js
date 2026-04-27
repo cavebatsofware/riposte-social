@@ -7,7 +7,7 @@ let csrfToken = null;
 async function ensureCsrfToken() {
   if (csrfToken) return csrfToken;
 
-  const response = await fetch('/api/admin/csrf-token', {
+  const response = await fetch('/api/auth/csrf-token', {
     credentials: 'include',
   });
 

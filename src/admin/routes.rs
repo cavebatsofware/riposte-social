@@ -52,30 +52,31 @@ pub struct AdminState {
 pub fn admin_api_routes(
     auth_rate_limiter: RateLimiter<AppRateLimitCallbacks>,
 ) -> Router<AdminState> {
-    // Routes that need stricter rate limiting (auth-sensitive)
+    // Pre-session / session-establishing endpoints live under /api/auth/*.
+    // Self-service operations on the caller's own account live under /api/me/*.
+    // Admin-on-others operations stay under /api/admin/* (handled in admin_users.rs).
     let rate_limited_routes = Router::new()
-        .route("/api/admin/register", post(register))
-        .route("/api/admin/login", post(login))
-        .route("/api/admin/mfa/verify", post(mfa_verify))
-        .route("/api/admin/forgot-password", post(forgot_password))
+        .route("/api/auth/register", post(register))
+        .route("/api/auth/login", post(login))
+        .route("/api/auth/mfa/verify", post(mfa_verify))
+        .route("/api/auth/forgot-password", post(forgot_password))
         .route(
-            "/api/admin/forgot-password/verify-mfa",
+            "/api/auth/forgot-password/verify-mfa",
             post(forgot_password_verify_mfa),
         )
-        .route("/api/admin/reset-password", post(reset_password))
-        .route("/api/admin/change-password", post(change_password))
-        .route("/api/admin/mfa/disable", post(mfa_disable))
+        .route("/api/auth/reset-password", post(reset_password))
+        .route("/api/me/password", post(change_password))
+        .route("/api/me/mfa/disable", post(mfa_disable))
         .layer(from_fn_with_state(auth_rate_limiter, rate_limit_middleware));
 
-    // Routes that don't need stricter rate limiting
     let standard_routes = Router::new()
-        .route("/api/admin/logout", post(logout))
-        .route("/api/admin/verify-email", get(verify_email))
-        .route("/api/admin/me", get(me))
-        .route("/api/admin/csrf-token", get(get_csrf_token))
-        .route("/api/admin/auth-config", get(auth_config))
-        .route("/api/admin/mfa/setup", post(mfa_setup))
-        .route("/api/admin/mfa/confirm-setup", post(mfa_confirm_setup));
+        .route("/api/auth/logout", post(logout))
+        .route("/api/auth/verify-email", get(verify_email))
+        .route("/api/auth/csrf-token", get(get_csrf_token))
+        .route("/api/auth/config", get(auth_config))
+        .route("/api/me", get(me))
+        .route("/api/me/mfa/setup", post(mfa_setup))
+        .route("/api/me/mfa/confirm-setup", post(mfa_confirm_setup));
 
     rate_limited_routes.merge(standard_routes)
 }

@@ -11,8 +11,6 @@ export function useAuth() {
   return context;
 }
 
-// TODO(Phase 1): switch endpoints from /api/admin/* to /api/auth/* + /api/me
-// once the unified UserAuthBackend lands.
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +21,7 @@ export function AuthProvider({ children }) {
 
   async function checkAuth() {
     try {
-      const response = await fetchApi("/api/admin/me");
+      const response = await fetchApi("/api/me");
       if (response.ok) {
         const data = await response.json();
         setUser(data);
@@ -39,7 +37,7 @@ export function AuthProvider({ children }) {
   }
 
   async function logout() {
-    await fetchApi("/api/admin/logout", { method: "POST" });
+    await fetchApi("/api/auth/logout", { method: "POST" });
     clearCsrfToken();
     setUser(null);
   }

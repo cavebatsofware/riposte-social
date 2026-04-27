@@ -25,7 +25,7 @@ function ResetPassword() {
     setError("");
 
     try {
-      const response = await fetchApi("/api/admin/reset-password", {
+      const response = await fetchApi("/api/auth/reset-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, new_password: newPassword }),

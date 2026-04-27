@@ -22,7 +22,7 @@ function VerifyEmail() {
     }
 
     try {
-      const response = await fetchApi(`/api/admin/verify-email?token=${token}`, {
+      const response = await fetchApi(`/api/auth/verify-email?token=${token}`, {
         method: 'GET',
       });
 
