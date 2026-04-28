@@ -105,6 +105,7 @@ pub async fn build_test_server_with(
                 scopes: vec!["openid".to_string()],
                 role_claim: "realm_access.roles".to_string(),
                 admin_role: "admin".to_string(),
+                poster_role: "poster".to_string(),
             };
             OidcService::new(oidc_config)
                 .await

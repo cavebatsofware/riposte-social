@@ -100,11 +100,18 @@ impl UserAuthBackend {
     /// user. The site-domain check applies to admin-tier accounts
     /// (administrator/poster); commenters can be from any domain since they
     /// are invite-onboarded.
+    ///
+    /// `activated` controls whether the row can immediately establish a
+    /// session. Set true for the bootstrap admin (who owns the password they
+    /// just typed at /api/auth/register) and for any direct test creation.
+    /// Set false for admin-pre-provisioned rows that must go through the
+    /// invite acceptance flow before they're usable.
     pub async fn create_user(
         &self,
         email: &str,
         password: &str,
         role: &str,
+        activated: bool,
     ) -> Result<(user::Model, String)> {
         let is_admin_tier = role == user::ROLE_ADMINISTRATOR || role == user::ROLE_POSTER;
         if is_admin_tier && !email.ends_with(&format!("@{}", self.allowed_domain)) {
@@ -151,6 +158,7 @@ impl UserAuthBackend {
             avatar_url: Set(None),
             last_login_at: Set(None),
             invite_code_id: Set(None),
+            activated_at: Set(if activated { Some(Utc::now().into()) } else { None }),
         };
 
         let result = new_user.insert(&self.db).await?;
@@ -165,7 +173,8 @@ impl UserAuthBackend {
         email: &str,
         password: &str,
     ) -> Result<(user::Model, String)> {
-        self.create_user(email, password, user::ROLE_ADMINISTRATOR).await
+        // Bootstrap admin owns the password they just typed; activate immediately.
+        self.create_user(email, password, user::ROLE_ADMINISTRATOR, true).await
     }
 
     pub async fn get_admin_by_id(&self, id: Uuid) -> Result<Option<user::Model>> {
@@ -604,6 +613,10 @@ impl UserAuthBackend {
             return Err(AuthError(anyhow::anyhow!("Account has been deactivated")));
         }
 
+        // Inert rows (admin/poster pre-provisioned but not yet invite-bound)
+        // cannot establish a session even if a password somehow validates.
+        ensure_activated(&user_row).map_err(AuthError::from)?;
+
         if !user_row.email_verified {
             return Err(AuthError(anyhow::anyhow!(
                 "Email not verified. Please check your email for verification link."
@@ -613,81 +626,344 @@ impl UserAuthBackend {
         Ok(Some(self.user_auth_from_model(user_row, /* oidc_login */ false)))
     }
 
-    /// OIDC authentication. Upserts the user row from the verified OIDC claims,
-    /// applies the role the caller resolved from the claims, and returns a
-    /// `UserAuth` flagged as already MFA-verified (Keycloak handles MFA at the
-    /// IdP).
+    /// OIDC authentication. Dispatches between three structurally distinct
+    /// flows based on whether the user already has a row, an oidc_sub, and
+    /// whether they're presenting an invite. The `idp_tier` is the IdP-claimed
+    /// effective tier (resolved from the role claim by `oidc::resolve_idp_tier`)
+    ///. used only to validate against the DB row, never to assign role.
+    ///
+    /// - **Flow B (normal login):** matched by oidc_sub. The DB and IdP must
+    ///   agree on role and email; if they drift, login fails closed. Refreshes
+    ///   last_login_at, display_name, email_verified. never role or email.
+    /// - **Flow A.1 (invite-bind existing pre-provisioned row):** matched by
+    ///   email when no oidc_sub matches and the row's oidc_sub is null. Requires
+    ///   the invite's email_hint to match the IdP-attested email exactly.
+    ///   Stamps oidc_sub, rotates password_hash, and sets activated_at.
+    /// - **Flow A.2 (mint new commenter):** no row found. Requires the IdP not
+    ///   to claim admin or poster (privileged accounts must be pre-provisioned).
+    ///   Creates the row with role = commenter, sets activated_at.
     pub async fn authenticate_oidc(
         &self,
         sub: &str,
         email: &str,
         email_verified: bool,
-        role: &str,
+        idp_tier: &str,
         display_name: Option<&str>,
         invite_code: Option<&str>,
     ) -> Result<Option<UserAuth>, AuthError> {
-        let user_row = self
-            .upsert_oidc_user(sub, email, email_verified, role, display_name, invite_code)
-            .await
-            .map_err(AuthError::from)?;
-
-        if !user_row.active {
-            return Err(AuthError(anyhow::anyhow!("Account has been deactivated")));
-        }
-
-        Ok(Some(self.user_auth_from_model(user_row, /* oidc_login */ true)))
-    }
-
-    /// Find an existing user by `oidc_sub` (or by email as a fallback for
-    /// pre-OIDC accounts being upgraded to SSO) and update it with the OIDC
-    /// claims; otherwise create a new user row. Always sets `oidc_sub`, which
-    /// closes the password path for this user from this point on.
-    async fn upsert_oidc_user(
-        &self,
-        sub: &str,
-        email: &str,
-        email_verified: bool,
-        role: &str,
-        display_name: Option<&str>,
-        _invite_code: Option<&str>, // Phase 2 wires this through.
-    ) -> Result<user::Model> {
-        // Prefer match by oidc_sub. Fall back to email for first-time SSO
-        // upgrade of a previously password-only admin/poster account.
-        let by_sub = User::find()
+        // Flow B: existing oidc_sub match → normal login.
+        if let Some(row) = User::find()
             .filter(user::Column::OidcSub.eq(sub))
             .one(&self.db)
-            .await?;
-        let existing = if by_sub.is_some() {
-            by_sub
-        } else {
-            User::find()
-                .filter(user::Column::Email.eq(email))
-                .one(&self.db)
-                .await?
-        };
-
-        if let Some(existing_row) = existing {
-            let mut active: user::ActiveModel = existing_row.into();
-            // Lock the row to OIDC. This is the moment the password path closes.
-            active.oidc_sub = Set(Some(sub.to_string()));
-            // Defense-in-depth: rotate password_hash to a fresh non-usable value
-            // on every OIDC login so leaks of an older hash can't be replayed.
-            active.password_hash = Set(format!("oidc_user_{}", Uuid::new_v4()));
-            active.email = Set(email.to_string());
-            active.email_verified = Set(email_verified);
-            active.role = Set(role.to_string());
-            if let Some(name) = display_name {
-                active.display_name = Set(Some(name.to_string()));
-            }
-            active.last_login_at = Set(Some(Utc::now().into()));
-            active.updated_at = Set(Utc::now().into());
-            return Ok(active.update(&self.db).await?);
+            .await
+            .map_err(AuthError::from)?
+        {
+            let user_row = self
+                .oidc_normal_login(row, email, email_verified, idp_tier, display_name)
+                .await
+                .map_err(AuthError::from)?;
+            return Ok(Some(self.user_auth_from_model(user_row, true)));
         }
 
+        // Flow A: invite required for any new bind or new row.
+        let code = invite_code.ok_or_else(|| {
+            AuthError(anyhow::anyhow!(
+                "This site is invite-only. please use a valid invite link to sign in."
+            ))
+        })?;
+        let invite_row = crate::invites::validate_invite_code(&self.db, code)
+            .await
+            .map_err(|e| AuthError(anyhow::anyhow!(e.to_string())))?
+            .ok_or_else(|| {
+                AuthError(anyhow::anyhow!(
+                    "Invite is invalid, expired, revoked, or already used"
+                ))
+            })?;
+
+        // Flow A.1: pre-provisioned row reachable via invite_code_id (the
+        // admin stamped the invite onto the user row at creation time).
+        // Looking up by invite_code_id rather than email guarantees only
+        // *this specific* invite can bind *this specific* row. no other
+        // invite, even one with a matching email_hint, can hijack it.
+        if let Some(row) = User::find()
+            .filter(user::Column::InviteCodeId.eq(invite_row.id))
+            .one(&self.db)
+            .await
+            .map_err(AuthError::from)?
+        {
+            let user_row = self
+                .oidc_bind_existing(row, sub, email, email_verified, idp_tier, display_name, &invite_row)
+                .await
+                .map_err(AuthError::from)?;
+            return Ok(Some(self.user_auth_from_model(user_row, true)));
+        }
+
+        // Flow A.2: no row links to this invite. Two sub-cases:
+        //  - Commenter invite (email_hint is None): mint a new commenter row.
+        //  - Pre-provisioned-row invite (email_hint is Some): the row was
+        //    deleted somehow. Don't downgrade silently to commenter.
+        if invite_row.email_hint.is_some() {
+            return Err(AuthError(anyhow::anyhow!(
+                "Invite is for an account that no longer exists"
+            )));
+        }
+        let user_row = self
+            .oidc_create_commenter(sub, email, email_verified, idp_tier, display_name, &invite_row)
+            .await
+            .map_err(AuthError::from)?;
+        Ok(Some(self.user_auth_from_model(user_row, true)))
+    }
+
+    // ==================== Flow B. normal login ====================
+
+    async fn oidc_normal_login(
+        &self,
+        row: user::Model,
+        idp_email: &str,
+        email_verified: bool,
+        idp_tier: &str,
+        display_name: Option<&str>,
+    ) -> Result<user::Model> {
+        ensure_activated(&row)?;
+        ensure_role_match(idp_tier, &row.role)?;
+        ensure_email_match(idp_email, &row.email)?;
+        if !row.active {
+            anyhow::bail!("Account has been deactivated");
+        }
+
+        let mut active: user::ActiveModel = row.into();
+        active.email_verified = Set(email_verified);
+        if let Some(name) = display_name {
+            active.display_name = Set(Some(name.to_string()));
+        }
+        active.last_login_at = Set(Some(Utc::now().into()));
+        // updated_at is auto-managed by ActiveModelBehavior::before_save.
+        Ok(active.update(&self.db).await?)
+    }
+
+    // ==================== Flow A.1. bind pre-provisioned row ====================
+
+    async fn oidc_bind_existing(
+        &self,
+        row: user::Model,
+        sub: &str,
+        idp_email: &str,
+        email_verified: bool,
+        idp_tier: &str,
+        display_name: Option<&str>,
+        invite: &crate::entities::invite_code::Model,
+    ) -> Result<user::Model> {
+        if row.oidc_sub.is_some() {
+            anyhow::bail!("Account already linked to a different SSO identity");
+        }
+        if !row.active {
+            anyhow::bail!("Account has been deactivated");
+        }
+        ensure_role_match(idp_tier, &row.role)?;
+
+        // email_hint enforcement: the invite was created with intent to bind a
+        // specific email. Without a matching hint, this invite cannot bind to
+        // an existing row. it would let a stolen commenter invite hijack a
+        // pre-provisioned admin/poster account whose email happens to match.
+        let hint = invite.email_hint.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("Invite is not for this account")
+        })?;
+        if hint != idp_email {
+            anyhow::bail!("Invite is not for this account");
+        }
+
+        let row_id = row.id;
+        let mut active: user::ActiveModel = row.into();
+        active.oidc_sub = Set(Some(sub.to_string()));
+        // Rotate password_hash to a fresh non-usable value so any placeholder
+        // hash assigned at user-creation time is closed.
+        active.password_hash = Set(format!("oidc_user_{}", Uuid::new_v4()));
+        active.email_verified = Set(email_verified);
+        if let Some(name) = display_name {
+            active.display_name = Set(Some(name.to_string()));
+        }
+        active.last_login_at = Set(Some(Utc::now().into()));
+        // invite_code_id is already set on the row (admin stamped it at user
+        // creation time). updated_at is auto-managed by ActiveModelBehavior.
+        active.activated_at = Set(Some(Utc::now().into()));
+        let updated = active.update(&self.db).await?;
+
+        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
+            tracing::warn!(
+                "Failed to mark invite {} used by bound user {}: {}",
+                invite.id, row_id, e
+            );
+        }
+
+        tracing::info!(
+            "OIDC bind for pre-provisioned user: {} role={}",
+            updated.email, updated.role
+        );
+        Ok(updated)
+    }
+
+    // ==================== Flow C. password-mode invite acceptance ====================
+
+    /// Flow C.1: bind a pre-provisioned admin/poster row by setting the
+    /// user-chosen password and activating the row. The row is reached via
+    /// the invite's `id` (the admin pre-stamped this on the user row at
+    /// creation time), and the form-submitted email must match both the
+    /// invite's email_hint and the row's email.
+    pub async fn accept_invite_password_bind(
+        &self,
+        invite: &crate::entities::invite_code::Model,
+        email: &str,
+        new_password: &str,
+    ) -> Result<user::Model> {
+        let row = User::find()
+            .filter(user::Column::InviteCodeId.eq(invite.id))
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "This invite code is no longer valid. A newer invite may have been issued."
+                )
+            })?;
+
+        if row.oidc_sub.is_some() {
+            anyhow::bail!("Account is linked to SSO and cannot be activated with a password");
+        }
+        if row.activated_at.is_some() {
+            anyhow::bail!("Account is already activated. Please sign in instead.");
+        }
+        if !row.active {
+            anyhow::bail!("Account has been deactivated");
+        }
+
+        let hint = invite
+            .email_hint
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Invite is not for this account"))?;
+        if hint != email || hint != row.email {
+            anyhow::bail!("Invite is not for this account");
+        }
+
+        let row_id = row.id;
+        let password_hash = hash_password(new_password)?;
+        let mut active: user::ActiveModel = row.into();
+        active.password_hash = Set(password_hash);
+        active.email_verified = Set(true); // invite is delivered to a known address
+        active.force_password_change = Set(false);
+        active.last_login_at = Set(Some(Utc::now().into()));
+        // invite_code_id is already set; updated_at is auto-managed.
+        active.activated_at = Set(Some(Utc::now().into()));
+        let updated = active.update(&self.db).await?;
+
+        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
+            tracing::warn!(
+                "Failed to mark invite {} used by password-bound user {}: {}",
+                invite.id, row_id, e
+            );
+        }
+
+        tracing::info!(
+            "Password-mode invite bind for pre-provisioned user: {} role={}",
+            updated.email, updated.role
+        );
+        Ok(updated)
+    }
+
+    /// Flow C.2: mint a brand-new commenter row from a password-mode invite
+    /// acceptance form. The form's email becomes the row's email; no row
+    /// pre-existed because the invite was issued without a specific row in mind
+    /// (or with email_hint pointing at the invitee).
+    pub async fn accept_invite_password_create_commenter(
+        &self,
+        invite: &crate::entities::invite_code::Model,
+        email: &str,
+        new_password: &str,
+    ) -> Result<user::Model> {
+        let existing = User::find()
+            .filter(user::Column::Email.eq(email))
+            .one(&self.db)
+            .await?;
+        if existing.is_some() {
+            anyhow::bail!("An account with this email already exists. Please sign in instead.");
+        }
+
+        let new_user_id = Uuid::new_v4();
+        let password_hash = hash_password(new_password)?;
+        let new_user = user::ActiveModel {
+            id: Set(new_user_id),
+            email: Set(email.to_string()),
+            password_hash: Set(password_hash),
+            email_verified: Set(true),
+            verification_token: Set(None),
+            verification_token_expires_at: Set(None),
+            created_at: Set(Utc::now().into()),
+            updated_at: Set(Utc::now().into()),
+            totp_secret: Set(None),
+            totp_enabled: Set(Some(false)),
+            totp_enabled_at: Set(None),
+            mfa_failed_attempts: Set(Some(0)),
+            mfa_locked_until: Set(None),
+            active: Set(true),
+            deactivated_at: Set(None),
+            force_password_change: Set(false),
+            password_reset_token: Set(None),
+            password_reset_token_expires_at: Set(None),
+            role: Set(user::ROLE_COMMENTER.to_string()),
+            oidc_sub: Set(None),
+            display_name: Set(None),
+            avatar_url: Set(None),
+            last_login_at: Set(Some(Utc::now().into())),
+            invite_code_id: Set(Some(invite.id)),
+            activated_at: Set(Some(Utc::now().into())),
+        };
+        let result = new_user.insert(&self.db).await?;
+
+        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
+            tracing::warn!(
+                "Failed to mark invite {} used by new password commenter {}: {}",
+                invite.id, new_user_id, e
+            );
+        }
+
+        tracing::info!("Created new password-mode commenter via invite: {}", email);
+        Ok(result)
+    }
+
+    /// Build a `UserAuth` session principal for a password-mode user that has
+    /// just completed invite acceptance. Exposed for the invite-accept handler
+    /// in `admin/routes.rs` so it can establish a session without going back
+    /// through the full password authentication path.
+    pub fn user_auth_for_invite_accept(&self, model: user::Model) -> UserAuth {
+        // Password-mode invite-accept is fresh authentication: MFA is not
+        // configured yet (totp_enabled=false), so user_auth_from_model returns
+        // mfa_verified=true automatically.
+        self.user_auth_from_model(model, /* oidc_login */ false)
+    }
+
+    // ==================== Flow A.2. mint new commenter ====================
+
+    async fn oidc_create_commenter(
+        &self,
+        sub: &str,
+        idp_email: &str,
+        email_verified: bool,
+        idp_tier: &str,
+        display_name: Option<&str>,
+        invite: &crate::entities::invite_code::Model,
+    ) -> Result<user::Model> {
+        // Privileged accounts must be pre-provisioned by an admin (Flow A.1).
+        // A first-time visitor with an admin or poster claim from the IdP is
+        // either a misconfiguration or an attempted privilege escalation.
+        if idp_tier != user::ROLE_COMMENTER {
+            anyhow::bail!(
+                "Privileged accounts must be pre-provisioned by an administrator before signing in."
+            );
+        }
+
+        let new_user_id = Uuid::new_v4();
         let random_hash = format!("oidc_user_{}", Uuid::new_v4());
         let new_user = user::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            email: Set(email.to_string()),
+            id: Set(new_user_id),
+            email: Set(idp_email.to_string()),
             password_hash: Set(random_hash),
             email_verified: Set(email_verified),
             verification_token: Set(None),
@@ -704,17 +980,27 @@ impl UserAuthBackend {
             force_password_change: Set(false),
             password_reset_token: Set(None),
             password_reset_token_expires_at: Set(None),
-            role: Set(role.to_string()),
+            role: Set(user::ROLE_COMMENTER.to_string()),
             oidc_sub: Set(Some(sub.to_string())),
             display_name: Set(display_name.map(|s| s.to_string())),
             avatar_url: Set(None),
             last_login_at: Set(Some(Utc::now().into())),
-            invite_code_id: Set(None),
+            invite_code_id: Set(Some(invite.id)),
+            activated_at: Set(Some(Utc::now().into())),
         };
         let result = new_user.insert(&self.db).await?;
-        tracing::info!("Created new OIDC user: {} role={}", email, role);
+
+        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
+            tracing::warn!(
+                "Failed to mark invite {} used by new commenter {}: {}",
+                invite.id, new_user_id, e
+            );
+        }
+
+        tracing::info!("Created new OIDC commenter via invite: {}", idp_email);
         Ok(result)
     }
+
 
     /// Build a `UserAuth` session principal from a user row. `oidc_login=true`
     /// marks the principal as MFA-verified up front because Keycloak owns MFA
@@ -737,6 +1023,38 @@ impl UserAuthBackend {
             session_hash,
         }
     }
+}
+
+// ==================== Drift / activation validators ====================
+
+/// Reject login when a row has not been activated via invite acceptance.
+fn ensure_activated(row: &user::Model) -> Result<()> {
+    if row.activated_at.is_none() {
+        anyhow::bail!("Account not yet activated. Please use your invite link to set it up.");
+    }
+    Ok(())
+}
+
+/// Reject login when the IdP-claimed tier disagrees with the DB-authoritative
+/// role. Drift in either direction is a security event. admins reconcile
+/// manually, never both at once.
+fn ensure_role_match(idp_tier: &str, db_role: &str) -> Result<()> {
+    if idp_tier != db_role {
+        anyhow::bail!(
+            "OIDC role does not match account role (idp={}, db={})",
+            idp_tier, db_role
+        );
+    }
+    Ok(())
+}
+
+/// Reject login when the IdP-attested email differs from the DB email. Email
+/// changes in the IdP require an admin to re-align the DB row first.
+fn ensure_email_match(idp_email: &str, db_email: &str) -> Result<()> {
+    if idp_email != db_email {
+        anyhow::bail!("OIDC email does not match account email");
+    }
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -781,7 +1099,7 @@ impl AuthnBackend for UserAuthBackend {
                     sub,
                     email,
                     email_verified,
-                    role,
+                    idp_tier,
                     display_name,
                     invite_code,
                 } => {
@@ -790,7 +1108,7 @@ impl AuthnBackend for UserAuthBackend {
                             &sub,
                             &email,
                             email_verified,
-                            &role,
+                            &idp_tier,
                             display_name.as_deref(),
                             invite_code.as_deref(),
                         )
@@ -831,11 +1149,17 @@ pub enum Credentials {
         email: String,
         password: String,
     },
+    /// OIDC-issued credential. `idp_tier` is the IdP's effective tier resolved
+    /// by `oidc::resolve_idp_tier`. used by the backend to validate against
+    /// the DB row's role. The IdP's claim is never used to *assign* role:
+    /// brand-new rows are always commenters (admins/posters must be pre-
+    /// provisioned), and existing rows keep whatever role is in the DB. The
+    /// tier is here so the backend can fail closed on drift.
     Oidc {
         sub: String,
         email: String,
         email_verified: bool,
-        role: String,
+        idp_tier: String,
         display_name: Option<String>,
         invite_code: Option<String>,
     },

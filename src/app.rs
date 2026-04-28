@@ -23,6 +23,7 @@ use crate::oidc::{OidcConfig, OidcService};
 use crate::s3::S3Service;
 use crate::security_callbacks::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
+use crate::invites;
 use crate::{contact, subscribe};
 use anyhow::Result;
 use axum::extract::{Path, State};
@@ -421,6 +422,33 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
+    // Invite-code admin routes (admin-on-others, gated on require_admin).
+    let invite_state = invites::InviteState {
+        db: state.db.clone(),
+        auth_backend: admin_backend.clone(),
+        oidc_enabled,
+    };
+    let admin_invite_routes = invites::admin_invite_routes()
+        .with_state(invite_state.clone())
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+
+    // Public invite endpoints (no auth required, used by the social SPA
+    // pre-login). CSRF-protected on the POSTs since they change cookie state.
+    let public_invite_routes = invites::public_invite_routes()
+        .with_state(invite_state.clone())
+        .layer(from_fn(csrf_middleware))
+        .layer(session_layer.clone());
+
+    // Password-mode invite acceptance (auth-tier rate-limited, session-
+    // establishing). Goes alongside the other auth-tier endpoints.
+    let auth_invite_routes = invites::auth_invite_routes(state.auth_rate_limiter.clone())
+        .with_state(invite_state)
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+
     // Settings management routes
     let settings_state = admin::settings::SettingsState {
         settings: state.settings.clone(),
@@ -470,6 +498,9 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(access_code_routes)
         .merge(access_log_routes)
         .merge(admin_user_routes)
+        .merge(admin_invite_routes)
+        .merge(public_invite_routes)
+        .merge(auth_invite_routes)
         .merge(settings_routes)
         .merge(contact_routes)
         .merge(subscribe_routes)

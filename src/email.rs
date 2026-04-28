@@ -57,6 +57,111 @@ impl EmailService {
         Ok(Self::with_client(client, settings, site_url))
     }
 
+    /// Send an invite email when an admin pre-provisions a user via
+    /// `POST /api/admin/users`. The body includes the `/invite/{code}` link
+    /// the recipient clicks to activate their account (either by signing in
+    /// via SSO when OIDC is enabled, or by setting a password when not).
+    pub async fn send_invite_email(
+        &self,
+        to_email: &str,
+        invite_code: &str,
+        role: &str,
+        inviter_email: &str,
+    ) -> Result<()> {
+        let site_name = self.settings.get_site_name().await?;
+        let from_email = self.settings.get_from_email().await?;
+
+        let invite_url = format!("{}/invite/{}", self.site_url, invite_code);
+        let role_label = match role {
+            crate::entities::user::ROLE_ADMINISTRATOR => "an administrator",
+            crate::entities::user::ROLE_POSTER => "a poster",
+            _ => "a member",
+        };
+
+        let subject = format!("You're invited to {}", site_name);
+        let html_body = format!(
+            r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>You're invited</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #f4f4f4; border-radius: 5px; padding: 20px; margin-bottom: 20px;">
+        <h1 style="color: #2c3e50; margin-top: 0;">Welcome to {}</h1>
+        <p>{} has invited you to join {} as {}. Click the button below to activate your account.</p>
+    </div>
+
+    <div style="background-color: white; border: 1px solid #ddd; border-radius: 5px; padding: 20px; margin-bottom: 20px;">
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{}"
+               style="background-color: #3498db; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                Accept Invite
+            </a>
+        </div>
+        <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
+        <p style="word-break: break-all; color: #3498db; font-size: 14px;">{}</p>
+    </div>
+
+    <div style="color: #666; font-size: 12px; text-align: center;">
+        <p>This invite link will expire in 7 days.</p>
+        <p>If you weren't expecting this invitation, you can safely ignore this email.</p>
+    </div>
+</body>
+</html>
+"#,
+            site_name, inviter_email, site_name, role_label, invite_url, invite_url
+        );
+
+        let text_body = format!(
+            r#"
+You're invited to {}
+
+{} has invited you to join {} as {}.
+
+Activate your account: {}
+
+This invite link will expire in 7 days.
+
+If you weren't expecting this invitation, you can safely ignore this email.
+"#,
+            site_name, inviter_email, site_name, role_label, invite_url
+        );
+
+        let destination = Destination::builder().to_addresses(to_email).build();
+        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
+        let html_content = Content::builder()
+            .data(html_body)
+            .charset("UTF-8")
+            .build()?;
+        let text_content = Content::builder()
+            .data(text_body)
+            .charset("UTF-8")
+            .build()?;
+        let body = Body::builder()
+            .html(html_content)
+            .text(text_content)
+            .build();
+        let message = Message::builder()
+            .subject(subject_content)
+            .body(body)
+            .build();
+        let email_content = EmailContent::builder().simple(message).build();
+
+        self.client
+            .send_email()
+            .from_email_address(&from_email)
+            .destination(destination)
+            .content(email_content)
+            .send()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send invite email: {}", e))?;
+
+        tracing::info!("Invite email sent to {} (role={})", to_email, role);
+        Ok(())
+    }
+
     pub async fn send_verification_email(
         &self,
         to_email: &str,

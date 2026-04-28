@@ -101,11 +101,11 @@ function Users() {
     }
   }
 
-  async function handleCreateUser({ email, password, role }) {
+  async function handleCreateUser({ email, role }) {
     const response = await fetchApi("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, role }),
+      body: JSON.stringify({ email, role }),
     });
 
     if (!response.ok) {
@@ -113,9 +113,15 @@ function Users() {
       throw new Error(data.error || "Failed to create user");
     }
 
-    setSuccess(`User created. Verification email sent to ${email}.`);
-    setShowCreateModal(false);
+    // Backend emails the invite to the recipient automatically and returns
+    // { user, invite } so we can also surface the link as a fallback (e.g.
+    // when SES is misconfigured the admin can hand-deliver it).
+    const data = await response.json();
+    const inviteUrl = `${window.location.origin}/invite/${data.invite.code}`;
+    setSuccess(`Invite emailed to ${email}.`);
     await fetchUsers(currentPage);
+    setShowCreateModal(false);
+    return { email, inviteUrl };
   }
 
   const columns = [
@@ -548,17 +554,21 @@ function EditUserModal({ user, onSave, onClose }) {
 
 function CreateUserModal({ onSubmit, onClose }) {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [role, setRole] = useState("poster");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [issuedInvite, setIssuedInvite] = useState(null);
+  const [copied, setCopied] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setSubmitting(true);
     try {
-      await onSubmit({ email, password, role });
+      const result = await onSubmit({ email, role });
+      if (result?.inviteUrl) {
+        setIssuedInvite(result);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -566,80 +576,115 @@ function CreateUserModal({ onSubmit, onClose }) {
     }
   }
 
+  async function handleCopy() {
+    if (!issuedInvite?.inviteUrl) return;
+    try {
+      await navigator.clipboard.writeText(issuedInvite.inviteUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      setError(`Could not copy: ${err.message}`);
+    }
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Create User</h2>
+          <h2>{issuedInvite ? "Invite Link Issued" : "Create User"}</h2>
           <button className="modal-close" onClick={onClose}>
             &times;
           </button>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body">
-            {error && <div className="alert alert-error">{error}</div>}
 
-            <div className="form-group">
-              <label htmlFor="create-email">Email</label>
-              <input
-                id="create-email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="user@example.com"
-              />
+        {issuedInvite ? (
+          <div>
+            <div className="modal-body">
+              <p>
+                Account for <strong>{issuedInvite.email}</strong> is created
+                and an invite email has been sent. The link expires in 7 days.
+              </p>
+              <div className="form-group">
+                <label htmlFor="invite-link">
+                  Invite link <span style={{ fontWeight: "normal", color: "#666" }}>(fallback if email doesn't arrive)</span>
+                </label>
+                <input
+                  id="invite-link"
+                  type="text"
+                  readOnly
+                  value={issuedInvite.inviteUrl}
+                  onFocus={(e) => e.target.select()}
+                />
+              </div>
             </div>
-
-            <div className="form-group">
-              <label htmlFor="create-password">Initial password</label>
-              <input
-                id="create-password"
-                type="password"
-                required
-                minLength={12}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min 12 chars; user will be forced to change on first login if set later"
-              />
-              <small className="form-hint">
-                The user will receive a verification email with a 24-hour link.
-              </small>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="create-role">Role</label>
-              <select
-                id="create-role"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleCopy}
               >
-                {ROLES.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-              <small className="form-hint">
-                Commenters normally onboard via invite — manually creating one
-                here is only useful when OIDC is disabled.
-              </small>
+                {copied ? "Copied!" : "Copy Link"}
+              </button>
+              <button type="button" className="btn-primary" onClick={onClose}>
+                Done
+              </button>
             </div>
           </div>
-          <div className="modal-footer">
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={onClose}
-              disabled={submitting}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="btn-primary" disabled={submitting}>
-              {submitting ? "Creating..." : "Create User"}
-            </button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="modal-body">
+              {error && <div className="alert alert-error">{error}</div>}
+
+              <div className="form-group">
+                <label htmlFor="create-email">Email</label>
+                <input
+                  id="create-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="user@example.com"
+                />
+                <small className="form-hint">
+                  The user will receive an invite link bound to this email.
+                  They set their own password (or sign in via SSO).
+                </small>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="create-role">Role</label>
+                <select
+                  id="create-role"
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onClose}
+                disabled={submitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={submitting}
+              >
+                {submitting ? "Creating..." : "Create User"}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

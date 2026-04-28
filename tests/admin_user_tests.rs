@@ -21,7 +21,7 @@ use common::{
 };
 
 use axum::http::StatusCode;
-use sea_orm::{ActiveModelTrait, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
 // ==================== List admin users ====================
@@ -337,4 +337,101 @@ async fn test_resend_verification_self_returns_401(pool: sqlx::PgPool) {
         .as_str()
         .unwrap()
         .contains("Cannot resend verification email to yourself"));
+}
+
+// ==================== Create admin user (Phase 2h) ====================
+
+#[sqlx::test(migrations = false)]
+async fn test_create_user_returns_user_and_invite(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let actor_email = test_email("au-create-actor");
+    create_verified_admin(&backend, &actor_email, TEST_PASSWORD).await;
+    login_as(&server, &actor_email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let target_email = test_email("au-create-target");
+    let response = server
+        .post("/api/admin/users")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({
+            "email": target_email,
+            "role": "poster",
+        }))
+        .await;
+
+    assert_eq!(
+        response.status_code(),
+        StatusCode::CREATED,
+        "expected 201, got {} body: {}",
+        response.status_code(),
+        response.text()
+    );
+
+    let json: serde_json::Value = response.json();
+
+    // User shape: created with role=poster, no oidc_sub, inert (activated_at NULL).
+    assert_eq!(json["user"]["email"].as_str().unwrap(), target_email);
+    assert_eq!(json["user"]["role"].as_str().unwrap(), "poster");
+    assert_eq!(json["user"]["oidc_linked"].as_bool(), Some(false));
+
+    // Invite shape: tied to user's email via email_hint, status=active, code present.
+    let invite_code = json["invite"]["code"].as_str().expect("invite.code");
+    assert!(!invite_code.is_empty());
+    assert_eq!(
+        json["invite"]["email_hint"].as_str().unwrap(),
+        target_email
+    );
+    assert_eq!(json["invite"]["status"].as_str().unwrap(), "active");
+
+    // DB row is inert.
+    let row = riposte_social::entities::User::find()
+        .filter(user::Column::Email.eq(&target_email))
+        .one(&db)
+        .await
+        .unwrap()
+        .expect("user row");
+    assert!(row.activated_at.is_none(), "row should be inert until invite-bound");
+    assert!(row.oidc_sub.is_none());
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_create_user_rejects_invalid_role(pool: sqlx::PgPool) {
+    let (server, backend, _db) = build_test_server(pool).await;
+    let actor_email = test_email("au-create-badrole");
+    create_verified_admin(&backend, &actor_email, TEST_PASSWORD).await;
+    login_as(&server, &actor_email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .post("/api/admin/users")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({
+            "email": test_email("au-create-bad-target"),
+            "role": "superadmin",
+        }))
+        .await;
+
+    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_create_user_duplicate_email_returns_400(pool: sqlx::PgPool) {
+    let (server, backend, _db) = build_test_server(pool).await;
+    let actor_email = test_email("au-create-dup-actor");
+    let dup_email = test_email("au-create-dup-target");
+    create_verified_admin(&backend, &actor_email, TEST_PASSWORD).await;
+    create_verified_admin(&backend, &dup_email, TEST_PASSWORD).await;
+    login_as(&server, &actor_email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .post("/api/admin/users")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({
+            "email": dup_email,
+            "role": "poster",
+        }))
+        .await;
+
+    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
 }

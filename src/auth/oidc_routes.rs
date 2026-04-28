@@ -19,9 +19,10 @@ use crate::errors::{AppError, AppResult};
 use crate::oidc::OidcService;
 use axum::{
     extract::{Query, State},
-    response::Redirect,
+    response::{IntoResponse, Redirect, Response},
 };
 use axum_login::AuthSession;
+use axum_extra::extract::CookieJar;
 use openidconnect::{Nonce, PkceCodeVerifier};
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
@@ -30,7 +31,9 @@ use tower_sessions::Session;
 const OIDC_STATE_KEY: &str = "oidc_csrf_state";
 const OIDC_NONCE_KEY: &str = "oidc_nonce";
 const OIDC_PKCE_VERIFIER_KEY: &str = "oidc_pkce_verifier";
+const PENDING_INVITE_SESSION_KEY: &str = "pending_invite_code";
 use crate::admin::MFA_VERIFIED_KEY;
+use crate::invites::{remove_pending_invite_cookie, PENDING_INVITE_COOKIE};
 
 type OidcAuthSession = AuthSession<UserAuthBackend>;
 
@@ -41,8 +44,16 @@ pub struct OidcState {
 }
 
 /// GET /api/auth/oidc/login
-/// Redirects user to Keycloak authorization endpoint.
-pub async fn oidc_login(State(state): State<OidcState>, session: Session) -> AppResult<Redirect> {
+/// Redirects user to Keycloak authorization endpoint. If a `pending_invite`
+/// cookie is present, its value is stashed in the tower-session alongside the
+/// PKCE state so the callback can bind the new commenter to the right invite.
+/// We only store the raw code here; full validation happens at callback time
+/// to catch revocations/expiry that occur during the IdP round-trip.
+pub async fn oidc_login(
+    State(state): State<OidcState>,
+    session: Session,
+    cookies: CookieJar,
+) -> AppResult<Redirect> {
     let (auth_url, csrf_token, nonce, pkce_verifier) = state
         .oidc_service
         .authorization_url()
@@ -60,6 +71,15 @@ pub async fn oidc_login(State(state): State<OidcState>, session: Session) -> App
         .insert(OIDC_PKCE_VERIFIER_KEY, pkce_verifier.secret().clone())
         .await
         .map_err(|e| AppError::AuthError(format!("Session error: {}", e)))?;
+
+    if let Some(cookie) = cookies.get(PENDING_INVITE_COOKIE) {
+        session
+            .insert(PENDING_INVITE_SESSION_KEY, cookie.value().to_string())
+            .await
+            .map_err(|e| AppError::AuthError(format!("Session error: {}", e)))?;
+    } else {
+        let _ = session.remove::<String>(PENDING_INVITE_SESSION_KEY).await;
+    }
 
     Ok(Redirect::temporary(auth_url.as_str()))
 }
@@ -80,8 +100,9 @@ pub async fn oidc_callback(
     State(state): State<OidcState>,
     auth_session: OidcAuthSession,
     session: Session,
+    cookies: CookieJar,
     Query(params): Query<OidcCallbackParams>,
-) -> AppResult<Redirect> {
+) -> AppResult<Response> {
     // Validate CSRF state
     let stored_state: String = session
         .get(OIDC_STATE_KEY)
@@ -108,6 +129,13 @@ pub async fn oidc_callback(
         .ok_or_else(|| AppError::AuthError("Missing OIDC PKCE verifier".to_string()))?;
     let pkce_verifier = PkceCodeVerifier::new(pkce_secret);
 
+    // Pull the pending invite stashed by oidc_login, if any. Removed from the
+    // session unconditionally. a stale entry must not bleed into a later login.
+    let pending_invite: Option<String> = session
+        .remove(PENDING_INVITE_SESSION_KEY)
+        .await
+        .map_err(|e| AppError::AuthError(format!("Session error: {}", e)))?;
+
     // Clean up OIDC session data
     let _ = session.remove::<String>(OIDC_STATE_KEY).await;
     let _ = session.remove::<String>(OIDC_NONCE_KEY).await;
@@ -120,27 +148,18 @@ pub async fn oidc_callback(
         .await
         .map_err(|e| AppError::AuthError(format!("OIDC token exchange failed: {}", e)))?;
 
-    // Map IdP roles to an app role. OIDC logins without the admin claim are
-    // provisioned as commenters; Phase 2 will gate this on invite acceptance,
-    // but for now any successful OIDC login becomes a commenter if not flagged
-    // as admin.
-    let app_role = if user_info
-        .roles
-        .iter()
-        .any(|r| r == &state.oidc_service.config.admin_role)
-    {
-        user::ROLE_ADMINISTRATOR
-    } else {
-        user::ROLE_COMMENTER
-    };
+    // Resolve the IdP's effective tier from its role claims (most-privileged
+    // wins). The backend uses this purely to validate against the DB-
+    // authoritative role; it never uses the claim to assign role.
+    let idp_tier = crate::oidc::resolve_idp_tier(&user_info.roles, &state.oidc_service.config);
 
     let creds = Credentials::Oidc {
         sub: user_info.sub,
         email: user_info.email.clone(),
         email_verified: user_info.email_verified,
-        role: app_role.to_string(),
+        idp_tier: idp_tier.to_string(),
         display_name: user_info.display_name,
-        invite_code: None, // Phase 2 wires this from the pending_invite cookie.
+        invite_code: pending_invite,
     };
 
     let user_auth = auth_session
@@ -163,16 +182,21 @@ pub async fn oidc_callback(
     tracing::info!(
         "OIDC login successful for user: {} role={}",
         user_info.email,
-        app_role
+        user_auth.role
     );
 
     // Administrators land in the admin panel; posters and commenters land on
     // the social feed where they spend most of their time.
-    let redirect_path = if app_role == user::ROLE_ADMINISTRATOR {
+    let redirect_path = if user_auth.role == user::ROLE_ADMINISTRATOR {
         "/admin"
     } else {
         "/"
     };
 
-    Ok(Redirect::temporary(redirect_path))
+    // Always strip the pending_invite cookie on success. whether it was
+    // consumed (commenter onboarded) or ignored (admin/poster login). Keeps
+    // the splash from re-surfacing for an already-bound user.
+    let cleared = remove_pending_invite_cookie(cookies);
+
+    Ok((cleared, Redirect::temporary(redirect_path)).into_response())
 }

@@ -40,6 +40,8 @@ mod m20260413_000001_add_subscriber_index_and_access_code_fk;
 mod m20260414_000001_seed_feature_gate_settings;
 mod m20260424_000001_rename_admin_users_to_users;
 mod m20260425_000001_drop_user_type_column;
+mod m20260426_000001_create_invite_codes;
+mod m20260427_000001_add_activated_at;
 
 pub struct Migrator;
 
@@ -71,6 +73,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260414_000001_seed_feature_gate_settings::Migration),
             Box::new(m20260424_000001_rename_admin_users_to_users::Migration),
             Box::new(m20260425_000001_drop_user_type_column::Migration),
+            Box::new(m20260426_000001_create_invite_codes::Migration),
+            Box::new(m20260427_000001_add_activated_at::Migration),
         ]
     }
 }

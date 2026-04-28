@@ -15,12 +15,14 @@
  */
 pub mod access_code;
 pub mod access_log;
+pub mod invite_code;
 pub mod setting;
 pub mod subscriber;
 pub mod user;
 
 pub use access_code::Entity as AccessCode;
 pub use access_log::Entity as AccessLog;
+pub use invite_code::Entity as InviteCode;
 pub use setting::Entity as Setting;
 pub use subscriber::Entity as Subscriber;
 pub use user::Entity as User;

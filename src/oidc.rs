@@ -77,6 +77,7 @@ pub struct OidcConfig {
     pub scopes: Vec<String>,
     pub role_claim: String,
     pub admin_role: String,
+    pub poster_role: String,
 }
 
 impl OidcConfig {
@@ -97,7 +98,23 @@ impl OidcConfig {
             role_claim: env::var("OIDC_ROLE_CLAIM")
                 .unwrap_or_else(|_| "realm_access.roles".to_string()),
             admin_role: env::var("OIDC_ADMIN_ROLE").unwrap_or_else(|_| "admin".to_string()),
+            poster_role: env::var("OIDC_POSTER_ROLE").unwrap_or_else(|_| "poster".to_string()),
         }
+    }
+}
+
+/// Resolve the IdP-claimed roles to our app's tier with most-privileged-wins.
+/// This is used by the OIDC callback to surface a single `idp_tier` value into
+/// `Credentials::Oidc` for drift validation against the DB role. It is never
+/// used to assign role. only to validate.
+pub fn resolve_idp_tier(roles: &[String], cfg: &OidcConfig) -> &'static str {
+    use crate::entities::user;
+    if roles.iter().any(|r| r == &cfg.admin_role) {
+        user::ROLE_ADMINISTRATOR
+    } else if roles.iter().any(|r| r == &cfg.poster_role) {
+        user::ROLE_POSTER
+    } else {
+        user::ROLE_COMMENTER
     }
 }
 

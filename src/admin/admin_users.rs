@@ -29,7 +29,8 @@ use axum::{
 };
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, DatabaseConnection, EntityTrait, Order, PaginatorTrait, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, Set, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -314,19 +315,29 @@ async fn resend_verification_email(
 #[derive(Deserialize)]
 pub struct CreateUserRequest {
     email: String,
-    password: String,
     /// One of: `administrator`, `poster`, `commenter`.
     role: String,
 }
 
-/// POST /api/admin/users — admin-only endpoint to create a new account in any
-/// tier. The created user receives a verification email with a 24-hour token,
-/// the same flow used by self-registration.
+#[derive(Serialize)]
+pub struct CreateUserResponse {
+    user: AdminUserResponse,
+    invite: crate::invites::InviteResponse,
+}
+
+/// POST /api/admin/users. admin-only endpoint to pre-provision a new account.
+/// The row is created in an inert state (`activated_at = NULL`, placeholder
+/// `password_hash`) and an invite_code is auto-issued with `email_hint = email`.
+/// The admin shares the returned invite link with the recipient, who completes
+/// activation via `/invite/{code}` (OIDC sign-in or password-set form).
+///
+/// The admin never types the user's password; this avoids the operational
+/// hazard of an admin briefly knowing another user's credential.
 async fn create_admin_user(
     State(state): State<AdminUserState>,
-    Extension(_current_user): Extension<crate::admin::UserAuth>,
+    Extension(current_user): Extension<crate::admin::UserAuth>,
     Json(req): Json<CreateUserRequest>,
-) -> AppResult<(StatusCode, Json<AdminUserResponse>)> {
+) -> AppResult<(StatusCode, Json<CreateUserResponse>)> {
     let valid_roles = [
         user::ROLE_ADMINISTRATOR,
         user::ROLE_POSTER,
@@ -339,27 +350,88 @@ async fn create_admin_user(
         )));
     }
 
-    if let Err(errors) = PasswordValidator::validate(&req.password, &req.email) {
-        return Err(AppError::ValidationError(errors.join("; ")));
+    let existing = User::find()
+        .filter(user::Column::Email.eq(&req.email))
+        .one(&state.db)
+        .await?;
+    if existing.is_some() {
+        return Err(AppError::ValidationError(
+            "User with this email already exists".to_string(),
+        ));
     }
 
-    let (created, verification_token) = state
-        .auth_backend
-        .create_user(&req.email, &req.password, &req.role)
-        .await
-        .map_err(|e| AppError::AuthError(e.to_string()))?;
+    // Issue the invite first, then create the user with `invite_code_id`
+    // pre-set. Wrap in a transaction so we never end up with a user row
+    // pointing at an invite that didn't make it (or vice versa). The user
+    // row references `invite_code_id` directly so bind-path lookups can use
+    // it as the lookup key. only the issued invite can activate this row.
+    let txn = state.db.begin().await?;
 
+    let (invite, invite_plaintext) =
+        crate::invites::issue_invite_for_user(&txn, current_user.id, Some(req.email.clone()))
+            .await
+            .map_err(|e| AppError::AuthError(e.to_string()))?;
+
+    // Placeholder hash. the row is inert until invite acceptance, at which
+    // point either Flow A.1 (OIDC bind) rotates this to a non-usable OIDC
+    // marker, or Flow C.1 (password bind) replaces this with the user's
+    // chosen argon2 hash. The activated_at gate prevents login regardless.
+    let placeholder_hash = format!("invite_pending_{}", Uuid::new_v4());
+    let new_user = user::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        email: Set(req.email.clone()),
+        password_hash: Set(placeholder_hash),
+        email_verified: Set(false),
+        verification_token: Set(None),
+        verification_token_expires_at: Set(None),
+        totp_secret: Set(None),
+        totp_enabled: Set(Some(false)),
+        totp_enabled_at: Set(None),
+        mfa_failed_attempts: Set(Some(0)),
+        mfa_locked_until: Set(None),
+        active: Set(true),
+        deactivated_at: Set(None),
+        force_password_change: Set(false),
+        password_reset_token: Set(None),
+        password_reset_token_expires_at: Set(None),
+        role: Set(req.role.clone()),
+        oidc_sub: Set(None),
+        display_name: Set(None),
+        avatar_url: Set(None),
+        last_login_at: Set(None),
+        invite_code_id: Set(Some(invite.id)),
+        activated_at: Set(None),
+        ..Default::default()
+    };
+    let created = new_user.insert(&txn).await?;
+
+    txn.commit().await?;
+
+    // Best-effort email delivery. If SES is misconfigured or the recipient's
+    // address is invalid we still return the invite link in the response so
+    // the admin can share it manually.
     if let Err(e) = state
         .email_service
-        .send_verification_email(&created.email, &verification_token)
+        .send_invite_email(
+            &created.email,
+            &invite_plaintext,
+            &created.role,
+            &current_user.email,
+        )
         .await
     {
         tracing::warn!(
-            "Failed to send verification email to {}: {}",
+            "Failed to email invite for {} (admin can copy link manually): {}",
             created.email,
             e
         );
     }
 
-    Ok((StatusCode::CREATED, Json(created.into())))
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateUserResponse {
+            user: created.into(),
+            invite: crate::invites::InviteResponse::issued(invite, invite_plaintext),
+        }),
+    ))
 }

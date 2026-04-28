@@ -78,6 +78,15 @@ impl OidcMockUser {
         self.roles_in_access_token = Some(roles.into_iter().map(String::from).collect());
         self
     }
+
+    /// Build a mock user with an explicit `sub`. Used by drift tests where
+    /// the test wants to insert an active row with a known oidc_sub and have
+    /// the mock IdP attest the same sub, so Flow B (find_by_oidc_sub) matches.
+    pub fn with_sub(email: impl Into<String>, roles: Vec<&str>, sub: impl Into<String>) -> Self {
+        let mut u = Self::new(email, roles);
+        u.subject = sub.into();
+        u
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -162,6 +171,7 @@ impl OidcMockServer {
             scopes: vec!["openid".to_string(), "profile".to_string(), "email".to_string()],
             role_claim: role_claim.to_string(),
             admin_role: "admin".to_string(),
+            poster_role: "poster".to_string(),
         };
         OidcService::new(config).await.expect("build OidcService")
     }

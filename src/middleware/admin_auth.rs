@@ -17,11 +17,11 @@
 //! `UserAuthBackend`.
 //!
 //! Layered usage:
-//! - `require_authenticated` — apply to any route that needs a logged-in user
+//! - `require_authenticated`. apply to any route that needs a logged-in user
 //!   (commenter, poster, or administrator). Inserts `UserAuth` into request
 //!   extensions and `UserInfo` into response extensions for access logging.
 //! - `require_admin`, `require_admin_or_poster`, or the parameterized
-//!   `require_role` — apply *after* `require_authenticated` to gate by role.
+//!   `require_role`. apply *after* `require_authenticated` to gate by role.
 use crate::admin::{UserAuth, UserAuthBackend, MFA_VERIFIED_KEY};
 use crate::entities::user::{ROLE_ADMINISTRATOR, ROLE_POSTER};
 use crate::middleware::UserInfo;

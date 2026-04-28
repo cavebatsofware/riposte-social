@@ -14,6 +14,7 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use sea_orm::entity::prelude::*;
+use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
 // Role values stored in `role` column. `viewer` is retired.
@@ -51,13 +52,17 @@ pub struct Model {
     pub password_reset_token_expires_at: Option<DateTimeWithTimeZone>,
     // Role-based access control
     pub role: String,
-    // Unified user model — added in Phase 1 of the MVP plan.
+    // Unified user model. added in Phase 1 of the MVP plan.
     pub oidc_sub: Option<String>,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub last_login_at: Option<DateTimeWithTimeZone>,
     // FK to invite_code.id. Constraint added in Phase 2 when invite_code exists.
     pub invite_code_id: Option<Uuid>,
+    /// Set when the row's invite has been accepted (or, for the bootstrap
+    /// admin, at creation time). NULL means the row is inert. no login of
+    /// any kind can establish a session until activation. See Phase 2h.
+    pub activated_at: Option<DateTimeWithTimeZone>,
 }
 
 impl Model {
@@ -76,9 +81,29 @@ impl Model {
     pub fn is_oidc_linked(&self) -> bool {
         self.oidc_sub.is_some()
     }
+
+    pub fn is_activated(&self) -> bool {
+        self.activated_at.is_some()
+    }
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 
-impl ActiveModelBehavior for ActiveModel {}
+#[async_trait::async_trait]
+impl ActiveModelBehavior for ActiveModel {
+    /// Auto-manage `created_at` (set once on insert) and `updated_at` (set on
+    /// every insert and update). Callers no longer need to stamp these by
+    /// hand. explicit `Set(...)` values still work but are redundant.
+    async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
+    where
+        C: ConnectionTrait,
+    {
+        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
+        if insert {
+            self.created_at = Set(now);
+        }
+        self.updated_at = Set(now);
+        Ok(self)
+    }
+}
