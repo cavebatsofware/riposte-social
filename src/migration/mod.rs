@@ -42,6 +42,8 @@ mod m20260424_000001_rename_admin_users_to_users;
 mod m20260425_000001_drop_user_type_column;
 mod m20260426_000001_create_invite_codes;
 mod m20260427_000001_add_activated_at;
+mod m20260429_000001_create_posts;
+mod m20260429_000002_create_post_media;
 
 pub struct Migrator;
 
@@ -75,6 +77,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260425_000001_drop_user_type_column::Migration),
             Box::new(m20260426_000001_create_invite_codes::Migration),
             Box::new(m20260427_000001_add_activated_at::Migration),
+            Box::new(m20260429_000001_create_posts::Migration),
+            Box::new(m20260429_000002_create_post_media::Migration),
         ]
     }
 }

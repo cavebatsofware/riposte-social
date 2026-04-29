@@ -18,7 +18,8 @@ use crate::auth;
 use crate::email::EmailService;
 use crate::entities::{access_code, AccessCode};
 use crate::errors::{AppError, AppResult};
-use crate::middleware::{csrf_middleware, require_authenticated, require_admin};
+use crate::middleware::{csrf_middleware, require_authenticated, require_admin, require_admin_or_poster};
+use crate::posts;
 use crate::oidc::{OidcConfig, OidcService};
 use crate::s3::S3Service;
 use crate::security_callbacks::AppRateLimitCallbacks;
@@ -449,6 +450,20 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
+    // Posts: write endpoints require authentication + admin/poster role; the
+    // PATCH/DELETE handlers additionally check author-or-admin. Read
+    // endpoints are public; visibility is filtered against the caller's tier.
+    let posts_state = posts::routes::PostsState { db: state.db.clone() };
+    let post_write_routes = posts::routes::post_write_routes()
+        .with_state(posts_state.clone())
+        .layer(from_fn(require_admin_or_poster))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    let post_read_routes = posts::routes::post_read_routes()
+        .with_state(posts_state)
+        .layer(auth_layer.clone());
+
     // Settings management routes
     let settings_state = admin::settings::SettingsState {
         settings: state.settings.clone(),
@@ -501,6 +516,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(admin_invite_routes)
         .merge(public_invite_routes)
         .merge(auth_invite_routes)
+        .merge(post_write_routes)
+        .merge(post_read_routes)
         .merge(settings_routes)
         .merge(contact_routes)
         .merge(subscribe_routes)
