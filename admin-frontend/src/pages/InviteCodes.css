@@ -1,0 +1,12 @@
+.invite-codes-page .invites-stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .invite-codes-page .invites-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
