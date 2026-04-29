@@ -52,7 +52,7 @@ pub struct Model {
     pub password_reset_token_expires_at: Option<DateTimeWithTimeZone>,
     // Role-based access control
     pub role: String,
-    // Unified user model. added in Phase 1 of the MVP plan.
+    // Unified user model, added in Phase 1 of the MVP plan.
     pub oidc_sub: Option<String>,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
@@ -60,7 +60,7 @@ pub struct Model {
     // FK to invite_code.id. Constraint added in Phase 2 when invite_code exists.
     pub invite_code_id: Option<Uuid>,
     /// Set when the row's invite has been accepted (or, for the bootstrap
-    /// admin, at creation time). NULL means the row is inert. no login of
+    /// admin, at creation time). NULL means the row is inert; no login of
     /// any kind can establish a session until activation. See Phase 2h.
     pub activated_at: Option<DateTimeWithTimeZone>,
 }
@@ -94,7 +94,7 @@ pub enum Relation {}
 impl ActiveModelBehavior for ActiveModel {
     /// Auto-manage `created_at` (set once on insert) and `updated_at` (set on
     /// every insert and update). Callers no longer need to stamp these by
-    /// hand. explicit `Set(...)` values still work but are redundant.
+    /// hand; explicit `Set(...)` values still work but are redundant.
     async fn before_save<C>(mut self, _db: &C, insert: bool) -> Result<Self, DbErr>
     where
         C: ConnectionTrait,

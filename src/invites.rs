@@ -75,6 +75,7 @@ pub fn public_invite_routes() -> Router<InviteState> {
     Router::new()
         .route("/invite/{code}", get(serve_invite_landing))
         .route("/api/invites/current", get(current_invite))
+        .route("/api/invites/confirm", post(confirm_invite))
         .route("/api/auth/logout/invite", post(clear_pending_invite))
 }
 
@@ -93,7 +94,7 @@ pub fn auth_invite_routes(
 
 // ==================== Token generation ====================
 
-/// 32-char alphanumeric invite code. ~190 bits of entropy. well past the
+/// 32-char alphanumeric invite code with ~190 bits of entropy, well past the
 /// guessing threshold even with parallel attackers, and short enough to fit
 /// neatly in a URL or chat message.
 fn generate_invite_code() -> String {
@@ -123,7 +124,7 @@ fn hash_invite_code(plaintext: &str) -> String {
 
 /// Returns the live invite matching the supplied plaintext `code`, or `None`
 /// if it doesn't exist, has been revoked, has been used, or has expired.
-/// Callers don't get to distinguish these cases at the API surface. knowing
+/// Callers don't get to distinguish these cases at the API surface; knowing
 /// *why* a code is invalid leaks information about prior issuance.
 ///
 /// The DB stores `hash_invite_code(plaintext)` in the `code` column rather
@@ -348,7 +349,7 @@ async fn revoke_invite(
         .await?
         .ok_or_else(|| AppError::AuthError("Invite not found".to_string()))?;
 
-    // If already used, revocation is a no-op. the commenter is already onboarded.
+    // If already used, revocation is a no-op; the commenter is already onboarded.
     if row.used_at.is_some() {
         return Ok(Json(row.into()));
     }
@@ -364,43 +365,18 @@ async fn revoke_invite(
 
 // ==================== Public endpoints ====================
 
-/// `GET /invite/{code}`. entry point from the email/chat link an admin shares.
-/// Validates the code; if it's live, sets a `pending_invite` cookie with
-/// Max-Age matching the invite's expiry. Either way, serves the social SPA so
-/// React Router takes over and the splash modal can ask `/api/invites/current`
-/// for the details. Invalid codes silently fall through to the public feed.
-async fn serve_invite_landing(
-    State(state): State<InviteState>,
-    Path(code): Path<String>,
-    cookies: axum_extra::extract::CookieJar,
-) -> AppResult<Response> {
+/// `GET /invite/{code}`. Entry point from the email/chat link an admin shares.
+/// Serves the social SPA so React Router can render the trusted-device +
+/// cookie-consent gate. The cookie is intentionally NOT set here; the SPA
+/// posts to `/api/invites/confirm` only after explicit user consent, so a
+/// visitor on a shared device can decline to leave any state behind.
+async fn serve_invite_landing() -> AppResult<Response> {
     let html = tokio::fs::read_to_string("social-assets/index.html")
         .await
         .map_err(AppError::FileSystem)?;
 
-    let validated = validate_invite_code(&state.db, &code).await?;
-
-    let cookies = match validated {
-        Some(invite) => {
-            // The cookie carries the plaintext code from the URL, not the
-            // model's `code` column (which holds the at-rest hash). The
-            // OIDC login handler stashes this same plaintext into the
-            // session so the callback can pass it back through the auth
-            // backend's `validate_invite_code`.
-            let secure = is_cookie_secure();
-            let cookie = build_pending_invite_cookie(
-                &code,
-                invite.expires_at.with_timezone(&Utc),
-                secure,
-            );
-            cookies.add(cookie)
-        }
-        None => cookies,
-    };
-
     Ok((
         StatusCode::OK,
-        cookies,
         [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
         html,
     )
@@ -423,7 +399,7 @@ pub struct CurrentInviteResponse {
 }
 
 /// Reads the `pending_invite` cookie, validates the code is still live, and
-/// returns invite details for the splash modal. or `null` if no live invite.
+/// returns invite details for the splash modal, or `null` if no live invite.
 async fn current_invite(
     State(state): State<InviteState>,
     cookies: axum_extra::extract::CookieJar,
@@ -438,11 +414,53 @@ async fn current_invite(
         None => return Ok(Json(None)),
     };
 
+    // Echo the plaintext code from the cookie, not the row's `code` column
+    // (which holds the at-rest hash). The splash needs the plaintext to
+    // submit to /api/auth/invite/accept-password in password mode.
     Ok(Json(Some(CurrentInviteResponse {
-        code: row.code,
+        code,
         email_hint: row.email_hint,
         expires_at: row.expires_at.with_timezone(&Utc).to_rfc3339(),
     })))
+}
+
+#[derive(Deserialize)]
+pub struct ConfirmInviteRequest {
+    pub code: String,
+}
+
+/// `POST /api/invites/confirm`. Called by the social SPA after the visitor
+/// confirms (a) they're on a trusted/private device and (b) they consent to
+/// the necessary cookies. Validates the supplied plaintext code, sets the
+/// `pending_invite` cookie with Max-Age tied to the invite's expiry, and
+/// returns the same shape as `/api/invites/current`. Returns `null` (200)
+/// when the code is invalid, matching the polling endpoint's contract.
+async fn confirm_invite(
+    State(state): State<InviteState>,
+    cookies: axum_extra::extract::CookieJar,
+    Json(req): Json<ConfirmInviteRequest>,
+) -> AppResult<(axum_extra::extract::CookieJar, Json<Option<CurrentInviteResponse>>)> {
+    let row = match validate_invite_code(&state.db, &req.code).await? {
+        Some(r) => r,
+        None => return Ok((cookies, Json(None))),
+    };
+
+    let secure = is_cookie_secure();
+    let cookie = build_pending_invite_cookie(
+        &req.code,
+        row.expires_at.with_timezone(&Utc),
+        secure,
+    );
+    let cookies = cookies.add(cookie);
+
+    Ok((
+        cookies,
+        Json(Some(CurrentInviteResponse {
+            code: req.code,
+            email_hint: row.email_hint,
+            expires_at: row.expires_at.with_timezone(&Utc).to_rfc3339(),
+        })),
+    ))
 }
 
 /// Explicit cookie clear for the SPA's "decline" action.

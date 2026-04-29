@@ -112,8 +112,9 @@ async fn insert_active_oidc_user(
 }
 
 /// Stand up a fresh invite + drop the `pending_invite` cookie via
-/// `/invite/{plaintext}`. Returns `(Model, plaintext)` because the model's
-/// `code` column holds the hash and the URL needs the plaintext.
+/// `POST /api/invites/confirm` (mirrors the SPA's flow after the visitor
+/// accepts the trusted-device + cookie-consent gate). Returns
+/// `(Model, plaintext)`.
 async fn setup_pending_invite(
     server: &axum_test::TestServer,
     db: &DatabaseConnection,
@@ -121,18 +122,13 @@ async fn setup_pending_invite(
     email_hint: Option<&str>,
 ) -> (invite_code::Model, String) {
     let (invite, plaintext) = issue_invite(db, creator, email_hint).await;
-    let landing = server.get(&format!("/invite/{}", plaintext)).await;
-    assert_eq!(
-        landing.status_code(),
-        StatusCode::OK,
-        "invite landing should serve SPA"
-    );
+    confirm_invite_via_api(server, &plaintext).await;
     (invite, plaintext)
 }
 
 /// Mirror the production POST /api/admin/users flow: issue the invite first,
 /// then pre-provision an inert user row with `invite_code_id` pre-stamped.
-/// Visits `/invite/{plaintext}` so the cookie is set for the subsequent
+/// Confirms the invite via the API so the cookie is set for the subsequent
 /// OIDC drive. Returns `(Model, plaintext)` for assertions and follow-up.
 async fn pre_provision_with_invite(
     server: &axum_test::TestServer,
@@ -143,9 +139,23 @@ async fn pre_provision_with_invite(
 ) -> (invite_code::Model, String) {
     let (invite, plaintext) = issue_invite(db, creator, Some(email)).await;
     preprovision_user(db, email, role, Some(invite.id)).await;
-    let landing = server.get(&format!("/invite/{}", plaintext)).await;
-    assert_eq!(landing.status_code(), StatusCode::OK);
+    confirm_invite_via_api(server, &plaintext).await;
     (invite, plaintext)
+}
+
+async fn confirm_invite_via_api(server: &axum_test::TestServer, plaintext: &str) {
+    let csrf = common::get_csrf_token(server).await;
+    let response = server
+        .post("/api/invites/confirm")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({"code": plaintext}))
+        .await;
+    assert_eq!(
+        response.status_code(),
+        StatusCode::OK,
+        "confirm should accept live invite, body: {}",
+        response.text()
+    );
 }
 
 /// Issue an invite via the production helper so it gets hashed at rest.
@@ -414,7 +424,7 @@ async fn test_oidc_normal_login_rejects_role_drift(pool: sqlx::PgPool) {
     .await;
 
     // Active commenter row with a known oidc_sub. The IdP now claims admin
-    // for the same sub. drift must be rejected.
+    // for the same sub; drift must be rejected.
     insert_active_oidc_user(&db, "drift@keycloak.test", "commenter", "drift-sub").await;
 
     let user =
@@ -466,7 +476,7 @@ async fn test_oidc_callback_session_marked_mfa_verified(pool: sqlx::PgPool) {
     assert_eq!(response.status_code(), StatusCode::TEMPORARY_REDIRECT);
 
     // After OIDC login the session should have mfa_verified=true. Confirm by
-    // hitting an admin endpoint that requires auth. if it returns 200 (not
+    // hitting an admin endpoint that requires auth; if it returns 200 (not
     // 403 "MFA verification required") then the session is fully authorized.
     let admin_resp = server.get("/api/admin/users").await;
     assert_eq!(

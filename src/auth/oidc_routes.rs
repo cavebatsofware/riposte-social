@@ -130,7 +130,7 @@ pub async fn oidc_callback(
     let pkce_verifier = PkceCodeVerifier::new(pkce_secret);
 
     // Pull the pending invite stashed by oidc_login, if any. Removed from the
-    // session unconditionally. a stale entry must not bleed into a later login.
+    // session unconditionally; a stale entry must not bleed into a later login.
     let pending_invite: Option<String> = session
         .remove(PENDING_INVITE_SESSION_KEY)
         .await
@@ -193,7 +193,7 @@ pub async fn oidc_callback(
         "/"
     };
 
-    // Always strip the pending_invite cookie on success. whether it was
+    // Always strip the pending_invite cookie on success, whether it was
     // consumed (commenter onboarded) or ignored (admin/poster login). Keeps
     // the splash from re-surfacing for an already-bound user.
     let cleared = remove_pending_invite_cookie(cookies);

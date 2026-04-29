@@ -106,7 +106,7 @@ impl OidcConfig {
 /// Resolve the IdP-claimed roles to our app's tier with most-privileged-wins.
 /// This is used by the OIDC callback to surface a single `idp_tier` value into
 /// `Credentials::Oidc` for drift validation against the DB role. It is never
-/// used to assign role. only to validate.
+/// used to assign role, only to validate.
 pub fn resolve_idp_tier(roles: &[String], cfg: &OidcConfig) -> &'static str {
     use crate::entities::user;
     if roles.iter().any(|r| r == &cfg.admin_role) {

@@ -325,7 +325,7 @@ pub struct CreateUserResponse {
     invite: crate::invites::InviteResponse,
 }
 
-/// POST /api/admin/users. admin-only endpoint to pre-provision a new account.
+/// POST /api/admin/users: admin-only endpoint to pre-provision a new account.
 /// The row is created in an inert state (`activated_at = NULL`, placeholder
 /// `password_hash`) and an invite_code is auto-issued with `email_hint = email`.
 /// The admin shares the returned invite link with the recipient, who completes
@@ -364,7 +364,7 @@ async fn create_admin_user(
     // pre-set. Wrap in a transaction so we never end up with a user row
     // pointing at an invite that didn't make it (or vice versa). The user
     // row references `invite_code_id` directly so bind-path lookups can use
-    // it as the lookup key. only the issued invite can activate this row.
+    // it as the lookup key, so only the issued invite can activate this row.
     let txn = state.db.begin().await?;
 
     let (invite, invite_plaintext) =
@@ -372,11 +372,17 @@ async fn create_admin_user(
             .await
             .map_err(|e| AppError::AuthError(e.to_string()))?;
 
-    // Placeholder hash. the row is inert until invite acceptance, at which
+    // Placeholder hash. The row is inert until invite acceptance, at which
     // point either Flow A.1 (OIDC bind) rotates this to a non-usable OIDC
     // marker, or Flow C.1 (password bind) replaces this with the user's
-    // chosen argon2 hash. The activated_at gate prevents login regardless.
-    let placeholder_hash = format!("invite_pending_{}", Uuid::new_v4());
+    // chosen argon2 hash. We seed with a real argon2 hash of a discarded
+    // random secret (rather than a non-PHC string) so `verify_password` on
+    // login probes returns `Ok(false)` indistinguishably from the dummy-hash
+    // path for non-existent users, instead of erroring on hash parse and
+    // leaking inert-row existence via response-body discrimination. The
+    // activated_at gate is the actual security boundary.
+    let placeholder_hash = crate::admin::auth::placeholder_password_hash()
+        .map_err(|e| AppError::AuthError(format!("Failed to create placeholder: {}", e)))?;
     let new_user = user::ActiveModel {
         id: Set(Uuid::new_v4()),
         email: Set(req.email.clone()),

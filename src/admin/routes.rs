@@ -156,10 +156,18 @@ async fn login(
         password: req.password,
     };
 
+    // Don't surface the underlying error string to the client. Every
+    // authenticate failure (deactivated row, inert/invite-pending row,
+    // unverified email, malformed hash, DB error, etc.) becomes the same
+    // generic 401 to deny enumeration via response-body discrimination.
+    // The actual error is logged server-side for ops debugging.
     let user = auth_session
         .authenticate(creds)
         .await
-        .map_err(|e| AppError::AuthError(e.to_string()))?
+        .map_err(|e| {
+            tracing::warn!("Login authenticate failed: {}", e);
+            AppError::AuthError("Invalid email or password".to_string())
+        })?
         .ok_or_else(|| AppError::AuthError("Invalid email or password".to_string()))?;
 
     auth_session

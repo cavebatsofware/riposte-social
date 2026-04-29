@@ -630,11 +630,11 @@ impl UserAuthBackend {
     /// flows based on whether the user already has a row, an oidc_sub, and
     /// whether they're presenting an invite. The `idp_tier` is the IdP-claimed
     /// effective tier (resolved from the role claim by `oidc::resolve_idp_tier`)
-    ///. used only to validate against the DB row, never to assign role.
+    /// used only to validate against the DB row, never to assign role.
     ///
     /// - **Flow B (normal login):** matched by oidc_sub. The DB and IdP must
     ///   agree on role and email; if they drift, login fails closed. Refreshes
-    ///   last_login_at, display_name, email_verified. never role or email.
+    ///   last_login_at, display_name, email_verified, never role or email.
     /// - **Flow A.1 (invite-bind existing pre-provisioned row):** matched by
     ///   email when no oidc_sub matches and the row's oidc_sub is null. Requires
     ///   the invite's email_hint to match the IdP-attested email exactly.
@@ -668,7 +668,7 @@ impl UserAuthBackend {
         // Flow A: invite required for any new bind or new row.
         let code = invite_code.ok_or_else(|| {
             AuthError(anyhow::anyhow!(
-                "This site is invite-only. please use a valid invite link to sign in."
+                "This site is invite-only; please use a valid invite link to sign in."
             ))
         })?;
         let invite_row = crate::invites::validate_invite_code(&self.db, code)
@@ -683,7 +683,7 @@ impl UserAuthBackend {
         // Flow A.1: pre-provisioned row reachable via invite_code_id (the
         // admin stamped the invite onto the user row at creation time).
         // Looking up by invite_code_id rather than email guarantees only
-        // *this specific* invite can bind *this specific* row. no other
+        // *this specific* invite can bind *this specific* row, no other
         // invite, even one with a matching email_hint, can hijack it.
         if let Some(row) = User::find()
             .filter(user::Column::InviteCodeId.eq(invite_row.id))
@@ -714,7 +714,7 @@ impl UserAuthBackend {
         Ok(Some(self.user_auth_from_model(user_row, true)))
     }
 
-    // ==================== Flow B. normal login ====================
+    // ==================== Flow B: normal login ====================
 
     async fn oidc_normal_login(
         &self,
@@ -741,7 +741,7 @@ impl UserAuthBackend {
         Ok(active.update(&self.db).await?)
     }
 
-    // ==================== Flow A.1. bind pre-provisioned row ====================
+    // ==================== Flow A.1: bind pre-provisioned row ====================
 
     async fn oidc_bind_existing(
         &self,
@@ -763,7 +763,7 @@ impl UserAuthBackend {
 
         // email_hint enforcement: the invite was created with intent to bind a
         // specific email. Without a matching hint, this invite cannot bind to
-        // an existing row. it would let a stolen commenter invite hijack a
+        // an existing row, it would let a stolen commenter invite hijack a
         // pre-provisioned admin/poster account whose email happens to match.
         let hint = invite.email_hint.as_deref().ok_or_else(|| {
             anyhow::anyhow!("Invite is not for this account")
@@ -802,7 +802,7 @@ impl UserAuthBackend {
         Ok(updated)
     }
 
-    // ==================== Flow C. password-mode invite acceptance ====================
+    // ==================== Flow C: password-mode invite acceptance ====================
 
     /// Flow C.1: bind a pre-provisioned admin/poster row by setting the
     /// user-chosen password and activating the row. The row is reached via
@@ -939,7 +939,7 @@ impl UserAuthBackend {
         self.user_auth_from_model(model, /* oidc_login */ false)
     }
 
-    // ==================== Flow A.2. mint new commenter ====================
+    // ==================== Flow A.2: mint new commenter ====================
 
     async fn oidc_create_commenter(
         &self,
@@ -1036,7 +1036,7 @@ fn ensure_activated(row: &user::Model) -> Result<()> {
 }
 
 /// Reject login when the IdP-claimed tier disagrees with the DB-authoritative
-/// role. Drift in either direction is a security event. admins reconcile
+/// role. Drift in either direction is a security event; admins reconcile
 /// manually, never both at once.
 fn ensure_role_match(idp_tier: &str, db_role: &str) -> Result<()> {
     if idp_tier != db_role {
@@ -1150,7 +1150,7 @@ pub enum Credentials {
         password: String,
     },
     /// OIDC-issued credential. `idp_tier` is the IdP's effective tier resolved
-    /// by `oidc::resolve_idp_tier`. used by the backend to validate against
+    /// by `oidc::resolve_idp_tier`, used by the backend to validate against
     /// the DB row's role. The IdP's claim is never used to *assign* role:
     /// brand-new rows are always commenters (admins/posters must be pre-
     /// provisioned), and existing rows keep whatever role is in the DB. The
@@ -1173,6 +1173,19 @@ fn hash_password(password: &str) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("Failed to hash password: {}", e))?
         .to_string();
     Ok(password_hash)
+}
+
+/// Argon2 hash of a fresh random throwaway secret. Used to seed `password_hash`
+/// on inert invite-pending rows so that `verify_password` returns `Ok(false)`
+/// (just like the dummy-hash branch for non-existent users) instead of an
+/// `Err` that would surface to the client and discriminate inert rows from
+/// non-existent ones in error responses.
+///
+/// The plaintext is generated and discarded; nothing in the system retains
+/// it. Activation later replaces the hash with the user's chosen credential.
+pub fn placeholder_password_hash() -> Result<String> {
+    let plaintext = format!("placeholder_{}", Uuid::new_v4());
+    hash_password(&plaintext)
 }
 
 pub fn verify_password(password: &str, password_hash: &str) -> Result<bool> {

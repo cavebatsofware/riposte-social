@@ -306,7 +306,7 @@ async fn test_password_login_rejected_for_inert_row(pool: sqlx::PgPool) {
         .unwrap();
     let mut active: user::ActiveModel = row.into();
     // We can't easily compute argon2 inline, so use a known dummy hash that
-    // will fail verify_password. the activation gate should fire first
+    // will fail verify_password; the activation gate should fire first
     // anyway. Test asserts the error path is "not activated", not "wrong
     // password", but for simplicity we just assert login fails (401).
     active.password_hash = Set("invite_pending_does_not_matter".to_string());
@@ -325,7 +325,7 @@ async fn test_password_login_rejected_for_inert_row(pool: sqlx::PgPool) {
         }))
         .await;
 
-    // Either way, login fails. activation gate or password mismatch. We
+    // Either way, login fails (activation gate or password mismatch). We
     // care that an inert row never establishes a session.
     assert_ne!(response.status_code(), StatusCode::OK);
 }
