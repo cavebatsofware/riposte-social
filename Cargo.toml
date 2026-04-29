@@ -70,6 +70,7 @@ axum-test = "20.0.0"
 tower = { version = "0.5.3", features = ["util"] }
 totp-rs = { version = "5.7.1", features = ["gen_secret"] }
 wiremock = "0.6.5"
+urlencoding = "2.1"
 aws-smithy-mocks = "0.2.6"
 aws-smithy-runtime-api = "1.11.6"
 aws-smithy-types = "1.4.7"

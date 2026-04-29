@@ -26,10 +26,12 @@ use crate::entities::{post, post_media, user, Post, PostMedia, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::{markdown, FeedTier};
+use crate::s3::S3Service;
 use axum::{
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::Json,
+    body::Body,
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
+    http::{header, StatusCode},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
     Extension, Router,
 };
@@ -37,7 +39,7 @@ use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    QuerySelect, Set, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -46,13 +48,41 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct PostsState {
     pub db: DatabaseConnection,
+    pub s3: S3Service,
 }
 
+/// Per-file size cap (10 MiB). Beyond this we reject the upload before
+/// hitting S3.
+const MEDIA_FILE_MAX_BYTES: usize = 10 * 1024 * 1024;
+
+/// Total request size cap. Multipart bodies are bounded so a malformed
+/// client cannot wedge the connection holding gigabytes in memory.
+const POST_BODY_MAX_BYTES: usize = 64 * 1024 * 1024;
+
+/// Maximum media files attached to a single post. Hard cap so the client
+/// cannot stash unbounded references that we then have to track + clean up.
+const MEDIA_FILES_MAX: usize = 8;
+
+/// Allowlisted image mime types. Browsers render these inline; everything
+/// else is rejected so uploaded files cannot become a vector for malicious
+/// content disguised as media (`text/html` payloads, SVG with embedded
+/// scripts, etc.).
+const ALLOWED_MIME_TYPES: &[&str] = &[
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+];
+
 /// Authenticated, role-gated write endpoints. The author/admin check on
-/// PATCH/DELETE happens inside the handler.
+/// PATCH/DELETE happens inside the handler. Multipart body limit is lifted
+/// to `POST_BODY_MAX_BYTES` so a small handful of image attachments fit.
 pub fn post_write_routes() -> Router<PostsState> {
     Router::new()
-        .route("/api/posts", post(create_post))
+        .route(
+            "/api/posts",
+            post(create_post).layer(DefaultBodyLimit::max(POST_BODY_MAX_BYTES)),
+        )
         .route(
             "/api/posts/{id}",
             axum::routing::patch(update_post).delete(delete_post),
@@ -65,26 +95,10 @@ pub fn post_read_routes() -> Router<PostsState> {
     Router::new()
         .route("/api/posts/{id}", get(get_post))
         .route("/api/feed", get(feed))
+        .route("/media/{media_id}", get(serve_media))
 }
 
 // ==================== Wire format ====================
-
-#[derive(Deserialize)]
-pub struct CreatePostRequest {
-    pub body: String,
-    /// One of `public`, `commenters`, `posters`. Defaults to `public` when
-    /// omitted so the simplest "Compose" form has a sensible default.
-    #[serde(default = "default_visibility")]
-    pub visibility: String,
-    /// Optional override for the publish time (used by importers). Live
-    /// authoring leaves this unset and inherits `now()`.
-    #[serde(default)]
-    pub published_at: Option<DateTime<Utc>>,
-}
-
-fn default_visibility() -> String {
-    post::VISIBILITY_PUBLIC.to_string()
-}
 
 #[derive(Deserialize)]
 pub struct UpdatePostRequest {
@@ -112,7 +126,9 @@ pub struct PostResponse {
 #[derive(Serialize)]
 pub struct PostMediaResponse {
     pub id: Uuid,
-    pub s3_key: String,
+    /// Browser-facing URL. Hits `/media/{media_id}` which checks tier
+    /// visibility before serving from S3.
+    pub url: String,
     pub mime_type: String,
     pub width: Option<i32>,
     pub height: Option<i32>,
@@ -123,8 +139,8 @@ pub struct PostMediaResponse {
 impl PostMediaResponse {
     fn from_model(m: post_media::Model) -> Self {
         Self {
+            url: format!("/media/{}", m.id),
             id: m.id,
-            s3_key: m.s3_key,
             mime_type: m.mime_type,
             width: m.width,
             height: m.height,
@@ -157,47 +173,282 @@ fn build_post_response(
 
 // ==================== Handlers ====================
 
-/// `POST /api/posts`. Create a post. Gated by `require_admin_or_poster` at
-/// the route layer. Body is plain JSON for now; multipart media upload
-/// lands in Phase 3c.
+/// Buffered media upload: bytes plus the mime type the browser supplied.
+struct PendingMedia {
+    bytes: Vec<u8>,
+    mime_type: String,
+}
+
+/// `POST /api/posts`. Create a post via multipart upload. Gated by
+/// `require_admin_or_poster` at the route layer.
+///
+/// Multipart shape:
+/// - `body` (text, required): markdown source.
+/// - `visibility` (text, optional): one of public|commenters|posters.
+///   Defaults to public.
+/// - `published_at` (text, optional): RFC3339 timestamp. Live authoring
+///   omits this. Importers set it to preserve original ordering.
+/// - `media` (file, 0 or more): image attachments. Each must be in
+///   `ALLOWED_MIME_TYPES` and below `MEDIA_FILE_MAX_BYTES`. Capped at
+///   `MEDIA_FILES_MAX` per post. Order in the request becomes the
+///   `ordinal` for the created post_media rows.
+///
+/// The post row + post_media rows + S3 uploads happen behind a
+/// transaction: any failure rolls back the DB rows. S3 uploads are best-
+/// effort to revert (we issue deletes after a rollback) so a failed
+/// transaction doesn't leave orphan objects.
 async fn create_post(
     State(state): State<PostsState>,
     Extension(user): Extension<crate::admin::UserAuth>,
-    Json(req): Json<CreatePostRequest>,
+    mut multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<PostResponse>)> {
-    if req.body.trim().is_empty() {
+    let mut body: Option<String> = None;
+    let mut visibility: String = post::VISIBILITY_PUBLIC.to_string();
+    let mut published_at: Option<DateTime<Utc>> = None;
+    let mut media: Vec<PendingMedia> = Vec::new();
+
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
+    })? {
+        let name = field.name().unwrap_or("").to_string();
+        match name.as_str() {
+            "body" => {
+                body = Some(field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read body: {}", e))
+                })?);
+            }
+            "visibility" => {
+                visibility = field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read visibility: {}", e))
+                })?;
+            }
+            "published_at" => {
+                let text = field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read published_at: {}", e))
+                })?;
+                if !text.is_empty() {
+                    published_at = Some(
+                        DateTime::parse_from_rfc3339(&text)
+                            .map_err(|e| {
+                                AppError::ValidationError(format!(
+                                    "published_at must be RFC3339: {}",
+                                    e
+                                ))
+                            })?
+                            .with_timezone(&Utc),
+                    );
+                }
+            }
+            "media" => {
+                if media.len() >= MEDIA_FILES_MAX {
+                    return Err(AppError::ValidationError(format!(
+                        "At most {} media files per post",
+                        MEDIA_FILES_MAX
+                    )));
+                }
+                let mime = field
+                    .content_type()
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| {
+                        AppError::ValidationError(
+                            "Media field must include a Content-Type".to_string(),
+                        )
+                    })?;
+                if !ALLOWED_MIME_TYPES.contains(&mime.as_str()) {
+                    return Err(AppError::ValidationError(format!(
+                        "Unsupported media type '{}'. Allowed: {:?}",
+                        mime, ALLOWED_MIME_TYPES
+                    )));
+                }
+                let bytes = field.bytes().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read media bytes: {}", e))
+                })?;
+                if bytes.len() > MEDIA_FILE_MAX_BYTES {
+                    return Err(AppError::ValidationError(format!(
+                        "Media file exceeds {} byte limit",
+                        MEDIA_FILE_MAX_BYTES
+                    )));
+                }
+                media.push(PendingMedia {
+                    bytes: bytes.to_vec(),
+                    mime_type: mime,
+                });
+            }
+            _ => {
+                // Ignore unknown fields rather than 400-ing; lets clients
+                // add forward-compatible fields without breaking us.
+            }
+        }
+    }
+
+    let body = body.ok_or_else(|| {
+        AppError::ValidationError("Missing required field: body".to_string())
+    })?;
+    if body.trim().is_empty() {
         return Err(AppError::ValidationError(
             "Body cannot be empty".to_string(),
         ));
     }
-    if !post::is_valid_visibility(&req.visibility) {
+    if !post::is_valid_visibility(&visibility) {
         return Err(AppError::ValidationError(format!(
             "Invalid visibility '{}'",
-            req.visibility
+            visibility
         )));
     }
 
+    let post_id = Uuid::new_v4();
     let now = Utc::now();
-    let active = post::ActiveModel {
-        id: Set(Uuid::new_v4()),
-        author_id: Set(user.id),
-        body: Set(req.body),
-        visibility: Set(req.visibility),
-        published_at: Set(req.published_at.unwrap_or(now).into()),
-        import_source: Set(None),
-        import_external_id: Set(None),
-        deleted_at: Set(None),
-        ..Default::default()
-    };
-    let inserted = active.insert(&state.db).await?;
 
-    let author = User::find_by_id(inserted.author_id)
-        .one(&state.db)
+    // Pre-generate IDs and S3 keys so the upload + DB insert can pair up
+    // and we can clean up uploads if the DB transaction fails.
+    let media_plan: Vec<(Uuid, String, PendingMedia, i32)> = media
+        .into_iter()
+        .enumerate()
+        .map(|(i, m)| {
+            let media_id = Uuid::new_v4();
+            let key = format!("posts/{}/{}", post_id, media_id);
+            (media_id, key, m, i as i32)
+        })
+        .collect();
+
+    // Upload first so a failure surfaces before any DB write. Track each
+    // successful key for rollback compensation.
+    let mut uploaded_keys: Vec<String> = Vec::new();
+    for (_id, key, m, _ordinal) in &media_plan {
+        if let Err(e) = state
+            .s3
+            .put_object_at(key, m.bytes.clone(), &m.mime_type)
+            .await
+        {
+            // Undo prior uploads in this request.
+            for k in &uploaded_keys {
+                let _ = state.s3.delete_object_at(k).await;
+            }
+            return Err(AppError::AuthError(format!(
+                "Failed to upload media: {}",
+                e
+            )));
+        }
+        uploaded_keys.push(key.clone());
+    }
+
+    // DB writes run in a transaction so the post + media rows commit or
+    // roll back together. On rollback we delete the S3 objects we just
+    // uploaded.
+    let txn_result = async {
+        let txn = state.db.begin().await?;
+        let post_row = post::ActiveModel {
+            id: Set(post_id),
+            author_id: Set(user.id),
+            body: Set(body),
+            visibility: Set(visibility),
+            published_at: Set(published_at.unwrap_or(now).into()),
+            import_source: Set(None),
+            import_external_id: Set(None),
+            deleted_at: Set(None),
+            ..Default::default()
+        }
+        .insert(&txn)
         .await?;
+
+        let mut media_rows: Vec<post_media::Model> = Vec::with_capacity(media_plan.len());
+        for (media_id, key, m, ordinal) in &media_plan {
+            let row = post_media::ActiveModel {
+                id: Set(*media_id),
+                post_id: Set(post_id),
+                s3_key: Set(key.clone()),
+                mime_type: Set(m.mime_type.clone()),
+                width: Set(None),
+                height: Set(None),
+                ordinal: Set(*ordinal),
+                caption: Set(None),
+                ..Default::default()
+            }
+            .insert(&txn)
+            .await?;
+            media_rows.push(row);
+        }
+
+        txn.commit().await?;
+        Ok::<(post::Model, Vec<post_media::Model>), sea_orm::DbErr>((post_row, media_rows))
+    }
+    .await;
+
+    let (post_row, media_rows) = match txn_result {
+        Ok(pair) => pair,
+        Err(e) => {
+            for k in &uploaded_keys {
+                let _ = state.s3.delete_object_at(k).await;
+            }
+            return Err(AppError::AuthError(format!(
+                "Failed to create post: {}",
+                e
+            )));
+        }
+    };
+
+    let author = User::find_by_id(post_row.author_id).one(&state.db).await?;
     Ok((
         StatusCode::CREATED,
-        Json(build_post_response(inserted, author.as_ref(), vec![])),
+        Json(build_post_response(post_row, author.as_ref(), media_rows)),
     ))
+}
+
+/// `GET /media/{media_id}`. Serve a media file from S3, gated by the
+/// caller's visibility tier against the parent post. Returns 404 (not 403)
+/// when the caller cannot read the parent so existence isn't disclosed
+/// to under-tier visitors. Cache headers are set conservatively because
+/// admins can soft-delete the parent post.
+async fn serve_media(
+    State(state): State<PostsState>,
+    auth_session: AuthSession<crate::admin::UserAuthBackend>,
+    Path(media_id): Path<Uuid>,
+) -> AppResult<Response> {
+    let media = PostMedia::find_by_id(media_id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+
+    let parent = Post::find_by_id(media.post_id)
+        .filter(post::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+
+    let tier = caller_tier(&auth_session).await;
+    if !tier.can_read(&parent.visibility) {
+        return Err(AppError::AuthError("Media not found".to_string()));
+    }
+
+    let (bytes, stored_type) = state
+        .s3
+        .get_object_at(&media.s3_key)
+        .await
+        .map_err(|e| AppError::AuthError(format!("Failed to load media: {}", e)))?;
+
+    // Public posts go to a CDN-friendly cache; gated tiers stay private so
+    // a shared cache can't leak commenter/poster content to anonymous
+    // visitors. Both still get a long max-age because media is keyed by an
+    // unguessable UUID and only ever changes via post deletion.
+    let cache_control = if parent.visibility == post::VISIBILITY_PUBLIC {
+        "public, max-age=86400"
+    } else {
+        "private, max-age=300"
+    };
+
+    let content_type = stored_type
+        .or(Some(media.mime_type.clone()))
+        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+    Ok((
+        StatusCode::OK,
+        [
+            (header::CONTENT_TYPE, content_type),
+            (header::CACHE_CONTROL, cache_control.to_string()),
+        ],
+        Body::from(bytes),
+    )
+        .into_response())
 }
 
 /// `GET /api/posts/{id}`. Single post, visibility-filtered for the caller.

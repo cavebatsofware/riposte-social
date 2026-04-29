@@ -70,6 +70,69 @@ impl S3Service {
         Ok(Self::with_client(client, bucket_name))
     }
 
+    /// Upload at an arbitrary S3 key with an explicit content-type. Used by
+    /// callers that don't fit the `{prefix}/{filename}` shape (e.g. post
+    /// media keys are `posts/{post_id}/{media_id}` with no extension), or
+    /// when the mime type is known from the source's Content-Type header
+    /// rather than the filename.
+    pub async fn put_object_at(
+        &self,
+        key: &str,
+        data: Vec<u8>,
+        content_type: &str,
+    ) -> Result<()> {
+        tracing::info!(
+            "Uploading to S3: bucket={}, key={}, size={} bytes, type={}",
+            self.bucket_name,
+            key,
+            data.len(),
+            content_type
+        );
+
+        self.client
+            .put_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .body(data.into())
+            .content_type(content_type)
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
+    /// Fetch by full S3 key. Returns the bytes and the stored content-type
+    /// (when S3 returned one), so the caller can set the right
+    /// `Content-Type` response header without duplicating the type table.
+    pub async fn get_object_at(&self, key: &str) -> Result<(Vec<u8>, Option<String>)> {
+        tracing::debug!("Fetching from S3: bucket={}, key={}", self.bucket_name, key);
+
+        let response = self
+            .client
+            .get_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .send()
+            .await?;
+
+        let content_type = response.content_type().map(|s| s.to_string());
+        let data = response.body.collect().await?;
+        let bytes = data.into_bytes().to_vec();
+        Ok((bytes, content_type))
+    }
+
+    /// Delete by full S3 key.
+    pub async fn delete_object_at(&self, key: &str) -> Result<()> {
+        tracing::info!("Deleting from S3: bucket={}, key={}", self.bucket_name, key);
+        self.client
+            .delete_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .send()
+            .await?;
+        Ok(())
+    }
+
     /// Fetch a file from S3 at path: {code}/{filename}
     /// For example: get_file("ABC123", "index.html") fetches s3://bucket/ABC123/index.html
     pub async fn get_file(&self, code: &str, filename: &str) -> Result<Vec<u8>> {

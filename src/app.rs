@@ -453,7 +453,10 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // Posts: write endpoints require authentication + admin/poster role; the
     // PATCH/DELETE handlers additionally check author-or-admin. Read
     // endpoints are public; visibility is filtered against the caller's tier.
-    let posts_state = posts::routes::PostsState { db: state.db.clone() };
+    let posts_state = posts::routes::PostsState {
+        db: state.db.clone(),
+        s3: state.s3.clone(),
+    };
     let post_write_routes = posts::routes::post_write_routes()
         .with_state(posts_state.clone())
         .layer(from_fn(require_admin_or_poster))
