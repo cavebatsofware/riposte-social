@@ -1,12 +1,30 @@
+import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import InviteSplash from "../components/InviteSplash";
 
 export default function Feed() {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
 
   return (
     <main className="feed">
       <header className="feed-header">
-        <h1>Riposte Social</h1>
+        <div className="feed-header-row">
+          <h1>Riposte Social</h1>
+          {!loading &&
+            (user ? (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={logout}
+              >
+                Sign out
+              </button>
+            ) : (
+              <Link to="/login" className="btn-primary">
+                Sign in
+              </Link>
+            ))}
+        </div>
         <p className="feed-subtitle">
           {loading
             ? "…"
@@ -15,6 +33,9 @@ export default function Feed() {
               : "A self-hosted social site for family and close friends."}
         </p>
       </header>
+
+      <InviteSplash />
+
       <section className="feed-empty">
         <p>Feed coming soon.</p>
       </section>

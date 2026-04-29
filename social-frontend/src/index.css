@@ -89,3 +89,210 @@ body {
   color: var(--color-gray-500);
   padding: var(--spacing-8) 0;
 }
+
+.feed-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+}
+
+.feed-header-row h1 {
+  margin: 0;
+}
+
+/* ==========================================================================
+   Buttons (shared)
+   ========================================================================== */
+
+.btn-primary,
+.btn-secondary {
+  display: inline-block;
+  font: inherit;
+  font-weight: 600;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  line-height: 1.5;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-white);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: var(--color-white);
+  color: var(--color-gray-800);
+  border-color: var(--color-gray-300);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--color-gray-100);
+}
+
+/* ==========================================================================
+   Alerts
+   ========================================================================== */
+
+.alert {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-4);
+  font-size: var(--font-size-sm);
+}
+
+.alert-error {
+  background-color: #fef2f2;
+  color: var(--color-danger);
+  border: 1px solid #fecaca;
+}
+
+/* ==========================================================================
+   Invite splash modal
+   ========================================================================== */
+
+.invite-splash-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-4);
+  z-index: 50;
+}
+
+.invite-splash-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  max-width: 480px;
+  width: 100%;
+  padding: var(--spacing-6);
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.invite-splash-card h2 {
+  margin-top: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-2xl);
+}
+
+.invite-splash-card p {
+  color: var(--color-gray-700);
+}
+
+.invite-splash-cta {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-4);
+}
+
+.invite-splash-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin-top: var(--spacing-4);
+}
+
+.invite-splash-form label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-gray-700);
+}
+
+.invite-splash-form input {
+  font: inherit;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+}
+
+.invite-splash-form button {
+  margin-top: var(--spacing-2);
+}
+
+.invite-splash-decline {
+  display: block;
+  margin: var(--spacing-4) auto 0;
+  background: none;
+  border: none;
+  color: var(--color-gray-500);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Auth page (Login)
+   ========================================================================== */
+
+.auth-page {
+  max-width: 420px;
+  margin: var(--spacing-8) auto;
+  padding: var(--spacing-4);
+}
+
+.auth-card {
+  background-color: var(--color-white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  border: 1px solid var(--color-gray-200);
+}
+
+.auth-card h1 {
+  margin-top: 0;
+  color: var(--color-primary);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.auth-form label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-gray-700);
+}
+
+.auth-form input {
+  font: inherit;
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+}
+
+.auth-form button {
+  margin-top: var(--spacing-2);
+}
+
+.auth-cta {
+  display: block;
+  width: 100%;
+  margin-top: var(--spacing-2);
+}
+
+.auth-invite-notice {
+  margin-top: var(--spacing-6);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-gray-200);
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+}
