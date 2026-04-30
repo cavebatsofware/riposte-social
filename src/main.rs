@@ -131,6 +131,18 @@ async fn main() -> anyhow::Result<()> {
         }
     }
 
+    // Bootstrap the first administrator. Resolves the chicken-and-egg of
+    // OIDC mode (no existing admin to issue invites, /api/auth/register
+    // gated off) and password mode alike. Inserts an inert admin row plus
+    // an invite, prints the invite URL. Refuses to run if any user rows
+    // already exist; subsequent admins are created via POST /api/admin/users.
+    if args.len() > 1 && args[1] == "bootstrap-admin" {
+        let email = args
+            .get(2)
+            .ok_or_else(|| anyhow::anyhow!("usage: cargo run -- bootstrap-admin <email>"))?;
+        return bootstrap_admin(email).await;
+    }
+
     // Validate encryption key is configured before accepting requests
     crypto::validate_encryption_key();
 
@@ -343,6 +355,102 @@ async fn run_migrations_sync() -> Result<(), Box<dyn std::error::Error>> {
 
     database::run_migrations(&db).await?;
     tracing::info!("Database migrations completed successfully");
+
+    database::close_connection(db).await?;
+    Ok(())
+}
+
+/// Bootstrap the first administrator. Inserts an inert admin row plus a
+/// fresh invite, prints the invite URL. Refuses to run if any users
+/// already exist so it can't be misused to mint privileged accounts on a
+/// live system.
+///
+/// The DB ordering inside the transaction works around the user/invite
+/// FK pair: insert the user first (no invite_code_id), insert the invite
+/// (created_by points at the new user.id), update the user with the
+/// invite's id. The admin row stays inert (`activated_at IS NULL`,
+/// `oidc_sub IS NULL`) until the operator opens the printed URL and
+/// either signs in via OIDC or sets a password (Flow A.1 / C.1).
+async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
+    use riposte_social::admin::auth::placeholder_password_hash;
+    use riposte_social::entities::{user, User};
+    use riposte_social::invites;
+    use sea_orm::{ActiveModelTrait, EntityTrait, PaginatorTrait, Set, TransactionTrait};
+    use uuid::Uuid;
+
+    crypto::validate_encryption_key();
+
+    let db = database::establish_connection().await?;
+
+    let count = User::find().count(&db).await?;
+    if count > 0 {
+        anyhow::bail!(
+            "Bootstrap requires an empty users table; found {} existing user(s). \
+             Use POST /api/admin/users to create additional admins.",
+            count
+        );
+    }
+
+    let txn = db.begin().await?;
+    let user_id = Uuid::new_v4();
+    let placeholder = placeholder_password_hash()?;
+
+    let new_user = user::ActiveModel {
+        id: Set(user_id),
+        email: Set(email.to_string()),
+        password_hash: Set(placeholder),
+        email_verified: Set(false),
+        verification_token: Set(None),
+        verification_token_expires_at: Set(None),
+        totp_secret: Set(None),
+        totp_enabled: Set(Some(false)),
+        totp_enabled_at: Set(None),
+        mfa_failed_attempts: Set(Some(0)),
+        mfa_locked_until: Set(None),
+        active: Set(true),
+        deactivated_at: Set(None),
+        force_password_change: Set(false),
+        password_reset_token: Set(None),
+        password_reset_token_expires_at: Set(None),
+        role: Set(user::ROLE_ADMINISTRATOR.to_string()),
+        oidc_sub: Set(None),
+        display_name: Set(None),
+        avatar_url: Set(None),
+        last_login_at: Set(None),
+        invite_code_id: Set(None),
+        activated_at: Set(None),
+        ..Default::default()
+    }
+    .insert(&txn)
+    .await?;
+
+    let (invite, plaintext) =
+        invites::issue_invite_for_user(&txn, new_user.id, Some(email.to_string())).await?;
+
+    let mut active: user::ActiveModel = new_user.into();
+    active.invite_code_id = Set(Some(invite.id));
+    let _ = active.update(&txn).await?;
+
+    txn.commit().await?;
+
+    let port = env::var("PORT").unwrap_or_else(|_| "3000".to_string());
+    let site_url = env::var("SITE_URL").unwrap_or_else(|_| format!("http://localhost:{}", port));
+    let invite_url = format!("{}/invite/{}", site_url.trim_end_matches('/'), plaintext);
+
+    println!();
+    println!("Bootstrap admin row created.");
+    println!("  email: {}", email);
+    println!("  user_id: {}", user_id);
+    println!("  invite_id: {}", invite.id);
+    println!();
+    println!("Open the invite URL on the recipient's device to activate the account:");
+    println!("  {}", invite_url);
+    println!();
+    if site_url.starts_with("http://localhost") || site_url.starts_with("http://127") {
+        println!("(SITE_URL points at localhost. The link is only useful from this machine.)");
+    } else {
+        println!("(The plaintext invite code is shown only once. Copy it now.)");
+    }
 
     database::close_connection(db).await?;
     Ok(())

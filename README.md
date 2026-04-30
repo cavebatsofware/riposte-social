@@ -9,7 +9,7 @@
 
 A self-hosted social media platform for family and close friends. Own your posts, own your timeline, own your guest list.
 
-> **Status:** MVP in active development. See [`~/.claude/plans/this-is-a-new-snug-dijkstra.md`](.) for the phased roadmap. Not yet production-ready.
+> **Status:** MVP in active development. Not yet production-ready.
 
 Features (planned MVP):
 - **Three-tier access** — administrator, poster (trusted authors), and commenter (invite-only friends). Anonymous visitors see a public feed.
