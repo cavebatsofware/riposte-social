@@ -54,6 +54,12 @@ function Layout({ children }) {
                 Invites
               </button>
               <button
+                className={`nav-link ${isActive("/moderation") ? "active" : ""}`}
+                onClick={() => navigate("/moderation")}
+              >
+                Moderation
+              </button>
+              <button
                 className={`nav-link ${isActive("/settings") ? "active" : ""}`}
                 onClick={() => navigate("/settings")}
               >

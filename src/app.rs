@@ -424,6 +424,17 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
+    // Moderation routes (admin-only): list comments + bulk soft-delete.
+    let moderation_state = admin::moderation::ModerationState {
+        db: state.db.clone(),
+    };
+    let moderation_routes = admin::moderation::moderation_routes()
+        .with_state(moderation_state)
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+
     // Invite-code admin routes (admin-on-others, gated on require_admin).
     let invite_state = invites::InviteState {
         db: state.db.clone(),
@@ -532,6 +543,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(access_code_routes)
         .merge(access_log_routes)
         .merge(admin_user_routes)
+        .merge(moderation_routes)
         .merge(admin_invite_routes)
         .merge(public_invite_routes)
         .merge(auth_invite_routes)

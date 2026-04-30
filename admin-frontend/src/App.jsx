@@ -12,6 +12,7 @@ import AccessCodes from "./pages/AccessCodes";
 import AccessLogs from "./pages/AccessLogs";
 import Users from "./pages/Users";
 import InviteCodes from "./pages/InviteCodes";
+import Moderation from "./pages/Moderation";
 import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import "./App.css";
@@ -115,6 +116,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <InviteCodes />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/moderation"
+            element={
+              <ProtectedRoute>
+                <Moderation />
               </ProtectedRoute>
             }
           />

@@ -17,6 +17,7 @@ pub mod access_codes;
 pub mod access_logs;
 pub mod admin_users;
 pub mod auth;
+pub mod moderation;
 pub mod pagination;
 pub mod password;
 pub mod routes;
