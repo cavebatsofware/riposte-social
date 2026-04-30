@@ -44,6 +44,8 @@ mod m20260426_000001_create_invite_codes;
 mod m20260427_000001_add_activated_at;
 mod m20260429_000001_create_posts;
 mod m20260429_000002_create_post_media;
+mod m20260430_000001_create_reactions;
+mod m20260430_000002_create_comments;
 
 pub struct Migrator;
 
@@ -79,6 +81,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260427_000001_add_activated_at::Migration),
             Box::new(m20260429_000001_create_posts::Migration),
             Box::new(m20260429_000002_create_post_media::Migration),
+            Box::new(m20260430_000001_create_reactions::Migration),
+            Box::new(m20260430_000002_create_comments::Migration),
         ]
     }
 }

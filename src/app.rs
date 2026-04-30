@@ -16,6 +16,7 @@
 use crate::admin::{self, UserAuthBackend};
 use crate::auth;
 use crate::email::EmailService;
+use crate::engagement;
 use crate::entities::{access_code, AccessCode};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::{csrf_middleware, require_authenticated, require_admin, require_admin_or_poster};
@@ -467,6 +468,21 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(posts_state)
         .layer(auth_layer.clone());
 
+    // Engagement: reactions and comments. Writes require authentication
+    // (any tier — commenter, poster, administrator). Reads are public; the
+    // visibility-tier check against the parent post happens inline.
+    let engagement_state = engagement::EngagementState {
+        db: state.db.clone(),
+    };
+    let engagement_write_routes = engagement::engagement_write_routes()
+        .with_state(engagement_state.clone())
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    let engagement_read_routes = engagement::engagement_read_routes()
+        .with_state(engagement_state)
+        .layer(auth_layer.clone());
+
     // Settings management routes
     let settings_state = admin::settings::SettingsState {
         settings: state.settings.clone(),
@@ -521,6 +537,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(auth_invite_routes)
         .merge(post_write_routes)
         .merge(post_read_routes)
+        .merge(engagement_write_routes)
+        .merge(engagement_read_routes)
         .merge(settings_routes)
         .merge(contact_routes)
         .merge(subscribe_routes)

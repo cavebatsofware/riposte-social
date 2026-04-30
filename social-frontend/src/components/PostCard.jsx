@@ -1,11 +1,14 @@
 import { Link } from "react-router-dom";
 import DOMPurify from "dompurify";
+import ReactionBar from "./ReactionBar";
 
 /// Renders one post in the feed or on its permalink.
 ///
 /// `post` is the shape returned by `GET /api/feed` and `GET /api/posts/{id}`:
-/// `{ id, author_id, author_display, author_email, body, body_html,
-///    visibility, published_at, media: [{ id, url, mime_type, ... }], ... }`.
+/// `{ id, author_id, author_display, body, body_html, visibility,
+///    published_at, media: [{ id, url, mime_type, ... }],
+///    reaction_counts: { like: 5, ... }, viewer_reaction_kinds: [],
+///    comment_count: 3 }`.
 ///
 /// `body_html` is sanitized server-side via `ammonia` in
 /// `src/posts/markdown.rs` before it reaches the client. We run DOMPurify
@@ -20,7 +23,7 @@ import DOMPurify from "dompurify";
 /// - `"permalink"`: no wrapping link; the first media attachment renders
 ///   as a full-width hero, subsequent attachments as a thumbnail row.
 export default function PostCard({ post, variant = "feed" }) {
-  const author = post.author_display || post.author_email || "Unknown";
+  const author = post.author_display || "Member";
   const initials = computeInitials(author);
   const time = formatRelativeTime(post.published_at);
   const safeHtml = DOMPurify.sanitize(post.body_html || "");
@@ -49,6 +52,8 @@ export default function PostCard({ post, variant = "feed" }) {
       {post.media && post.media.length > 0 && (
         <PostMedia media={post.media} variant={variant} />
       )}
+
+      <PostActions post={post} variant={variant} />
     </article>
   );
 
@@ -94,6 +99,25 @@ function PostMedia({ media, variant }) {
         <img key={m.id} src={m.url} alt={m.caption || ""} />
       ))}
     </div>
+  );
+}
+
+/// Action footer: interactive `<ReactionBar />` plus a comment-count
+/// indicator. On the feed variant the wrapping `<Link>` makes the comment
+/// count area implicitly clickable; on the permalink variant the count is
+/// suppressed because the comment thread renders right below.
+function PostActions({ post, variant }) {
+  const commentCount = post.comment_count || 0;
+  const showCommentCount = variant !== "permalink";
+  return (
+    <footer className="post-actions" aria-label="Post actions">
+      <ReactionBar post={post} />
+      {showCommentCount && (
+        <span className="post-actions-comments">
+          {commentCount} {commentCount === 1 ? "comment" : "comments"}
+        </span>
+      )}
+    </footer>
   );
 }
 

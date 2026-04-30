@@ -1,0 +1,250 @@
+/*  This file is part of riposte-social
+ *  Copyright (C) 2026 Grant DeFayette
+ *
+ *  riposte-social is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, version 3 of the License (GPL-3.0-only).
+ *
+ *  riposte-social is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
+ */
+//! Comment endpoints.
+//!
+//! - `POST   /api/posts/{id}/comments`         authenticated
+//! - `GET    /api/posts/{id}/comments`         public; visibility-filtered
+//! - `DELETE /api/posts/{id}/comments/{cid}`   author or administrator
+//!
+//! Bodies are markdown, rendered server-side by the same `pulldown-cmark`
+//! + `ammonia` pipeline used for post bodies. Soft-deleted comments
+//! (`deleted_at IS NOT NULL`) are filtered out of public reads; they survive
+//! in the DB so admin moderation can audit.
+
+use crate::admin::UserAuth;
+use crate::engagement::EngagementState;
+use crate::entities::{comment, post, user, Comment, Post, User};
+use crate::errors::{AppError, AppResult};
+use crate::middleware::admin_auth::UserAuthSession;
+use crate::posts::{markdown, FeedTier};
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::Json,
+    routing::{get, post},
+    Extension, Router,
+};
+use chrono::Utc;
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
+
+/// Body length cap. Comments are short by intent; longer thoughts deserve
+/// their own post. Matches the posts-body soft cap so storage is bounded.
+const COMMENT_MAX_LEN: usize = 4000;
+
+pub fn comment_write_routes() -> Router<EngagementState> {
+    Router::new()
+        .route("/api/posts/{id}/comments", post(create_comment))
+        .route(
+            "/api/posts/{id}/comments/{comment_id}",
+            axum::routing::delete(delete_comment),
+        )
+}
+
+pub fn comment_read_routes() -> Router<EngagementState> {
+    Router::new().route("/api/posts/{id}/comments", get(list_comments))
+}
+
+#[derive(Deserialize)]
+pub struct CreateCommentRequest {
+    pub body: String,
+}
+
+#[derive(Serialize)]
+pub struct CommentResponse {
+    pub id: Uuid,
+    pub post_id: Uuid,
+    pub user_id: Uuid,
+    /// Author's chosen display name, when set. Email is intentionally not
+    /// exposed: comments are visible to every reader of the parent post,
+    /// and on public posts that includes anonymous visitors. Clients fall
+    /// back to a generic label when display_name is absent.
+    pub author_display: Option<String>,
+    pub body: String,
+    pub body_html: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Serialize)]
+pub struct CommentListResponse {
+    pub comments: Vec<CommentResponse>,
+}
+
+fn build_comment_response(row: comment::Model, author: Option<&user::Model>) -> CommentResponse {
+    let body_html = markdown::render_to_html(&row.body);
+    CommentResponse {
+        id: row.id,
+        post_id: row.post_id,
+        user_id: row.user_id,
+        author_display: author.and_then(|u| u.display_name.clone()),
+        body: row.body,
+        body_html,
+        created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
+        updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
+    }
+}
+
+/// `POST /api/posts/{id}/comments`. Authenticated commenter, poster, or
+/// administrator. Caller must be allowed to read the parent post.
+async fn create_comment(
+    State(state): State<EngagementState>,
+    Extension(user): Extension<UserAuth>,
+    Path(post_id): Path<Uuid>,
+    Json(req): Json<CreateCommentRequest>,
+) -> AppResult<(StatusCode, Json<CommentResponse>)> {
+    let body = req.body.trim().to_string();
+    if body.is_empty() {
+        return Err(AppError::ValidationError(
+            "Comment body cannot be empty".to_string(),
+        ));
+    }
+    if body.chars().count() > COMMENT_MAX_LEN {
+        return Err(AppError::ValidationError(format!(
+            "Comment exceeds {}-character limit",
+            COMMENT_MAX_LEN
+        )));
+    }
+
+    let parent = ensure_visible_authenticated(&state.db, post_id, &user).await?;
+
+    let row = comment::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        post_id: Set(parent.id),
+        user_id: Set(user.id),
+        body: Set(body),
+        deleted_at: Set(None),
+        ..Default::default()
+    }
+    .insert(&state.db)
+    .await?;
+
+    let author = User::find_by_id(row.user_id).one(&state.db).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(build_comment_response(row, author.as_ref())),
+    ))
+}
+
+/// `GET /api/posts/{id}/comments`. Public; the caller's tier filters the
+/// parent post's visibility. Returns live comments in chronological order.
+async fn list_comments(
+    State(state): State<EngagementState>,
+    auth_session: UserAuthSession,
+    Path(post_id): Path<Uuid>,
+) -> AppResult<Json<CommentListResponse>> {
+    let viewer = auth_session.user().await;
+    let tier = FeedTier::from_role(viewer.as_ref().map(|u| u.role.as_str()));
+
+    let parent = Post::find_by_id(post_id)
+        .filter(post::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+    if !tier.can_read(&parent.visibility) {
+        return Err(AppError::AuthError("Post not found".to_string()));
+    }
+
+    let rows = Comment::find()
+        .filter(comment::Column::PostId.eq(parent.id))
+        .filter(comment::Column::DeletedAt.is_null())
+        .order_by_asc(comment::Column::CreatedAt)
+        .order_by_asc(comment::Column::Id)
+        .all(&state.db)
+        .await?;
+
+    let author_ids: Vec<Uuid> = rows.iter().map(|r| r.user_id).collect();
+    let authors = if author_ids.is_empty() {
+        vec![]
+    } else {
+        User::find()
+            .filter(user::Column::Id.is_in(author_ids))
+            .all(&state.db)
+            .await?
+    };
+    let authors_by_id: HashMap<Uuid, user::Model> =
+        authors.into_iter().map(|a| (a.id, a)).collect();
+
+    let comments = rows
+        .into_iter()
+        .map(|row| {
+            let author = authors_by_id.get(&row.user_id);
+            build_comment_response(row, author)
+        })
+        .collect();
+
+    Ok(Json(CommentListResponse { comments }))
+}
+
+/// `DELETE /api/posts/{id}/comments/{comment_id}`. Soft delete. Allowed
+/// when the caller is the comment author or an administrator. Returns 204
+/// on success; the row stays in the DB for audit but is hidden from public
+/// reads.
+async fn delete_comment(
+    State(state): State<EngagementState>,
+    Extension(user): Extension<UserAuth>,
+    Path((post_id, comment_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<StatusCode> {
+    let row = Comment::find_by_id(comment_id)
+        .filter(comment::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+
+    if row.post_id != post_id {
+        // Comment exists but belongs to a different post; treat as not
+        // found so callers can't probe for ownership.
+        return Err(AppError::AuthError("Comment not found".to_string()));
+    }
+
+    let is_author = row.user_id == user.id;
+    let is_admin = user.role == user::ROLE_ADMINISTRATOR;
+    if !is_author && !is_admin {
+        return Err(AppError::AuthError(
+            "Only the comment author or an administrator can delete this comment".to_string(),
+        ));
+    }
+
+    let mut active: comment::ActiveModel = row.into();
+    active.deleted_at = Set(Some(Utc::now().into()));
+    active.update(&state.db).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Like the read-side gate, but used by write paths that already extract a
+/// `UserAuth`. Returns the parent post when the caller is permitted to read
+/// it, or a `Post not found` error otherwise.
+async fn ensure_visible_authenticated(
+    db: &DatabaseConnection,
+    post_id: Uuid,
+    user: &UserAuth,
+) -> AppResult<post::Model> {
+    let parent = Post::find_by_id(post_id)
+        .filter(post::Column::DeletedAt.is_null())
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+
+    let tier = FeedTier::from_role(Some(user.role.as_str()));
+    if !tier.can_read(&parent.visibility) {
+        return Err(AppError::AuthError("Post not found".to_string()));
+    }
+    Ok(parent)
+}

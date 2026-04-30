@@ -22,6 +22,7 @@
 //! - `DELETE /api/posts/{id}`      author or admin (soft delete)
 //! - `GET    /api/feed`            public; cursor-paginated, visibility-filtered
 
+use crate::engagement::{fetch_engagement_for_posts, PostEngagement};
 use crate::entities::{post, post_media, user, Post, PostMedia, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
@@ -112,8 +113,11 @@ pub struct UpdatePostRequest {
 pub struct PostResponse {
     pub id: Uuid,
     pub author_id: Uuid,
+    /// Author's chosen display name, when set. Email is intentionally not
+    /// exposed: post payloads are visible to every reader of the post and
+    /// public posts are also visible to anonymous visitors. Clients fall
+    /// back to a generic label when display_name is absent.
     pub author_display: Option<String>,
-    pub author_email: Option<String>,
     pub body: String,
     pub body_html: String,
     pub visibility: String,
@@ -121,6 +125,14 @@ pub struct PostResponse {
     pub created_at: String,
     pub updated_at: String,
     pub media: Vec<PostMediaResponse>,
+    /// Per-kind reaction counts. Kinds with zero count are omitted from
+    /// the map.
+    pub reaction_counts: HashMap<String, i64>,
+    /// Reaction kinds the viewing caller has applied. Empty for anonymous
+    /// callers and for callers who haven't reacted to this post.
+    pub viewer_reaction_kinds: Vec<String>,
+    /// Live (non-soft-deleted) comment count.
+    pub comment_count: i64,
 }
 
 #[derive(Serialize)]
@@ -154,13 +166,13 @@ fn build_post_response(
     row: post::Model,
     author: Option<&user::Model>,
     media: Vec<post_media::Model>,
+    engagement: PostEngagement,
 ) -> PostResponse {
     let body_html = markdown::render_to_html(&row.body);
     PostResponse {
         id: row.id,
         author_id: row.author_id,
         author_display: author.and_then(|u| u.display_name.clone()),
-        author_email: author.map(|u| u.email.clone()),
         body: row.body,
         body_html,
         visibility: row.visibility,
@@ -168,6 +180,9 @@ fn build_post_response(
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
         media: media.into_iter().map(PostMediaResponse::from_model).collect(),
+        reaction_counts: engagement.reaction_counts,
+        viewer_reaction_kinds: engagement.viewer_reaction_kinds,
+        comment_count: engagement.comment_count,
     }
 }
 
@@ -388,9 +403,16 @@ async fn create_post(
     };
 
     let author = User::find_by_id(post_row.author_id).one(&state.db).await?;
+    // Newly created post: no reactions or comments yet, so engagement is
+    // the default zero state. Skip the lookup.
     Ok((
         StatusCode::CREATED,
-        Json(build_post_response(post_row, author.as_ref(), media_rows)),
+        Json(build_post_response(
+            post_row,
+            author.as_ref(),
+            media_rows,
+            PostEngagement::default(),
+        )),
     ))
 }
 
@@ -477,7 +499,16 @@ async fn get_post(
         .await?;
 
     let author = User::find_by_id(row.author_id).one(&state.db).await?;
-    Ok(Json(build_post_response(row, author.as_ref(), media)))
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    let mut engagement_map =
+        fetch_engagement_for_posts(&state.db, &[row.id], viewer_id).await?;
+    let engagement = engagement_map.remove(&row.id).unwrap_or_default();
+    Ok(Json(build_post_response(
+        row,
+        author.as_ref(),
+        media,
+        engagement,
+    )))
 }
 
 /// `PATCH /api/posts/{id}`. Edit. Author or administrator only.
@@ -530,7 +561,15 @@ async fn update_post(
         .all(&state.db)
         .await?;
     let author = User::find_by_id(updated.author_id).one(&state.db).await?;
-    Ok(Json(build_post_response(updated, author.as_ref(), media)))
+    let mut engagement_map =
+        fetch_engagement_for_posts(&state.db, &[updated.id], Some(user.id)).await?;
+    let engagement = engagement_map.remove(&updated.id).unwrap_or_default();
+    Ok(Json(build_post_response(
+        updated,
+        author.as_ref(),
+        media,
+        engagement,
+    )))
 }
 
 /// `DELETE /api/posts/{id}`. Soft delete (sets `deleted_at`). Author or
@@ -669,12 +708,20 @@ async fn feed(
         media_by_post.entry(m.post_id).or_default().push(m);
     }
 
+    // Engagement is fetched in batch keyed by post_id. Anonymous callers
+    // get reaction counts and comment counts but no `viewer_reaction_kinds`.
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    let post_ids_for_engagement: Vec<Uuid> = page.iter().map(|p| p.id).collect();
+    let mut engagement_by_post =
+        fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, viewer_id).await?;
+
     let posts: Vec<PostResponse> = page
         .into_iter()
         .map(|row| {
             let author = authors_by_id.get(&row.author_id);
             let media = media_by_post.remove(&row.id).unwrap_or_default();
-            build_post_response(row, author, media)
+            let engagement = engagement_by_post.remove(&row.id).unwrap_or_default();
+            build_post_response(row, author, media, engagement)
         })
         .collect();
 

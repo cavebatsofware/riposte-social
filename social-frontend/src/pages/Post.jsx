@@ -2,14 +2,17 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import CommentThread from "../components/CommentThread";
 import PostCard from "../components/PostCard";
 
 /// Permalink page at `/post/:id`. Renders a single post with the full-
 /// width media variant, plus a "back to feed" link. Author or admin sees
 /// edit + delete buttons; everyone else just sees the post.
 ///
-/// Comments + reactions arrive in Phase 4; the action bar is intentionally
-/// absent for now to avoid promising functionality that isn't wired up.
+/// Below the post, `<CommentThread />` lists existing comments and lets
+/// authenticated callers add new ones. The reaction bar lives inside
+/// `<PostCard />` so likes work from both feed and permalink without two
+/// separate code paths.
 export default function Post() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -124,9 +127,7 @@ export default function Post() {
               </button>
             </div>
           )}
-          <section className="post-comments-placeholder">
-            <p>Reactions and comments are coming in the next release.</p>
-          </section>
+          <CommentThread postId={post.id} />
         </>
       )}
     </main>

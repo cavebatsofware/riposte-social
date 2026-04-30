@@ -13,4 +13,45 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-// Reactions and comments endpoints. Populated in Phase 4 of the MVP plan.
+//! Reactions and comments on posts.
+//!
+//! - Reactions are simple facts: `(post_id, user_id, kind)` is unique. Adding a
+//!   reaction is idempotent (insert-or-ignore on the unique index); removing
+//!   it is a delete by the same triple. Counts are aggregated per kind for
+//!   feed/post payloads. Today only `like` is allowed; the schema and the
+//!   `ALLOWED_KINDS` allowlist let us add more without DDL.
+//! - Comments carry a soft-delete column so admin moderation can hide a
+//!   comment without losing it. Live counts and listings filter on
+//!   `deleted_at IS NULL`.
+//! - Both sets of endpoints require the caller to have read access to the
+//!   parent post via the same `FeedTier` gate the post handlers use.
+
+pub mod aggregate;
+pub mod comments;
+pub mod reactions;
+
+pub use aggregate::{fetch_engagement_for_posts, PostEngagement};
+
+use axum::Router;
+use sea_orm::DatabaseConnection;
+
+#[derive(Clone)]
+pub struct EngagementState {
+    pub db: DatabaseConnection,
+}
+
+/// Routes that require an authenticated principal: writing reactions and
+/// comments and deleting comments. Visibility-filter checks against the
+/// parent post happen inside each handler.
+pub fn engagement_write_routes() -> Router<EngagementState> {
+    Router::new()
+        .merge(reactions::reaction_write_routes())
+        .merge(comments::comment_write_routes())
+}
+
+/// Public read routes: list comments on a post. Visibility is filtered
+/// against the parent post so under-tier callers see the same 404 as
+/// missing-post.
+pub fn engagement_read_routes() -> Router<EngagementState> {
+    Router::new().merge(comments::comment_read_routes())
+}
