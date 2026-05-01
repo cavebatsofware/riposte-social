@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import Layout from "../components/Layout";
 
 /// Sign-in page for return visitors who don't have a pending invite cookie.
 /// Mode-aware: in OIDC deployments it's just a button to the SSO endpoint;
@@ -35,7 +36,7 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-page">
+    <Layout>
       <div className="auth-card">
         <h1>Sign in</h1>
 
@@ -85,6 +86,6 @@ export default function Login() {
           </p>
         </div>
       </div>
-    </main>
+    </Layout>
   );
 }

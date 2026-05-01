@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import InviteAcceptForm from "../components/InviteAcceptForm";
+import Layout from "../components/Layout";
 
 /// First-contact landing for `/invite/:code` links shared via email or chat.
 /// Renders a combined trusted-device + cookie-consent gate before storing
@@ -21,7 +22,7 @@ export default function InviteAccept() {
 
   if (user) {
     return (
-      <main className="invite-accept-page">
+      <Layout>
         <div className="invite-accept-card">
           <h1>You're already signed in</h1>
           <p>
@@ -32,7 +33,7 @@ export default function InviteAccept() {
             Go to feed
           </Link>
         </div>
-      </main>
+      </Layout>
     );
   }
 
@@ -63,7 +64,7 @@ export default function InviteAccept() {
   }
 
   return (
-    <main className="invite-accept-page">
+    <Layout>
       <div className="invite-accept-card">
         {step === "gate" && (
           <>
@@ -160,6 +161,6 @@ export default function InviteAccept() {
           </>
         )}
       </div>
-    </main>
+    </Layout>
   );
 }

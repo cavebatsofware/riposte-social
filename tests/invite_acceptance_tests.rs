@@ -82,6 +82,10 @@ async fn insert_inert_row(
         last_login_at: Set(None),
         invite_code_id: Set(invite_code_id),
         activated_at: Set(None),
+        handle: Set(format!("inert-{}", &id.to_string()[..8])),
+        bio: Set(None),
+        pronouns: Set(None),
+        avatar_s3_key: Set(None),
         ..Default::default()
     }
     .insert(db)

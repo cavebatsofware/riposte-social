@@ -1,18 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 
-/// Floating theme picker for the social-frontend. Mounted at app root so
-/// every route gets it (Feed, Login, InviteAccept, etc.) without each
-/// page having to render it. Click the round button to open a popover
-/// listing the available palettes; click a swatch to switch. The choice
-/// persists in localStorage for this origin.
-export default function ThemePicker() {
-  const { theme, setTheme, themes } = useTheme();
+/// Theme picker for the social-frontend.
+///
+/// Two render modes:
+/// - `variant="popover"` (default): a round icon button in the header
+///   that opens a popover grid of (colorway × light/dark) swatches.
+/// - `variant="inline"`: same grid rendered directly without a toggle,
+///   intended for use inside the mobile drawer where vertical space is
+///   abundant.
+///
+/// Phase 7d split each colorway into a light/dark pair. The grid renders
+/// the user's current colorway and offers (a) a colorway switch and (b)
+/// a light/dark toggle as two adjacent rows; the underlying state is a
+/// single id of the form "<colorway>-<mode>" or just "<colorway>" for
+/// historic light values (handled by `ThemeContext.setTheme`).
+export default function ThemePicker({ variant = "popover" }) {
+  const { theme, setTheme, colorways, mode, setMode } = useTheme();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (variant !== "popover" || !open) return undefined;
     function handleClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
@@ -27,34 +36,75 @@ export default function ThemePicker() {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEsc);
     };
-  }, [open]);
+  }, [open, variant]);
+
+  // Today the theme id is "<colorway>" (light) or "<colorway>-dark". Derive
+  // the current colorway from the resolved theme so the swatches show
+  // the right active state regardless of which form is stored.
+  const currentColorway = theme.endsWith("-dark") ? theme.slice(0, -"-dark".length) : theme;
+
+  const grid = (
+    <div className="theme-picker-grid">
+      <div className="theme-picker-title">Theme</div>
+      <div className="theme-swatches" role="radiogroup" aria-label="Colorway">
+        {colorways.map((c) => {
+          const active = c.id === currentColorway;
+          return (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              className={`theme-swatch ${active ? "active" : ""}`}
+              onClick={() => {
+                setTheme(`${c.id}${mode === "dark" ? "-dark" : ""}`);
+                if (variant === "popover") setOpen(false);
+              }}
+            >
+              <span
+                className="theme-swatch-color"
+                style={{ background: c.swatch }}
+                aria-hidden="true"
+              />
+              <span className="theme-swatch-label">{c.label}</span>
+              {active && (
+                <span className="theme-swatch-check" aria-hidden="true">
+                  ✓
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div className="theme-mode-row" role="radiogroup" aria-label="Light or dark">
+        {[
+          { id: "light", label: "Light" },
+          { id: "dark", label: "Dark" },
+        ].map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="radio"
+            aria-checked={mode === m.id}
+            className={`theme-mode-btn ${mode === m.id ? "active" : ""}`}
+            onClick={() => setMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (variant === "inline") {
+    return <div className="theme-picker-inline">{grid}</div>;
+  }
 
   return (
     <div className="theme-picker" ref={containerRef}>
       {open && (
         <div className="theme-picker-popover" role="dialog" aria-label="Choose theme">
-          <div className="theme-picker-title">Theme</div>
-          {themes.map((t) => {
-            const active = t.id === theme;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                className={`theme-swatch ${active ? "active" : ""}`}
-                onClick={() => {
-                  setTheme(t.id);
-                  setOpen(false);
-                }}
-              >
-                <span
-                  className="theme-swatch-color"
-                  style={{ background: t.swatch }}
-                />
-                <span className="theme-swatch-label">{t.label}</span>
-                {active && <span className="theme-swatch-check">✓</span>}
-              </button>
-            );
-          })}
+          {grid}
         </div>
       )}
       <button

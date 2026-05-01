@@ -1,0 +1,80 @@
+.profile-card {
+  display: flex;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-6);
+}
+
+.profile-avatar-large {
+  flex: 0 0 auto;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--color-surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.profile-avatar-large img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.profile-card-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-display-name {
+  font-size: var(--font-size-2xl);
+  margin: 0 0 var(--spacing-1) 0;
+  line-height: 1.2;
+}
+
+.profile-handle-row {
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-2);
+}
+
+.profile-handle {
+  font-family: var(--font-mono, monospace);
+}
+
+.profile-pronouns {
+  margin-left: var(--spacing-1);
+}
+
+.profile-bio {
+  white-space: pre-wrap;
+  margin: var(--spacing-2) 0;
+}
+
+.profile-card-actions {
+  margin-top: var(--spacing-3);
+}
+
+.profile-posts-heading {
+  margin: var(--spacing-6) 0 var(--spacing-3) 0;
+  font-size: var(--font-size-lg);
+}
+
+@media (max-width: 768px) {
+  .profile-card {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .profile-handle-row {
+    justify-content: center;
+  }
+}

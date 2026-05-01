@@ -63,6 +63,19 @@ pub struct Model {
     /// admin, at creation time). NULL means the row is inert; no login of
     /// any kind can establish a session until activation. See Phase 2h.
     pub activated_at: Option<DateTimeWithTimeZone>,
+    /// Public handle, like a GitHub username. NOT NULL, unique. The
+    /// migration backfills it from the email local-part. App layer enforces
+    /// length 3-30 and the [a-z0-9_-] charset.
+    pub handle: String,
+    /// Self-described bio, capped at 500 chars at the app layer.
+    pub bio: Option<String>,
+    /// Pronouns string (free-form), capped at 30 chars at the app layer.
+    pub pronouns: Option<String>,
+    /// Relative S3 key for an uploaded avatar, e.g. `avatars/{user_id}/{uuid}.webp`.
+    /// Distinct from `avatar_url` (which is reserved for an external URL the
+    /// IdP might supply later); the API renders an `avatar_url` field that
+    /// prefers the S3-served route over the external URL.
+    pub avatar_s3_key: Option<String>,
 }
 
 impl Model {

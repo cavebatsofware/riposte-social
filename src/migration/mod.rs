@@ -49,6 +49,8 @@ mod m20260430_000002_create_comments;
 mod m20260430_000003_create_import_jobs;
 mod m20260430_000004_add_import_job_log;
 mod m20260501_000001_seed_phase6_feature_gates;
+mod m20260502_000001_add_user_profile_fields;
+mod m20260503_000001_create_albums;
 
 pub struct Migrator;
 
@@ -89,6 +91,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260430_000003_create_import_jobs::Migration),
             Box::new(m20260430_000004_add_import_job_log::Migration),
             Box::new(m20260501_000001_seed_phase6_feature_gates::Migration),
+            Box::new(m20260502_000001_add_user_profile_fields::Migration),
+            Box::new(m20260503_000001_create_albums::Migration),
         ]
     }
 }

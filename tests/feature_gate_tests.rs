@@ -230,6 +230,7 @@ async fn test_commenter_invites_gate_blocks_password_acceptance(pool: sqlx::PgPo
         role: Set(user::ROLE_ADMINISTRATOR.to_string()),
         invite_code_id: Set(Some(invite.id)),
         activated_at: Set(None),
+        handle: Set(format!("fg-{}", &inert_id.to_string()[..8])),
         ..Default::default()
     }
     .insert(&db)

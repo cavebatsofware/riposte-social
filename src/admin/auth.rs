@@ -133,6 +133,8 @@ impl UserAuthBackend {
         let encrypted_token = encrypt_token(&verification_token)?;
         let verification_expires = Utc::now() + chrono::Duration::hours(24);
 
+        let handle = crate::profile::mint_unique_handle(&self.db, email).await?;
+
         let new_user = user::ActiveModel {
             id: Set(Uuid::new_v4()),
             email: Set(email.to_string()),
@@ -159,6 +161,10 @@ impl UserAuthBackend {
             last_login_at: Set(None),
             invite_code_id: Set(None),
             activated_at: Set(if activated { Some(Utc::now().into()) } else { None }),
+            handle: Set(handle),
+            bio: Set(None),
+            pronouns: Set(None),
+            avatar_s3_key: Set(None),
         };
 
         let result = new_user.insert(&self.db).await?;
@@ -888,6 +894,7 @@ impl UserAuthBackend {
 
         let new_user_id = Uuid::new_v4();
         let password_hash = hash_password(new_password)?;
+        let handle = crate::profile::mint_unique_handle(&self.db, email).await?;
         let new_user = user::ActiveModel {
             id: Set(new_user_id),
             email: Set(email.to_string()),
@@ -914,6 +921,10 @@ impl UserAuthBackend {
             last_login_at: Set(Some(Utc::now().into())),
             invite_code_id: Set(Some(invite.id)),
             activated_at: Set(Some(Utc::now().into())),
+            handle: Set(handle),
+            bio: Set(None),
+            pronouns: Set(None),
+            avatar_s3_key: Set(None),
         };
         let result = new_user.insert(&self.db).await?;
 
@@ -961,6 +972,7 @@ impl UserAuthBackend {
 
         let new_user_id = Uuid::new_v4();
         let random_hash = format!("oidc_user_{}", Uuid::new_v4());
+        let handle = crate::profile::mint_unique_handle(&self.db, idp_email).await?;
         let new_user = user::ActiveModel {
             id: Set(new_user_id),
             email: Set(idp_email.to_string()),
@@ -987,6 +999,10 @@ impl UserAuthBackend {
             last_login_at: Set(Some(Utc::now().into())),
             invite_code_id: Set(Some(invite.id)),
             activated_at: Set(Some(Utc::now().into())),
+            handle: Set(handle),
+            bio: Set(None),
+            pronouns: Set(None),
+            avatar_s3_key: Set(None),
         };
         let result = new_user.insert(&self.db).await?;
 

@@ -4,7 +4,9 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
 import InviteSplash from "../components/InviteSplash";
+import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
+import SkeletonCard from "../components/SkeletonCard";
 
 const FEED_LIMIT = 20;
 
@@ -12,8 +14,11 @@ const FEED_LIMIT = 20;
 /// public + commenter-visible; posters and admins see everything. The
 /// backend filters by tier (see `src/posts/routes.rs`); this component
 /// just renders whatever it returns.
+///
+/// Wrapped in `<Layout>` (Phase 7a) so the header / nav / theme picker
+/// come from the shared shell rather than per-page chrome.
 export default function Feed() {
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user } = useAuth();
   const { config: site } = useSiteConfig();
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
@@ -24,8 +29,8 @@ export default function Feed() {
   // Posting is gated by `poster_posting_enabled` for the poster role only;
   // admins always retain access. The site-config fetch starts as `null`
   // and only populates on success — until then we treat the gate as off
-  // (fail closed) so a transient settings outage never causes us to
-  // surface a Compose button that the backend would reject.
+  // (fail closed). Used here only for the empty-state CTA; the actual
+  // Compose link in the header is owned by `<Layout>`.
   const canCompose =
     user &&
     (user.role === "administrator" ||
@@ -65,44 +70,18 @@ export default function Feed() {
   }, [loadPage]);
 
   return (
-    <main className="feed">
-      <header className="feed-header">
-        <div className="feed-header-row">
-          <h1>Riposte Social</h1>
-          <div className="feed-header-actions">
-            {!authLoading && canCompose && (
-              <Link to="/compose" className="btn-primary">
-                Compose
-              </Link>
-            )}
-            {!authLoading &&
-              (user ? (
-                <button
-                  type="button"
-                  className="btn-secondary"
-                  onClick={logout}
-                >
-                  Sign out
-                </button>
-              ) : (
-                <Link to="/login" className="btn-primary">
-                  Sign in
-                </Link>
-              ))}
-          </div>
-        </div>
-        <p className="feed-subtitle">
-          {authLoading
-            ? "…"
-            : user
-              ? `Signed in as ${user.display_name || user.email}`
-              : "A self-hosted social site for family and close friends."}
-        </p>
-      </header>
-
+    <Layout>
       <InviteSplash />
 
       {error && <div className="alert alert-error">{error}</div>}
+
+      {loading && posts.length === 0 && (
+        <section className="feed-list" aria-label="Loading feed">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </section>
+      )}
 
       {!loading && posts.length === 0 && !error && (
         <FeedEmptyState
@@ -133,13 +112,7 @@ export default function Feed() {
           </button>
         </div>
       )}
-
-      {loading && posts.length === 0 && (
-        <section className="feed-empty">
-          <p>Loading feed…</p>
-        </section>
-      )}
-    </main>
+    </Layout>
   );
 }
 

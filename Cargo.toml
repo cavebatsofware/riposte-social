@@ -62,6 +62,10 @@ url = "2.5.8"
 # Markdown rendering + HTML sanitization for post bodies
 pulldown-cmark = { version = "0.13.3", default-features = false, features = ["html"] }
 ammonia = "4.1.2"
+# Image decoding + resize + webp encoding for avatar uploads. Already a
+# transitive dep via the totp-rs QR feature; promoted to a direct dep so
+# the contract is explicit.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 # Bounded-concurrency stream combinators (buffer_unordered) for the import
 # worker, plus disk-spooled temp files for staging large archives.
 futures = { version = "0.3", default-features = false, features = ["std"] }

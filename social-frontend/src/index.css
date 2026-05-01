@@ -101,6 +101,246 @@
   --color-danger-border: #fecaca;
 }
 
+/* ==========================================================================
+   Phase 7d — Dark companions for each colorway.
+
+   Each variant is hand-tuned (not a mechanical inversion) so the colorway
+   keeps its personality after dark. WCAG AA contrast (4.5:1 body / 3:1
+   large text) verified against `--color-bg`/`--color-surface` for every
+   text color and against `--color-primary` for `--color-on-primary`.
+   ========================================================================== */
+
+[data-theme="forest-dark"] {
+  /* Deep forest at night: near-black green base, cream foreground, the
+     same primary hue but brighter so it reads on dark surfaces. */
+  --color-bg: #14201a;
+  --color-surface: #1a2922;
+  --color-surface-2: #22372d;
+  --color-border: #2c4135;
+  --color-divider: #25372d;
+  --color-text: #f1ead8;
+  --color-muted: #a89e85;
+  --color-primary: #7ec79a;
+  --color-primary-hover: #95d6ad;
+  --color-on-primary: #14201a;
+  --color-link-underline: #6b9b80;
+  --color-avatar-bg: #7ec79a;
+  --color-avatar-fg: #14201a;
+  --color-media-bg: #1f3328;
+  --color-overlay: rgba(126, 199, 154, 0.18);
+
+  --color-badge-public-bg: #1f3328;
+  --color-badge-public-fg: #b9e3c8;
+  --color-badge-commenters-bg: #3a2f1c;
+  --color-badge-commenters-fg: #e8c889;
+  --color-badge-posters-bg: #3a2419;
+  --color-badge-posters-fg: #e9b58f;
+
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1818;
+  --color-danger-border: #6b2828;
+}
+
+[data-theme="warm-dark"] {
+  /* Warm editorial after dark: deep ink-navy base, ivory text, the navy
+     primary lifted toward a powdered blue. */
+  --color-bg: #131826;
+  --color-surface: #1a2236;
+  --color-surface-2: #232c44;
+  --color-border: #2e3a55;
+  --color-divider: #2a3349;
+  --color-text: #ece4d4;
+  --color-muted: #a59c87;
+  --color-primary: #8ab2dd;
+  --color-primary-hover: #a3c2e6;
+  --color-on-primary: #131826;
+  --color-link-underline: #7a8db3;
+  --color-avatar-bg: #8ab2dd;
+  --color-avatar-fg: #131826;
+  --color-media-bg: #1f293f;
+  --color-overlay: rgba(138, 178, 221, 0.18);
+
+  --color-badge-public-bg: #1f293f;
+  --color-badge-public-fg: #b9d2f0;
+  --color-badge-commenters-bg: #38301c;
+  --color-badge-commenters-fg: #e7c785;
+  --color-badge-posters-bg: #3a241a;
+  --color-badge-posters-fg: #ecb38e;
+
+  --color-danger: #f87171;
+  --color-danger-bg: #341919;
+  --color-danger-border: #5e2727;
+}
+
+[data-theme="plum-dark"] {
+  /* Plum & apricot after dark: deep aubergine base, peach text, primary
+     stays plum but pushed lighter for contrast. */
+  --color-bg: #1c1220;
+  --color-surface: #271a2c;
+  --color-surface-2: #34253a;
+  --color-border: #3f2d46;
+  --color-divider: #382740;
+  --color-text: #f3e1d3;
+  --color-muted: #ad9a9f;
+  --color-primary: #c884b6;
+  --color-primary-hover: #d99dc7;
+  --color-on-primary: #1c1220;
+  --color-link-underline: #b3829e;
+  --color-avatar-bg: #c884b6;
+  --color-avatar-fg: #1c1220;
+  --color-media-bg: #2c1f33;
+  --color-overlay: rgba(200, 132, 182, 0.18);
+
+  --color-badge-public-bg: #3a221d;
+  --color-badge-public-fg: #f0c6a8;
+  --color-badge-commenters-bg: #2e1f33;
+  --color-badge-commenters-fg: #e3b9d6;
+  --color-badge-posters-bg: #3a2e16;
+  --color-badge-posters-fg: #e6cf8b;
+
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1717;
+  --color-danger-border: #5e2222;
+}
+
+/* ==========================================================================
+   Avernus & Clouds — celestial dichotomy. Light "clouds" reads soft and
+   ethereal; dark "avernus" is volcanic, with ember-red primary and ash-
+   gold highlights. The two halves are intentionally opposite poles of
+   the same metaphor rather than light/dark inversions of each other.
+   ========================================================================== */
+
+[data-theme="avernus"] {
+  /* Clouds: cloud-white base, midnight-blue text, sky-blue primary,
+     dawn-pink badge accents. */
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #e9eef7;
+  --color-border: #d8e2f0;
+  --color-divider: #e2eaf3;
+  --color-text: #1a2438;
+  --color-muted: #6c7689;
+  --color-primary: #4f6dab;
+  --color-primary-hover: #3d588f;
+  --color-on-primary: #ffffff;
+  --color-link-underline: #b9c8e0;
+  --color-avatar-bg: #4f6dab;
+  --color-avatar-fg: #ffffff;
+  --color-media-bg: #e1e9f5;
+  --color-overlay: rgba(79, 109, 171, 0.15);
+
+  --color-badge-public-bg: #d6e0f2;
+  --color-badge-public-fg: #2c3e6d;
+  --color-badge-commenters-bg: #efd9e2;
+  --color-badge-commenters-fg: #8b3e58;
+  --color-badge-posters-bg: #efe2c9;
+  --color-badge-posters-fg: #7a591b;
+
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="avernus-dark"] {
+  /* Avernus: volcanic black base, ember light text, lava-red primary,
+     sulfur-gold accents. The pit beneath the clouds. */
+  --color-bg: #0f0a09;
+  --color-surface: #1a0f0d;
+  --color-surface-2: #2a1714;
+  --color-border: #3a201d;
+  --color-divider: #321915;
+  --color-text: #ffe4d4;
+  --color-muted: #b59186;
+  --color-primary: #d4452b;
+  --color-primary-hover: #e2553a;
+  --color-on-primary: #0f0a09;
+  --color-link-underline: #8a3e2c;
+  --color-avatar-bg: #d4452b;
+  --color-avatar-fg: #0f0a09;
+  --color-media-bg: #1f110f;
+  --color-overlay: rgba(212, 69, 43, 0.18);
+
+  --color-badge-public-bg: #2a1714;
+  --color-badge-public-fg: #f4b89c;
+  --color-badge-commenters-bg: #3a2618;
+  --color-badge-commenters-fg: #f0c98a;
+  --color-badge-posters-bg: #2e1a0e;
+  --color-badge-posters-fg: #e9a47a;
+
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1717;
+  --color-danger-border: #6b2222;
+}
+
+/* ==========================================================================
+   Rocks & Minerals — geological palette, earthy without being green.
+   Light "sandstone" is warm limestone with slate text and copper primary;
+   dark "granite" is cool charcoal with amber primary and faint mineral-
+   teal accents. Both halves draw from the same rock face, just lit
+   differently.
+   ========================================================================== */
+
+[data-theme="mineral"] {
+  /* Sandstone: warm limestone bg, basalt text, copper primary. */
+  --color-bg: #f0ebe1;
+  --color-surface: #f8f5ed;
+  --color-surface-2: #e6dfd0;
+  --color-border: #d6cdba;
+  --color-divider: #ddd3be;
+  --color-text: #2d2925;
+  --color-muted: #756d5e;
+  --color-primary: #a05a2c;
+  --color-primary-hover: #8a4d24;
+  --color-on-primary: #f8f5ed;
+  --color-link-underline: #c0a37b;
+  --color-avatar-bg: #5e4b3a;
+  --color-avatar-fg: #f8f5ed;
+  --color-media-bg: #d8cdb6;
+  --color-overlay: rgba(160, 90, 44, 0.15);
+
+  --color-badge-public-bg: #d8cdb6;
+  --color-badge-public-fg: #4a3f2c;
+  --color-badge-commenters-bg: #e6d4ba;
+  --color-badge-commenters-fg: #6e5026;
+  --color-badge-posters-bg: #e8c8a8;
+  --color-badge-posters-fg: #7d3f17;
+
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="mineral-dark"] {
+  /* Granite: cool charcoal bg, sandstone text, amber-copper primary,
+     faint mineral-teal hint in the badge accents. */
+  --color-bg: #1c1c1f;
+  --color-surface: #25252a;
+  --color-surface-2: #2f2f35;
+  --color-border: #3a3a42;
+  --color-divider: #333339;
+  --color-text: #ebe2cf;
+  --color-muted: #9b9281;
+  --color-primary: #d6884a;
+  --color-primary-hover: #e3995d;
+  --color-on-primary: #1c1c1f;
+  --color-link-underline: #8a6f4d;
+  --color-avatar-bg: #d6884a;
+  --color-avatar-fg: #1c1c1f;
+  --color-media-bg: #28282d;
+  --color-overlay: rgba(214, 136, 74, 0.18);
+
+  --color-badge-public-bg: #28282d;
+  --color-badge-public-fg: #d6c9a8;
+  --color-badge-commenters-bg: #2c2820;
+  --color-badge-commenters-fg: #e7c382;
+  --color-badge-posters-bg: #1f2a2c;
+  --color-badge-posters-fg: #8fc4c4;
+
+  --color-danger: #f87171;
+  --color-danger-bg: #34191a;
+  --color-danger-border: #5e2424;
+}
+
 /* Static tokens, identical across themes. */
 :root {
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -148,6 +388,21 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Phase 7e — visible focus rings on every interactive element. The
+   :focus-visible pseudo only triggers on keyboard focus (not on mouse
+   click), so the ring appears for keyboard users without polluting
+   pointer interactions. Per-component overrides may tighten the offset
+   or color but should preserve the basic affordance. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ==========================================================================
@@ -488,14 +743,16 @@ body {
 }
 
 /* ==========================================================================
-   Theme picker (floating button + popover)
+   Theme picker
+
+   Phase 7d split the picker into two axes (colorway + light/dark) and
+   moved it into the Layout header. The popover variant is anchored to the
+   header's icon button; the inline variant inside the mobile drawer drops
+   the popover chrome and renders the same grid as a list.
    ========================================================================== */
 
 .theme-picker {
-  position: fixed;
-  bottom: calc(var(--spacing-4) + 64px);
-  right: var(--spacing-4);
-  z-index: 45;
+  position: relative;
 }
 
 .theme-picker-toggle {
@@ -519,14 +776,15 @@ body {
 
 .theme-picker-popover {
   position: absolute;
-  bottom: calc(100% + var(--spacing-2));
+  top: calc(100% + var(--spacing-2));
   right: 0;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--spacing-3);
-  min-width: 200px;
+  min-width: 220px;
   box-shadow: var(--shadow-popover);
+  z-index: 35;
 }
 
 .theme-picker-title {
@@ -579,6 +837,54 @@ body {
 .theme-swatch-check {
   color: var(--color-primary);
   font-weight: 700;
+}
+
+.theme-picker-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.theme-swatches {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+}
+
+.theme-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-1);
+  margin-top: var(--spacing-2);
+  padding-top: var(--spacing-2);
+  border-top: 1px solid var(--color-divider);
+}
+
+.theme-mode-btn {
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.theme-mode-btn:hover {
+  background: var(--color-surface-2);
+}
+
+.theme-mode-btn.active {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.theme-picker-inline .theme-picker-grid {
+  /* Inline variant inside the mobile drawer: no popover chrome,
+     borrows the body padding from `.mobile-drawer-section`. */
 }
 
 /* ==========================================================================
@@ -644,6 +950,24 @@ body {
   font-size: 13px;
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  /* Crop oversized children (uploaded avatars are 512px webp) into the
+     bubble. The img rule below sizes the child, the overflow:hidden
+     keeps the circular mask intact. */
+  overflow: hidden;
+}
+
+.post-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* When .post-avatar is rendered as a <Link> (author has a handle), drop
+   default link underline + color so it matches the non-link variant. */
+.post-avatar-link {
+  text-decoration: none;
+  color: inherit;
 }
 
 .post-author {
@@ -690,6 +1014,117 @@ body {
 .visibility-badge.posters {
   background-color: var(--color-badge-posters-bg);
   color: var(--color-badge-posters-fg);
+}
+
+/* Private tier (Phase 9a): author-only. Slate / muted to read as
+   "draft / not shared". Uses the muted-surface tokens that already adapt
+   per-theme. */
+.visibility-badge.private {
+  background-color: var(--color-overlay);
+  color: var(--color-muted);
+}
+
+/* Phase 9b: VisibilityMenu — the in-place dropdown that lets a post's
+   author or admin change visibility from the feed without leaving the
+   page. The trigger reuses .visibility-badge styling so the visual jump
+   from read-only to editable is small. */
+.visibility-menu {
+  position: relative;
+  display: inline-flex;
+}
+/* `<button>` brings user-agent font defaults (`-webkit-small-control` /
+   13–14px depending on platform) that override `.visibility-badge`'s
+   `font-size: 11px` via the cascade. Spell out every font property
+   explicitly so the button-mode badge looks identical to the read-only
+   span variant. */
+.visibility-badge-button {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: none;
+  cursor: pointer;
+  gap: 4px;
+}
+.visibility-badge-button:hover {
+  filter: brightness(1.08);
+}
+.visibility-badge-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.visibility-menu-chevron {
+  font-size: 9px;
+  margin-left: 2px;
+  /* The default uppercase + letter-spacing makes the chevron look spaced
+     out from the label; reset just for the glyph. */
+  text-transform: none;
+  letter-spacing: 0;
+}
+.visibility-menu-popover {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  min-width: 180px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover, 0 6px 16px rgba(0, 0, 0, 0.18));
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  z-index: 25;
+}
+.visibility-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.visibility-menu-item:hover:not(:disabled) {
+  background: var(--color-overlay);
+}
+.visibility-menu-item.active {
+  font-weight: 600;
+}
+.visibility-menu-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.visibility-menu-swatch.public {
+  background: var(--color-badge-public-bg);
+}
+.visibility-menu-swatch.commenters {
+  background: var(--color-badge-commenters-bg);
+}
+.visibility-menu-swatch.posters {
+  background: var(--color-badge-posters-bg);
+}
+.visibility-menu-swatch.private {
+  background: var(--color-muted);
+}
+.visibility-menu-check {
+  margin-left: auto;
+  color: var(--color-primary);
+}
+.visibility-menu-error {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--color-danger, #c73a3a);
 }
 
 .post-body {
@@ -774,7 +1209,8 @@ body {
   gap: var(--spacing-2);
 }
 
-.post-media-row img {
+.post-media-row img,
+.post-media-row video {
   width: 100%;
   aspect-ratio: 1;
   object-fit: cover;
@@ -786,7 +1222,8 @@ body {
   margin-top: var(--spacing-4);
 }
 
-.post-media-single img {
+.post-media-single img,
+.post-media-single video {
   width: 100%;
   max-height: 480px;
   object-fit: cover;
@@ -803,6 +1240,11 @@ body {
   max-height: 600px;
   object-fit: cover;
   background-color: var(--color-media-bg);
+}
+.post-media-permalink video.post-media-hero {
+  /* Inline videos shouldn't be cropped — let aspect ratio determine the
+     rendered height instead of cover-cropping. */
+  object-fit: contain;
 }
 
 .post-media-permalink .post-media-row {
@@ -961,6 +1403,18 @@ body {
 .comment-item-author {
   color: var(--color-text);
   font-weight: 600;
+}
+
+/* Author byline rendered as a profile link (post + comment cards). The
+   default link underline is suppressed; hover restores it as the affordance. */
+.post-author-link,
+.comment-item-author-link {
+  text-decoration: none;
+  color: inherit;
+}
+.post-author-link:hover,
+.comment-item-author-link:hover {
+  text-decoration: underline;
 }
 
 .comment-item-dot {
@@ -1198,7 +1652,8 @@ body {
   overflow: hidden;
 }
 
-.attached-thumb img {
+.attached-thumb img,
+.attached-thumb video {
   width: 100%;
   height: 100%;
   object-fit: cover;

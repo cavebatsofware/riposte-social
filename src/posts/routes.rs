@@ -26,7 +26,7 @@ use crate::engagement::{fetch_engagement_for_posts, PostEngagement};
 use crate::entities::{post, post_media, user, Post, PostMedia, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
-use crate::posts::{markdown, FeedTier};
+use crate::posts::{can_read_post, markdown, FeedTier};
 use crate::s3::S3Service;
 use axum::{
     body::Body,
@@ -53,13 +53,19 @@ pub struct PostsState {
     pub settings: crate::settings::SettingsService,
 }
 
-/// Per-file size cap (10 MiB). Beyond this we reject the upload before
-/// hitting S3.
-const MEDIA_FILE_MAX_BYTES: usize = 10 * 1024 * 1024;
+/// Per-image-file size cap (10 MiB). Phone-shot photos comfortably fit;
+/// edited / RAW exports get rejected before hitting S3.
+const IMAGE_FILE_MAX_BYTES: usize = 10 * 1024 * 1024;
+
+/// Per-video-file size cap (100 MiB). Family video clips are typically
+/// short; transcoded HEVC is even smaller. Anything beyond this is more
+/// than the browser-inline player path is meant to serve.
+const VIDEO_FILE_MAX_BYTES: usize = 100 * 1024 * 1024;
 
 /// Total request size cap. Multipart bodies are bounded so a malformed
-/// client cannot wedge the connection holding gigabytes in memory.
-const POST_BODY_MAX_BYTES: usize = 64 * 1024 * 1024;
+/// client cannot wedge the connection holding gigabytes in memory. Bumped
+/// to 256 MiB to accommodate `MEDIA_FILES_MAX` videos at the new cap.
+const POST_BODY_MAX_BYTES: usize = 256 * 1024 * 1024;
 
 /// Maximum media files attached to a single post. Hard cap so the client
 /// cannot stash unbounded references that we then have to track + clean up.
@@ -69,12 +75,44 @@ const MEDIA_FILES_MAX: usize = 8;
 /// else is rejected so uploaded files cannot become a vector for malicious
 /// content disguised as media (`text/html` payloads, SVG with embedded
 /// scripts, etc.).
-const ALLOWED_MIME_TYPES: &[&str] = &[
+const ALLOWED_IMAGE_MIME_TYPES: &[&str] = &[
     "image/jpeg",
     "image/png",
     "image/gif",
     "image/webp",
 ];
+
+/// Allowlisted video mime types. Constrained to formats every modern
+/// browser plays inline with `<video controls>` — no flash, no hls, no
+/// formats requiring transcoding on the server side.
+const ALLOWED_VIDEO_MIME_TYPES: &[&str] = &[
+    "video/mp4",
+    "video/webm",
+];
+
+/// Returns true when `mime` is on either the image or the video allowlist.
+/// Re-exported (pub) so the albums module can reuse the same allowlist
+/// without drifting.
+pub fn is_allowed_media_mime(mime: &str) -> bool {
+    ALLOWED_IMAGE_MIME_TYPES.contains(&mime) || ALLOWED_VIDEO_MIME_TYPES.contains(&mime)
+}
+
+/// Returns true when `mime` is a video mime — used to pick the per-file
+/// size cap and to dispatch the frontend `<video>` vs `<img>` render.
+pub fn is_video_mime(mime: &str) -> bool {
+    ALLOWED_VIDEO_MIME_TYPES.contains(&mime)
+}
+
+/// Per-file cap depends on the mime: images stay at 10 MiB, videos go up
+/// to 100 MiB. Picking the cap by mime keeps a fat finger from sneaking
+/// a 100 MiB image past the cheaper image cap.
+pub fn max_bytes_for_mime(mime: &str) -> usize {
+    if is_video_mime(mime) {
+        VIDEO_FILE_MAX_BYTES
+    } else {
+        IMAGE_FILE_MAX_BYTES
+    }
+}
 
 /// Authenticated, role-gated write endpoints. The author/admin check on
 /// PATCH/DELETE happens inside the handler. Multipart body limit is lifted
@@ -119,6 +157,12 @@ pub struct PostResponse {
     /// public posts are also visible to anonymous visitors. Clients fall
     /// back to a generic label when display_name is absent.
     pub author_display: Option<String>,
+    /// Author's public handle. Used by the social-frontend to link the
+    /// avatar/byline to `/u/{handle}`.
+    pub author_handle: Option<String>,
+    /// Author's avatar URL, derived in `profile::avatar_url_for`. Falls
+    /// back to None when the author has no uploaded avatar.
+    pub author_avatar_url: Option<String>,
     pub body: String,
     pub body_html: String,
     pub visibility: String,
@@ -143,6 +187,10 @@ pub struct PostMediaResponse {
     /// visibility before serving from S3.
     pub url: String,
     pub mime_type: String,
+    /// Coarse kind derived from `mime_type`: `"image"` or `"video"`.
+    /// Lets the client render `<img>` vs `<video>` without parsing mime
+    /// strings on the client side.
+    pub media_kind: &'static str,
     pub width: Option<i32>,
     pub height: Option<i32>,
     pub ordinal: i32,
@@ -151,10 +199,16 @@ pub struct PostMediaResponse {
 
 impl PostMediaResponse {
     fn from_model(m: post_media::Model) -> Self {
+        let media_kind = if is_video_mime(&m.mime_type) {
+            "video"
+        } else {
+            "image"
+        };
         Self {
             url: format!("/media/{}", m.id),
             id: m.id,
             mime_type: m.mime_type,
+            media_kind,
             width: m.width,
             height: m.height,
             ordinal: m.ordinal,
@@ -174,6 +228,8 @@ fn build_post_response(
         id: row.id,
         author_id: row.author_id,
         author_display: author.and_then(|u| u.display_name.clone()),
+        author_handle: author.map(|u| u.handle.clone()),
+        author_avatar_url: author.and_then(crate::profile::avatar_url_for),
         body: row.body,
         body_html,
         visibility: row.visibility,
@@ -204,8 +260,10 @@ struct PendingMedia {
 ///   Defaults to public.
 /// - `published_at` (text, optional): RFC3339 timestamp. Live authoring
 ///   omits this. Importers set it to preserve original ordering.
-/// - `media` (file, 0 or more): image attachments. Each must be in
-///   `ALLOWED_MIME_TYPES` and below `MEDIA_FILE_MAX_BYTES`. Capped at
+/// - `media` (file, 0 or more): image or video attachments. Each must be
+///   on `ALLOWED_IMAGE_MIME_TYPES` or `ALLOWED_VIDEO_MIME_TYPES`; size
+///   cap is `IMAGE_FILE_MAX_BYTES` (10 MiB) for images,
+///   `VIDEO_FILE_MAX_BYTES` (100 MiB) for videos. Capped at
 ///   `MEDIA_FILES_MAX` per post. Order in the request becomes the
 ///   `ordinal` for the created post_media rows.
 ///
@@ -238,7 +296,11 @@ async fn create_post(
     }
 
     let mut body: Option<String> = None;
-    let mut visibility: String = post::VISIBILITY_PUBLIC.to_string();
+    // New posts default to private — the author can promote them via the
+    // visibility selector at compose time or via the Phase 9b quick toggle
+    // on the feed card afterwards. Default-to-public was a draft-leak risk
+    // for a personal site.
+    let mut visibility: String = post::VISIBILITY_PRIVATE.to_string();
     let mut published_at: Option<DateTime<Utc>> = None;
     let mut media: Vec<PendingMedia> = Vec::new();
 
@@ -289,19 +351,22 @@ async fn create_post(
                             "Media field must include a Content-Type".to_string(),
                         )
                     })?;
-                if !ALLOWED_MIME_TYPES.contains(&mime.as_str()) {
+                if !is_allowed_media_mime(&mime) {
                     return Err(AppError::ValidationError(format!(
-                        "Unsupported media type '{}'. Allowed: {:?}",
-                        mime, ALLOWED_MIME_TYPES
+                        "Unsupported media type '{}'. Allowed: images {:?} or videos {:?}",
+                        mime, ALLOWED_IMAGE_MIME_TYPES, ALLOWED_VIDEO_MIME_TYPES
                     )));
                 }
                 let bytes = field.bytes().await.map_err(|e| {
                     AppError::ValidationError(format!("Failed to read media bytes: {}", e))
                 })?;
-                if bytes.len() > MEDIA_FILE_MAX_BYTES {
+                let cap = max_bytes_for_mime(&mime);
+                if bytes.len() > cap {
                     return Err(AppError::ValidationError(format!(
-                        "Media file exceeds {} byte limit",
-                        MEDIA_FILE_MAX_BYTES
+                        "Media file ({}) exceeds {} byte limit for {} content",
+                        bytes.len(),
+                        cap,
+                        if is_video_mime(&mime) { "video" } else { "image" }
                     )));
                 }
                 media.push(PendingMedia {
@@ -463,7 +528,8 @@ async fn serve_media(
         .await?
         .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
 
-    if !tier.can_read(&parent.visibility) {
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    if !can_read_post(tier, &parent.visibility, parent.author_id, viewer_id) {
         return Err(AppError::AuthError("Media not found".to_string()));
     }
 
@@ -513,7 +579,8 @@ async fn get_post(
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
 
-    if !tier.can_read(&row.visibility) {
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    if !can_read_post(tier, &row.visibility, row.author_id, viewer_id) {
         // Don't disclose existence to under-tier callers. Same error as
         // missing post.
         return Err(AppError::AuthError("Post not found".to_string()));
@@ -634,6 +701,11 @@ pub struct FeedQuery {
     /// Page size. Capped server-side.
     #[serde(default)]
     pub limit: Option<u64>,
+    /// Optional author filter. Applied on top of the visibility-tier
+    /// filter so an under-tier viewer of a profile still only sees the
+    /// posts that are visible to them.
+    #[serde(default)]
+    pub author: Option<Uuid>,
 }
 
 #[derive(Serialize)]
@@ -667,11 +739,31 @@ async fn feed(
 
     let allowed: Vec<&'static str> = tier.allowed_visibilities().to_vec();
 
+    // Visibility predicate: `visibility IN role-allowed` OR (the viewer is
+    // signed in AND `visibility = 'private' AND author_id = viewer.id`).
+    // The author-only branch surfaces the viewer's own private posts on
+    // top of whatever their role grants. Anonymous viewers don't get the
+    // OR branch (no viewer_id), so they only see what the tier permits.
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    let mut visibility_cond = sea_orm::Condition::any()
+        .add(post::Column::Visibility.is_in(allowed));
+    if let Some(vid) = viewer_id {
+        visibility_cond = visibility_cond.add(
+            sea_orm::Condition::all()
+                .add(post::Column::Visibility.eq(post::VISIBILITY_PRIVATE))
+                .add(post::Column::AuthorId.eq(vid)),
+        );
+    }
+
     let mut q = Post::find()
         .filter(post::Column::DeletedAt.is_null())
-        .filter(post::Column::Visibility.is_in(allowed))
+        .filter(visibility_cond)
         .order_by_desc(post::Column::PublishedAt)
         .order_by_desc(post::Column::Id);
+
+    if let Some(author_id) = query.author {
+        q = q.filter(post::Column::AuthorId.eq(author_id));
+    }
 
     if let Some(cursor) = query.cursor.as_deref().and_then(parse_cursor) {
         let (cursor_published_at, cursor_id) = cursor;
@@ -738,7 +830,7 @@ async fn feed(
 
     // Engagement is fetched in batch keyed by post_id. Anonymous callers
     // get reaction counts and comment counts but no `viewer_reaction_kinds`.
-    let viewer_id = auth_session.user().await.map(|u| u.id);
+    // viewer_id is the same one we computed for the visibility predicate above.
     let post_ids_for_engagement: Vec<Uuid> = page.iter().map(|p| p.id).collect();
     let mut engagement_by_post =
         fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, viewer_id).await?;

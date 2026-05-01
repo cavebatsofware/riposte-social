@@ -14,6 +14,7 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use crate::admin::{self, UserAuthBackend};
+use crate::albums;
 use crate::auth;
 use crate::email::EmailService;
 use crate::engagement;
@@ -22,6 +23,7 @@ use crate::imports;
 use crate::errors::{AppError, AppResult};
 use crate::middleware::{csrf_middleware, require_authenticated, require_admin, require_admin_or_poster};
 use crate::posts;
+use crate::profile;
 use crate::oidc::{OidcConfig, OidcService};
 use crate::s3::S3Service;
 use crate::security_callbacks::AppRateLimitCallbacks;
@@ -499,6 +501,40 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(posts_state)
         .layer(auth_layer.clone());
 
+    // Albums (Phase 9d): media-only collections, parallel to posts but
+    // never merged into the feed. Author/admin gate on the write side
+    // mirrors posts; reads are public with the same visibility predicate.
+    let albums_state = albums::routes::AlbumsState {
+        db: state.db.clone(),
+        s3: state.s3.clone(),
+        settings: state.settings.clone(),
+    };
+    let album_write_routes = albums::routes::album_write_routes()
+        .with_state(albums_state.clone())
+        .layer(from_fn(require_admin_or_poster))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    let album_read_routes = albums::routes::album_read_routes()
+        .with_state(albums_state)
+        .layer(auth_layer.clone());
+
+    // Profile: self-service writes for the authenticated viewer; public
+    // reads for profile pages and avatar serving.
+    let profile_state = profile::routes::ProfileState {
+        db: state.db.clone(),
+        s3: state.s3.clone(),
+        settings: state.settings.clone(),
+    };
+    let me_profile_routes = profile::routes::me_profile_routes()
+        .with_state(profile_state.clone())
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    let public_profile_routes = profile::routes::public_profile_routes()
+        .with_state(profile_state)
+        .layer(auth_layer.clone());
+
     // Engagement: reactions and comments. Writes require authentication
     // (any tier — commenter, poster, administrator). Reads are public; the
     // visibility-tier check against the parent post happens inline.
@@ -571,6 +607,10 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(auth_invite_routes)
         .merge(post_write_routes)
         .merge(post_read_routes)
+        .merge(album_write_routes)
+        .merge(album_read_routes)
+        .merge(me_profile_routes)
+        .merge(public_profile_routes)
         .merge(engagement_write_routes)
         .merge(engagement_read_routes)
         .merge(settings_routes)

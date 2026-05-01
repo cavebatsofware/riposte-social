@@ -158,7 +158,7 @@ async fn ensure_visible_post(
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
 
     let tier = FeedTier::from_role(Some(user.role.as_str()));
-    if !tier.can_read(&parent.visibility) {
+    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, Some(user.id)) {
         return Err(AppError::AuthError("Post not found".to_string()));
     }
     Ok(parent)

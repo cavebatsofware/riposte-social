@@ -17,34 +17,19 @@ use sea_orm::entity::prelude::*;
 use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
-/// Visibility tiers for a post. Stored as the column's string value, not a
-/// Postgres enum, so adding tiers later is a no-op DDL.
-///
-/// `private` is author-only: the post is invisible to every other user
-/// including administrators in feed/listing contexts. Admin moderation
-/// against a known post id still works through explicit moderation routes;
-/// the rule here is "feed surfaces never expose private posts to anyone but
-/// the author".
-pub const VISIBILITY_PUBLIC: &str = "public";
-pub const VISIBILITY_COMMENTERS: &str = "commenters";
-pub const VISIBILITY_POSTERS: &str = "posters";
-pub const VISIBILITY_PRIVATE: &str = "private";
-
-/// Returns true when `visibility` is one of the four valid tiers.
-pub fn is_valid_visibility(v: &str) -> bool {
-    matches!(
-        v,
-        VISIBILITY_PUBLIC | VISIBILITY_COMMENTERS | VISIBILITY_POSTERS | VISIBILITY_PRIVATE
-    )
-}
-
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "posts")]
+#[sea_orm(table_name = "albums")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
     pub author_id: Uuid,
-    pub body: String,
+    pub name: String,
+    pub description: Option<String>,
+    /// Set to one of the album's media row ids once the album has at
+    /// least one item. Cleared on the cover's deletion (must be re-pointed
+    /// to a sibling).
+    pub cover_media_id: Option<Uuid>,
+    /// Same four-value enum as posts: public | commenters | posters | private.
     pub visibility: String,
     pub published_at: DateTimeWithTimeZone,
     pub import_source: Option<String>,
@@ -63,7 +48,7 @@ pub enum Relation {
         on_delete = "Restrict"
     )]
     Author,
-    #[sea_orm(has_many = "super::post_media::Entity")]
+    #[sea_orm(has_many = "super::album_media::Entity")]
     Media,
 }
 
@@ -73,7 +58,7 @@ impl Related<super::user::Entity> for Entity {
     }
 }
 
-impl Related<super::post_media::Entity> for Entity {
+impl Related<super::album_media::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Media.def()
     }

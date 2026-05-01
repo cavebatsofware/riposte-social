@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+// `.skeleton-line` classes are defined in SkeletonCard.css.
+import "./SkeletonCard.css";
 
 /// Comment thread for the post permalink page.
 ///
@@ -99,7 +102,19 @@ export default function CommentThread({ postId }) {
       {error && <div className="alert alert-error">{error}</div>}
 
       {loading ? (
-        <p className="muted">Loading comments…</p>
+        <ol className="comment-list" aria-hidden="true">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <li key={i} className="comment-item">
+              <header className="comment-item-meta">
+                <span className="skeleton-line skeleton-line-md" />
+              </header>
+              <div className="comment-item-body">
+                <span className="skeleton-line skeleton-line-full" />
+                <span className="skeleton-line skeleton-line-3q" />
+              </div>
+            </li>
+          ))}
+        </ol>
       ) : comments.length === 0 ? (
         <p className="muted">No comments yet.</p>
       ) : (
@@ -153,17 +168,27 @@ export default function CommentThread({ postId }) {
 /// localized invariant: this component never accepts unsanitized HTML, even
 /// if a future caller forgets the upstream sanitization step.
 function CommentItem({ comment, viewer, onDelete }) {
-  const author = comment.author_display || "Member";
+  const author = comment.author_display || comment.author_handle || "Member";
   const time = formatRelativeTime(comment.created_at);
   const safe = DOMPurify.sanitize(comment.body_html || "");
   const canDelete =
     viewer &&
     (viewer.id === comment.user_id || viewer.role === "administrator");
+  const authorEl = comment.author_handle ? (
+    <Link
+      to={`/u/${comment.author_handle}`}
+      className="comment-item-author comment-item-author-link"
+    >
+      {author}
+    </Link>
+  ) : (
+    <span className="comment-item-author">{author}</span>
+  );
 
   return (
     <li className="comment-item">
       <header className="comment-item-meta">
-        <span className="comment-item-author">{author}</span>
+        {authorEl}
         <span className="comment-item-dot" aria-hidden="true" />
         <span className="comment-item-time">{time}</span>
         {canDelete && (

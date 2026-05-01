@@ -59,6 +59,10 @@ async fn preprovision_user(
         last_login_at: Set(None),
         invite_code_id: Set(invite_code_id),
         activated_at: Set(None),
+        handle: Set(format!("test-{}", &id.to_string()[..8])),
+        bio: Set(None),
+        pronouns: Set(None),
+        avatar_s3_key: Set(None),
         ..Default::default()
     }
     .insert(db)
@@ -104,6 +108,10 @@ async fn insert_active_oidc_user(
         last_login_at: Set(None),
         invite_code_id: Set(None),
         activated_at: Set(Some(now.into())),
+        handle: Set(format!("test-{}", &id.to_string()[..8])),
+        bio: Set(None),
+        pronouns: Set(None),
+        avatar_s3_key: Set(None),
     }
     .insert(db)
     .await
@@ -631,8 +639,9 @@ async fn test_oidc_inert_row_login_rejected(pool: sqlx::PgPool) {
 
     // Insert an inert row that already has an oidc_sub but no activated_at.
     let now = chrono::Utc::now();
+    let inert_id = uuid::Uuid::new_v4();
     user::ActiveModel {
-        id: Set(uuid::Uuid::new_v4()),
+        id: Set(inert_id),
         email: Set("inert@keycloak.test".to_string()),
         password_hash: Set(format!("oidc_user_{}", uuid::Uuid::new_v4())),
         email_verified: Set(true),
@@ -657,6 +666,10 @@ async fn test_oidc_inert_row_login_rejected(pool: sqlx::PgPool) {
         last_login_at: Set(None),
         invite_code_id: Set(None),
         activated_at: Set(None),
+        handle: Set(format!("inert-{}", &inert_id.to_string()[..8])),
+        bio: Set(None),
+        pronouns: Set(None),
+        avatar_s3_key: Set(None),
     }
     .insert(&db)
     .await

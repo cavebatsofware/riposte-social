@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import DOMPurify from "dompurify";
+import { useAuth } from "../contexts/AuthContext";
 import ReactionBar from "./ReactionBar";
+import VisibilityMenu from "./VisibilityMenu";
 
 /// Renders one post in the feed or on its permalink.
 ///
@@ -23,23 +25,46 @@ import ReactionBar from "./ReactionBar";
 /// - `"permalink"`: no wrapping link; the first media attachment renders
 ///   as a full-width hero, subsequent attachments as a thumbnail row.
 export default function PostCard({ post, variant = "feed" }) {
-  const author = post.author_display || "Member";
+  const { user } = useAuth();
+  const author = post.author_display || post.author_handle || "Member";
   const initials = computeInitials(author);
   const time = formatRelativeTime(post.published_at);
   const safeHtml = DOMPurify.sanitize(post.body_html || "");
+  // Stop the click on the byline from bubbling up to the card-wrapping
+  // <Link> on feed variant — clicking the avatar should land on the
+  // profile, not the post permalink.
+  const stopBubble = (e) => e.stopPropagation();
+
+  // Quick visibility toggle (Phase 9b) is shown only when the viewer is
+  // the post's author or an administrator. Non-owners get the read-only
+  // badge they already had.
+  const canEditVisibility =
+    user && (user.id === post.author_id || user.role === "administrator");
 
   const card = (
     <article className="post-card">
       <header className="post-meta">
-        <div className="post-avatar" aria-hidden="true">
-          {initials}
-        </div>
+        <PostAvatar
+          handle={post.author_handle}
+          avatarUrl={post.author_avatar_url}
+          initials={initials}
+          author={author}
+          stopBubble={stopBubble}
+        />
         <div>
-          <div className="post-author">{author}</div>
+          <PostAuthorName
+            handle={post.author_handle}
+            author={author}
+            stopBubble={stopBubble}
+          />
           <div className="post-meta-line">
             <span>{time}</span>
             <span className="post-meta-dot" aria-hidden="true" />
-            <VisibilityBadge visibility={post.visibility} />
+            {canEditVisibility ? (
+              <VisibilityMenu post={post} />
+            ) : (
+              <VisibilityBadge visibility={post.visibility} />
+            )}
           </div>
         </div>
       </header>
@@ -67,16 +92,83 @@ export default function PostCard({ post, variant = "feed" }) {
   return card;
 }
 
+/// Avatar bubble in the post-meta header. Renders an image when the
+/// author has uploaded one, otherwise initials. Wrapped in a `<Link>` to
+/// `/u/{handle}` when the handle is known so the entire bubble is
+/// clickable; falls back to a plain div otherwise.
+function PostAvatar({ handle, avatarUrl, initials, author, stopBubble }) {
+  const inner = avatarUrl ? (
+    <img src={avatarUrl} alt={`${author} avatar`} />
+  ) : (
+    <span aria-hidden="true">{initials}</span>
+  );
+  if (handle) {
+    return (
+      <Link
+        to={`/u/${handle}`}
+        className="post-avatar post-avatar-link"
+        onClick={stopBubble}
+        aria-label={`${author} profile`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="post-avatar" aria-hidden="true">
+      {inner}
+    </div>
+  );
+}
+
+/// Author display name, linked to `/u/{handle}` when available.
+function PostAuthorName({ handle, author, stopBubble }) {
+  if (handle) {
+    return (
+      <Link
+        to={`/u/${handle}`}
+        className="post-author post-author-link"
+        onClick={stopBubble}
+      >
+        {author}
+      </Link>
+    );
+  }
+  return <div className="post-author">{author}</div>;
+}
+
+/// Renders one media item — image or video — based on `m.media_kind`
+/// (set by the backend in `PostMediaResponse::from_model`). Videos use
+/// the inline `<video controls>` path; the `playsinline` attribute keeps
+/// mobile Safari from launching its full-screen takeover. `preload="metadata"`
+/// fetches just enough for a poster/duration without auto-loading bytes.
+function MediaItem({ m, className }) {
+  if (m.media_kind === "video") {
+    return (
+      <video
+        className={className}
+        src={m.url}
+        controls
+        preload="metadata"
+        playsInline
+      >
+        Your browser doesn't support inline video playback.
+      </video>
+    );
+  }
+  return <img className={className} src={m.url} alt={m.caption || ""} />;
+}
+
 function PostMedia({ media, variant }) {
   if (variant === "permalink" && media.length > 0) {
     const [hero, ...rest] = media;
     return (
       <div className="post-media-permalink">
-        <img className="post-media-hero" src={hero.url} alt={hero.caption || ""} />
+        <MediaItem m={hero} className="post-media-hero" />
         {rest.length > 0 && (
           <div className="post-media-row">
             {rest.map((m) => (
-              <img key={m.id} src={m.url} alt={m.caption || ""} />
+              <MediaItem key={m.id} m={m} />
             ))}
           </div>
         )}
@@ -88,7 +180,7 @@ function PostMedia({ media, variant }) {
     const [m] = media;
     return (
       <div className="post-media-single">
-        <img src={m.url} alt={m.caption || ""} />
+        <MediaItem m={m} />
       </div>
     );
   }
@@ -96,7 +188,7 @@ function PostMedia({ media, variant }) {
   return (
     <div className="post-media-row">
       {media.map((m) => (
-        <img key={m.id} src={m.url} alt={m.caption || ""} />
+        <MediaItem key={m.id} m={m} />
       ))}
     </div>
   );
@@ -122,18 +214,15 @@ function PostActions({ post, variant }) {
 }
 
 function VisibilityBadge({ visibility }) {
-  const cls =
-    visibility === "commenters"
-      ? "visibility-badge commenters"
-      : visibility === "posters"
-        ? "visibility-badge posters"
-        : "visibility-badge";
+  const cls = `visibility-badge ${visibility}`;
   const label =
-    visibility === "commenters"
-      ? "Commenters"
-      : visibility === "posters"
-        ? "Posters"
-        : "Public";
+    visibility === "private"
+      ? "Private"
+      : visibility === "commenters"
+        ? "Commenters"
+        : visibility === "posters"
+          ? "Posters"
+          : "Public";
   return <span className={cls}>{label}</span>;
 }
 

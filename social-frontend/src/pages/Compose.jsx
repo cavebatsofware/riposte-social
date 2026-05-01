@@ -5,16 +5,24 @@ import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
+import Layout from "../components/Layout";
 
 const VISIBILITIES = [
+  { id: "private", label: "Private", desc: "Only you can see this" },
   { id: "public", label: "Public", desc: "Anyone with the link" },
   { id: "commenters", label: "Commenters", desc: "Friends with invites" },
   { id: "posters", label: "Posters", desc: "Family authors only" },
 ];
 
-const ACCEPTED_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ACCEPTED_IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ACCEPTED_VIDEO_MIME = ["video/mp4", "video/webm"];
+const ACCEPTED_MIME = [...ACCEPTED_IMAGE_MIME, ...ACCEPTED_VIDEO_MIME];
 const MAX_MEDIA = 8;
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+function maxBytesFor(mime) {
+  return ACCEPTED_VIDEO_MIME.includes(mime) ? MAX_VIDEO_BYTES : MAX_IMAGE_BYTES;
+}
 
 /// Compose page at `/compose`. Gated to admin/poster (commenters and
 /// anonymous visitors are bounced to /). Multipart submission to
@@ -37,7 +45,10 @@ export default function Compose() {
   const editId = searchParams.get("edit");
 
   const [body, setBody] = useState("");
-  const [visibility, setVisibility] = useState("public");
+  // New posts default to "private" — author can promote at compose time
+  // or with the quick-toggle on the feed card (Phase 9b). Edit mode
+  // overwrites this with the post's actual visibility on load.
+  const [visibility, setVisibility] = useState("private");
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -89,9 +100,9 @@ export default function Compose() {
 
   if (authLoading) {
     return (
-      <main className="feed">
+      <Layout>
         <p>Loading…</p>
-      </main>
+      </Layout>
     );
   }
   if (!user) {
@@ -112,19 +123,17 @@ export default function Compose() {
     !(site !== null && site.poster_posting_enabled === true)
   ) {
     return (
-      <main className="feed">
-        <header className="feed-header">
-          <Link to="/" className="post-back-link">
-            ← Back to feed
-          </Link>
-        </header>
+      <Layout>
+        <Link to="/" className="post-back-link">
+          ← Back to feed
+        </Link>
         <section className="feed-empty">
           <p>
             Posting has been temporarily disabled by an administrator.
             Existing posts are unaffected.
           </p>
         </section>
-      </main>
+      </Layout>
     );
   }
 
@@ -139,12 +148,16 @@ export default function Compose() {
       }
       if (!ACCEPTED_MIME.includes(f.type)) {
         setError(
-          `Unsupported file type '${f.type}'. JPEG, PNG, GIF, or WebP only.`,
+          `Unsupported file type '${f.type}'. Images (JPEG/PNG/GIF/WebP) or videos (MP4/WebM).`,
         );
         continue;
       }
-      if (f.size > MAX_FILE_BYTES) {
-        setError(`File '${f.name}' exceeds the 10 MB per-file limit.`);
+      const cap = maxBytesFor(f.type);
+      if (f.size > cap) {
+        const isVideo = ACCEPTED_VIDEO_MIME.includes(f.type);
+        setError(
+          `File '${f.name}' exceeds the ${isVideo ? "100 MB" : "10 MB"} per-file limit for ${isVideo ? "video" : "image"} content.`,
+        );
         continue;
       }
       accepted.push({ file: f, previewUrl: URL.createObjectURL(f) });
@@ -220,25 +233,21 @@ export default function Compose() {
 
   if (loadingExisting) {
     return (
-      <main className="feed">
+      <Layout>
         <p>Loading post…</p>
-      </main>
+      </Layout>
     );
   }
 
   return (
-    <main className="feed">
-      <header className="feed-header">
-        <div className="feed-header-row">
-          <Link to="/" className="post-back-link">
-            ← Back to feed
-          </Link>
-        </div>
-        <p className="feed-subtitle">
-          Composing as {user.display_name || user.email} ·{" "}
-          {user.role === "administrator" ? "Administrator" : "Poster"}
-        </p>
-      </header>
+    <Layout>
+      <Link to="/" className="post-back-link">
+        ← Back to feed
+      </Link>
+      <p className="feed-subtitle">
+        Composing as {user.display_name || user.email} ·{" "}
+        {user.role === "administrator" ? "Administrator" : "Poster"}
+      </p>
 
       <form className="compose-card" onSubmit={handleSubmit}>
         <h2 className="compose-title">{editId ? "Edit post" : "New post"}</h2>
@@ -297,10 +306,11 @@ export default function Compose() {
               tabIndex={0}
             >
               <p className="dropzone-prompt">
-                Drop images here, or click to browse
+                Drop images or videos here, or click to browse
               </p>
               <p className="dropzone-meta">
-                JPEG, PNG, GIF, or WebP · up to {MAX_MEDIA} files, 10 MB each
+                Images (JPEG/PNG/GIF/WebP, 10 MB each) or videos (MP4/WebM,
+                100 MB each) · up to {MAX_MEDIA} files
               </p>
               <input
                 ref={fileInputRef}
@@ -318,7 +328,16 @@ export default function Compose() {
               <div className="attached-row">
                 {files.map((f, i) => (
                   <div key={i} className="attached-thumb">
-                    <img src={f.previewUrl} alt={f.file.name} />
+                    {ACCEPTED_VIDEO_MIME.includes(f.file.type) ? (
+                      <video
+                        src={f.previewUrl}
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img src={f.previewUrl} alt={f.file.name} />
+                    )}
                     <button
                       type="button"
                       className="attached-remove"
@@ -354,7 +373,7 @@ export default function Compose() {
           </div>
         </div>
       </form>
-    </main>
+    </Layout>
   );
 }
 

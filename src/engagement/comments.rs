@@ -77,6 +77,11 @@ pub struct CommentResponse {
     /// and on public posts that includes anonymous visitors. Clients fall
     /// back to a generic label when display_name is absent.
     pub author_display: Option<String>,
+    /// Author's public handle. Used by the social-frontend to link the
+    /// avatar/byline to `/u/{handle}`.
+    pub author_handle: Option<String>,
+    /// Author's avatar URL, derived in `profile::avatar_url_for`.
+    pub author_avatar_url: Option<String>,
     pub body: String,
     pub body_html: String,
     pub created_at: String,
@@ -95,6 +100,8 @@ fn build_comment_response(row: comment::Model, author: Option<&user::Model>) -> 
         post_id: row.post_id,
         user_id: row.user_id,
         author_display: author.and_then(|u| u.display_name.clone()),
+        author_handle: author.map(|u| u.handle.clone()),
+        author_avatar_url: author.and_then(crate::profile::avatar_url_for),
         body: row.body,
         body_html,
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
@@ -177,7 +184,8 @@ async fn list_comments(
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
-    if !tier.can_read(&parent.visibility) {
+    let viewer_id = viewer.as_ref().map(|u| u.id);
+    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, viewer_id) {
         return Err(AppError::AuthError("Post not found".to_string()));
     }
 
@@ -265,7 +273,7 @@ async fn ensure_visible_authenticated(
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
 
     let tier = FeedTier::from_role(Some(user.role.as_str()));
-    if !tier.can_read(&parent.visibility) {
+    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, Some(user.id)) {
         return Err(AppError::AuthError("Post not found".to_string()));
     }
     Ok(parent)

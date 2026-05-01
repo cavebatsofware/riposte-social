@@ -36,7 +36,7 @@
 //! in JSON. We do not currently fix this; if real-world archives hit it,
 //! add a `latin1_to_utf8` decode pass on `body` here.
 
-use crate::entities::{post, post_media};
+use crate::entities::{album, album_media, post, post_media};
 use crate::imports::{self, JobProgress};
 use crate::s3::S3Service;
 use blake2::{Blake2b512, Digest};
@@ -97,6 +97,29 @@ struct FacebookPost {
     /// In-archive media references. Each item resolves to a single ZIP
     /// entry the worker will upload to S3.
     attachment_uris: Vec<String>,
+}
+
+/// Normalized representation of one FB album manifest extracted from
+/// `your_facebook_activity/posts/album/*.json`. Phase 9d: albums are now
+/// imported as `albums` entities, NOT synthesized into posts. Each
+/// `attachment_uris` resolves to one `album_media` row.
+#[derive(Debug, Clone)]
+struct FacebookAlbum {
+    /// Stable hash used for dedup against existing imports in the
+    /// `albums` table.
+    external_id: String,
+    /// Unix seconds. Mapped to `albums.published_at`.
+    timestamp: i64,
+    /// Album display name (mapped to `albums.name`). Required: empty-name
+    /// FB albums fall back to a synthesized "Untitled album <ts>".
+    name: String,
+    /// Optional album description (`albums.description`).
+    description: Option<String>,
+    /// Ordered list of `(uri, optional_caption)` pairs. The current FB
+    /// schema has no per-photo caption field, so caption is always None
+    /// today; the field is kept for the wire so a future FB export
+    /// version with captions can populate it without a re-shape.
+    attachments: Vec<(String, Option<String>)>,
 }
 
 /// Result of running the worker. Returned to the caller so tests can
@@ -198,46 +221,81 @@ pub async fn run_facebook_import(
         let _ = imports::append_log(&db, job_id, ev.level, ev.msg, ev.ctx).await;
     }
     let posts = parse_outcome.posts;
+    let albums = parse_outcome.albums;
 
     let _ = imports::append_log(
         &db,
         job_id,
         imports::LOG_LEVEL_INFO,
-        format!("Parsed {} candidate post(s) from archive", posts.len()),
+        format!(
+            "Parsed {} candidate post(s) and {} album(s) from archive",
+            posts.len(),
+            albums.len()
+        ),
         None,
     )
     .await;
 
-    // Set total once we know it. Helpers run on the connection clone.
+    // Total counts both posts and albums; each contributes one unit of
+    // work to the progress meter.
     let mut progress = JobProgress {
-        total: posts.len() as i64,
+        total: (posts.len() + albums.len()) as i64,
         ..Default::default()
     };
     imports::update_progress(&db, job_id, &progress).await?;
 
-    // Dedup set: one query for every external_id we're about to consider.
-    let candidate_ids: Vec<String> = posts.iter().map(|p| p.external_id.clone()).collect();
-    let already_imported: HashSet<String> = if candidate_ids.is_empty() {
+    // Posts dedup: query the `posts` table for matching import keys.
+    let post_candidate_ids: Vec<String> = posts.iter().map(|p| p.external_id.clone()).collect();
+    let posts_already: HashSet<String> = if post_candidate_ids.is_empty() {
         HashSet::new()
     } else {
         post::Entity::find()
             .filter(post::Column::ImportSource.eq("facebook"))
-            .filter(post::Column::ImportExternalId.is_in(candidate_ids))
+            .filter(post::Column::ImportExternalId.is_in(post_candidate_ids))
             .all(&db)
             .await?
             .into_iter()
             .filter_map(|p| p.import_external_id)
             .collect()
     };
-    if !already_imported.is_empty() {
+    if !posts_already.is_empty() {
         let _ = imports::append_log(
             &db,
             job_id,
             imports::LOG_LEVEL_INFO,
             format!(
                 "{} of {} candidate posts already imported; will be skipped",
-                already_imported.len(),
+                posts_already.len(),
                 posts.len()
+            ),
+            None,
+        )
+        .await;
+    }
+
+    // Albums dedup: separate table, separate import-key query.
+    let album_candidate_ids: Vec<String> = albums.iter().map(|a| a.external_id.clone()).collect();
+    let albums_already: HashSet<String> = if album_candidate_ids.is_empty() {
+        HashSet::new()
+    } else {
+        album::Entity::find()
+            .filter(album::Column::ImportSource.eq("facebook"))
+            .filter(album::Column::ImportExternalId.is_in(album_candidate_ids))
+            .all(&db)
+            .await?
+            .into_iter()
+            .filter_map(|a| a.import_external_id)
+            .collect()
+    };
+    if !albums_already.is_empty() {
+        let _ = imports::append_log(
+            &db,
+            job_id,
+            imports::LOG_LEVEL_INFO,
+            format!(
+                "{} of {} candidate albums already imported; will be skipped",
+                albums_already.len(),
+                albums.len()
             ),
             None,
         )
@@ -253,14 +311,16 @@ pub async fn run_facebook_import(
 
     let visibility = params.visibility.clone();
     let archive_path_arc = Arc::new(archive_path);
-    let already = Arc::new(already_imported);
+    let posts_already_arc = Arc::new(posts_already);
+    let albums_already_arc = Arc::new(albums_already);
 
-    let outcomes_stream = stream::iter(posts.into_iter().map(|p| {
+    // ----- Posts pass -----
+    let posts_stream = stream::iter(posts.into_iter().map(|p| {
         let db = db.clone();
         let s3 = s3.clone();
         let visibility = visibility.clone();
         let archive_path = archive_path_arc.clone();
-        let already = already.clone();
+        let already = posts_already_arc.clone();
         async move {
             if already.contains(&p.external_id) {
                 return ItemOutcome::Skipped;
@@ -294,9 +354,9 @@ pub async fn run_facebook_import(
     }))
     .buffer_unordered(IMPORT_CONCURRENCY);
 
-    tokio::pin!(outcomes_stream);
+    tokio::pin!(posts_stream);
 
-    while let Some(outcome) = outcomes_stream.next().await {
+    while let Some(outcome) = posts_stream.next().await {
         match outcome {
             ItemOutcome::Succeeded => {
                 succeeded.fetch_add(1, Ordering::Relaxed);
@@ -316,6 +376,72 @@ pub async fn run_facebook_import(
             progress.failed = failed.load(Ordering::Relaxed);
             // Best-effort progress; don't fail the run because the DB
             // hiccupped on a counter update.
+            let _ = imports::update_progress(&db, job_id, &progress).await;
+            let _ = imports::touch_heartbeat(&db, job_id).await;
+        }
+    }
+
+    // ----- Albums pass (Phase 9d) -----
+    let albums_stream = stream::iter(albums.into_iter().map(|a| {
+        let db = db.clone();
+        let s3 = s3.clone();
+        let visibility = visibility.clone();
+        let archive_path = archive_path_arc.clone();
+        let already = albums_already_arc.clone();
+        async move {
+            if already.contains(&a.external_id) {
+                return ItemOutcome::Skipped;
+            }
+            match import_one_album(&db, &s3, archive_path.as_path(), &a, &visibility, created_by)
+                .await
+            {
+                Ok(()) => ItemOutcome::Succeeded,
+                Err(e) => {
+                    tracing::warn!(
+                        "facebook import: album {} failed: {}",
+                        &a.external_id,
+                        e
+                    );
+                    let _ = imports::append_log(
+                        &db,
+                        job_id,
+                        imports::LOG_LEVEL_ERROR,
+                        format!("Album import failed: {:#}", e),
+                        Some(serde_json::json!({
+                            "external_id": a.external_id,
+                            "timestamp": a.timestamp,
+                            "name": a.name,
+                            "photo_count": a.attachments.len(),
+                        })),
+                    )
+                    .await;
+                    ItemOutcome::Failed
+                }
+            }
+        }
+    }))
+    .buffer_unordered(IMPORT_CONCURRENCY);
+
+    tokio::pin!(albums_stream);
+
+    while let Some(outcome) = albums_stream.next().await {
+        match outcome {
+            ItemOutcome::Succeeded => {
+                succeeded.fetch_add(1, Ordering::Relaxed);
+            }
+            ItemOutcome::Skipped => {
+                skipped.fetch_add(1, Ordering::Relaxed);
+            }
+            ItemOutcome::Failed => {
+                failed.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
+        if done % PROGRESS_FLUSH_EVERY == 0 {
+            progress.processed = done;
+            progress.succeeded = succeeded.load(Ordering::Relaxed);
+            progress.skipped = skipped.load(Ordering::Relaxed);
+            progress.failed = failed.load(Ordering::Relaxed);
             let _ = imports::update_progress(&db, job_id, &progress).await;
             let _ = imports::touch_heartbeat(&db, job_id).await;
         }
@@ -372,13 +498,14 @@ async fn stage_archive_to_tempfile(
     Ok(file)
 }
 
-/// Bundled result from `parse_archive`: the flat post list plus a vec of
-/// log events that the async caller flushes via `append_log` after the
-/// blocking thread returns. Avoids passing a DB handle into the blocking
-/// closure.
+/// Bundled result from `parse_archive`: the flat post list, the album
+/// list, plus a vec of log events that the async caller flushes via
+/// `append_log` after the blocking thread returns. Avoids passing a DB
+/// handle into the blocking closure.
 #[derive(Default)]
 struct ParseOutcome {
     posts: Vec<FacebookPost>,
+    albums: Vec<FacebookAlbum>,
     log_events: Vec<ParseLogEvent>,
 }
 
@@ -467,7 +594,7 @@ fn parse_archive(path: &Path) -> Result<ParseOutcome, anyhow::Error> {
         }
     }
 
-    let mut albums: Vec<FacebookPost> = Vec::new();
+    let mut albums: Vec<FacebookAlbum> = Vec::new();
     for name in album_manifest_names {
         let mut entry = archive.by_name(&name)?;
         let mut json = String::new();
@@ -476,8 +603,8 @@ fn parse_archive(path: &Path) -> Result<ParseOutcome, anyhow::Error> {
             Ok(raw) => {
                 let album_name = raw.name.clone();
                 let photo_count = raw.photos.len();
-                if let Some(album_post) = normalize_album(raw) {
-                    albums.push(album_post);
+                if let Some(parsed_album) = normalize_album(raw) {
+                    albums.push(parsed_album);
                     log_events.push(ParseLogEvent {
                         level: imports::LOG_LEVEL_INFO,
                         msg: format!(
@@ -492,7 +619,7 @@ fn parse_archive(path: &Path) -> Result<ParseOutcome, anyhow::Error> {
                     log_events.push(ParseLogEvent {
                         level: imports::LOG_LEVEL_WARN,
                         msg: format!(
-                            "Album {} produced no importable post (no photos or no timestamps)",
+                            "Album {} produced no importable album (no photos or no timestamps)",
                             name
                         ),
                         ctx: None,
@@ -517,7 +644,7 @@ fn parse_archive(path: &Path) -> Result<ParseOutcome, anyhow::Error> {
     // so the same image doesn't appear twice on the timeline.
     let album_uris: HashSet<String> = albums
         .iter()
-        .flat_map(|a| a.attachment_uris.iter().cloned())
+        .flat_map(|a| a.attachments.iter().map(|(u, _)| u.clone()))
         .collect();
     let mut suppressed = 0usize;
     regular_posts.retain(|p| {
@@ -542,10 +669,9 @@ fn parse_archive(path: &Path) -> Result<ParseOutcome, anyhow::Error> {
         });
     }
 
-    let mut all = regular_posts;
-    all.extend(albums);
     Ok(ParseOutcome {
-        posts: all,
+        posts: regular_posts,
+        albums,
         log_events,
     })
 }
@@ -654,19 +780,20 @@ struct RawAlbumPhoto {
     creation_timestamp: Option<i64>,
 }
 
-/// Normalize one album manifest into a single `FacebookPost`. The post body
-/// is the album name plus a short caption ("Photos from the X album.")
-/// plus the description when non-empty. The timestamp prefers the earliest
-/// `creation_timestamp` across the photos so re-exports don't shift the
-/// post date when an album is touched in FB; `last_modified_timestamp` is a
-/// fallback when no photos carry a creation timestamp.
-fn normalize_album(raw: RawAlbum) -> Option<FacebookPost> {
-    let attachment_uris: Vec<String> = raw
+/// Normalize one album manifest into a `FacebookAlbum` (Phase 9d).
+/// Albums are now imported as `albums` rows with `album_media` items —
+/// NOT synthesized as `posts` with all photos crammed into the body. The
+/// timestamp prefers the earliest `creation_timestamp` across the photos
+/// so re-exports don't shift the album date when an album is touched in
+/// FB; `last_modified_timestamp` is a fallback when no photos carry a
+/// creation timestamp.
+fn normalize_album(raw: RawAlbum) -> Option<FacebookAlbum> {
+    let attachments: Vec<(String, Option<String>)> = raw
         .photos
         .iter()
-        .filter_map(|p| p.uri.clone())
+        .filter_map(|p| p.uri.as_ref().map(|u| (u.clone(), None)))
         .collect();
-    if attachment_uris.is_empty() {
+    if attachments.is_empty() {
         return None;
     }
 
@@ -677,7 +804,7 @@ fn normalize_album(raw: RawAlbum) -> Option<FacebookPost> {
         .min();
     let timestamp = earliest_creation
         .or(raw.last_modified_timestamp)
-        // No timestamps anywhere — drop. The post entity requires a
+        // No timestamps anywhere — drop. The album entity requires a
         // published_at and we have no defensible value to set.
         ?;
 
@@ -685,30 +812,26 @@ fn normalize_album(raw: RawAlbum) -> Option<FacebookPost> {
         .name
         .map(|s| fix_facebook_mojibake(s.trim()).into_owned())
         .filter(|s| !s.is_empty());
-    let raw_desc = raw
+    // FB albums often lack a name; synthesize a stable placeholder so we
+    // never fall back on storing an empty string in `albums.name`.
+    let name = raw_name.unwrap_or_else(|| format!("Untitled album {}", timestamp));
+
+    let description = raw
         .description
         .map(|s| fix_facebook_mojibake(s.trim()).into_owned())
         .filter(|s| !s.is_empty());
 
-    let mut body_parts: Vec<String> = Vec::with_capacity(3);
-    if let Some(name) = raw_name.as_ref() {
-        body_parts.push(name.clone());
-        body_parts.push(format!("Photos from the {} album.", name));
-    }
-    if let Some(desc) = raw_desc {
-        body_parts.push(desc);
-    }
-    let mut body = body_parts.join("\n\n");
-    if body.chars().count() > BODY_MAX_CHARS {
-        body = body.chars().take(BODY_MAX_CHARS).collect::<String>() + "\n\n[truncated]";
-    }
-
-    let external_id = compute_external_id(timestamp, &body, attachment_uris.first());
-    Some(FacebookPost {
+    // External id is hashed over (timestamp, name, first uri) so the same
+    // album re-exported produces the same id even if the description is
+    // touched later.
+    let first_uri = attachments.first().map(|(u, _)| u.as_str());
+    let external_id = compute_external_id(timestamp, &name, first_uri);
+    Some(FacebookAlbum {
         external_id,
         timestamp,
-        body,
-        attachment_uris,
+        name,
+        description,
+        attachments,
     })
 }
 
@@ -745,7 +868,7 @@ fn normalize_post(raw: RawFacebookPost) -> Option<FacebookPost> {
         return None;
     }
 
-    let external_id = compute_external_id(timestamp, &body, attachment_uris.first());
+    let external_id = compute_external_id(timestamp, &body, attachment_uris.first().map(|s| s.as_str()));
     Some(FacebookPost {
         external_id,
         timestamp,
@@ -794,7 +917,7 @@ pub(crate) fn fix_facebook_mojibake(s: &str) -> Cow<'_, str> {
 /// not include them), so we hash the content. Including the first
 /// attachment URI keeps two same-day posts with different media from
 /// colliding on identical text bodies.
-fn compute_external_id(timestamp: i64, body: &str, first_uri: Option<&String>) -> String {
+fn compute_external_id(timestamp: i64, body: &str, first_uri: Option<&str>) -> String {
     let mut hasher = Blake2b512::new();
     hasher.update(timestamp.to_le_bytes());
     hasher.update(b"\x00");
@@ -841,7 +964,7 @@ async fn import_one_post(
     // counter is a future polish.
     let any_supported = staged_media
         .iter()
-        .any(|(filename, _)| is_supported_image_mime(&mime_for_filename(filename)));
+        .any(|(filename, _)| is_supported_media_mime(&mime_for_filename(filename)));
     if fb_post.body.is_empty() && !any_supported {
         return Ok(());
     }
@@ -850,9 +973,9 @@ async fn import_one_post(
     for (i, (filename, bytes)) in staged_media.into_iter().enumerate() {
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(&filename);
-        // Skip unsupported types rather than failing the whole post: an
-        // FB archive may include video and we only render images for now.
-        if !is_supported_image_mime(&mime) {
+        // Phase 9c: images and videos are both supported now. Other types
+        // (`.mov` / unknown) are skipped rather than failing the whole post.
+        if !is_supported_media_mime(&mime) {
             continue;
         }
         let key = format!("posts/{}/{}", post_id, media_id);
@@ -912,6 +1035,134 @@ async fn import_one_post(
 
     if let Err(e) = txn_result {
         for (_, key, _) in &uploaded {
+            let _ = s3.delete_object_at(key).await;
+        }
+        return Err(anyhow::anyhow!("DB write failed: {}", e));
+    }
+
+    Ok(())
+}
+
+/// Phase 9d: import one FB album as an `albums` row plus an ordered
+/// set of `album_media` rows. Mirrors `import_one_post` structurally —
+/// stage media off the zip, upload to S3, then insert in a transaction.
+/// On any failure after S3 upload, all uploaded objects are best-effort
+/// deleted so a failed run doesn't leave orphans.
+async fn import_one_album(
+    db: &DatabaseConnection,
+    s3: &S3Service,
+    archive_path: &Path,
+    fb_album: &FacebookAlbum,
+    visibility: &str,
+    created_by: Uuid,
+) -> Result<(), anyhow::Error> {
+    let album_id = Uuid::new_v4();
+
+    let uris: Vec<String> = fb_album.attachments.iter().map(|(u, _)| u.clone()).collect();
+    let staged_media = {
+        let archive_path = archive_path.to_path_buf();
+        let uris = uris.clone();
+        tokio::task::spawn_blocking(move || read_archive_entries(&archive_path, &uris))
+            .await
+            .map_err(|e| anyhow::anyhow!("media read task join failed: {}", e))??
+    };
+
+    // Drop unsupported mimes (e.g. .mov). If nothing supported survives,
+    // there's nothing to import. Album-with-only-unsupported-media is a
+    // legitimate skip-without-failure.
+    let supported_indices: Vec<usize> = staged_media
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (filename, _))| {
+            if is_supported_media_mime(&mime_for_filename(filename)) {
+                Some(i)
+            } else {
+                None
+            }
+        })
+        .collect();
+    if supported_indices.is_empty() {
+        return Ok(());
+    }
+
+    let captions: Vec<Option<String>> = fb_album
+        .attachments
+        .iter()
+        .map(|(_, c)| c.clone())
+        .collect();
+
+    // Upload supported items to S3 in series. Each (media_id, s3_key,
+    // mime, original_index, caption) entry is queued for the DB insert.
+    let mut uploaded: Vec<(Uuid, String, String, Option<String>)> =
+        Vec::with_capacity(supported_indices.len());
+    for (out_idx, src_idx) in supported_indices.iter().enumerate() {
+        let (filename, bytes) = &staged_media[*src_idx];
+        let media_id = Uuid::new_v4();
+        let mime = mime_for_filename(filename);
+        let key = format!("albums/{}/{}", album_id, media_id);
+        if let Err(e) = s3.put_object_at(&key, bytes.clone(), &mime).await {
+            for (_, prior_key, _, _) in &uploaded {
+                let _ = s3.delete_object_at(prior_key).await;
+            }
+            return Err(anyhow::anyhow!("failed to upload media #{}: {}", out_idx, e));
+        }
+        uploaded.push((
+            media_id,
+            key,
+            mime,
+            captions.get(*src_idx).cloned().flatten(),
+        ));
+    }
+
+    let cover_media_id = uploaded.first().map(|(id, _, _, _)| *id);
+
+    let txn_result: Result<(), sea_orm::DbErr> = async {
+        let txn = db.begin().await?;
+        let now: sea_orm::prelude::DateTimeWithTimeZone = chrono::Utc::now().into();
+        let published = chrono::Utc
+            .timestamp_opt(fb_album.timestamp, 0)
+            .single()
+            .unwrap_or_else(|| chrono::Utc::now());
+
+        album::ActiveModel {
+            id: Set(album_id),
+            author_id: Set(created_by),
+            name: Set(fb_album.name.clone()),
+            description: Set(fb_album.description.clone()),
+            cover_media_id: Set(cover_media_id),
+            visibility: Set(visibility.to_string()),
+            published_at: Set(published.into()),
+            import_source: Set(Some("facebook".to_string())),
+            import_external_id: Set(Some(fb_album.external_id.clone())),
+            deleted_at: Set(None),
+            created_at: Set(now),
+            updated_at: Set(now),
+        }
+        .insert(&txn)
+        .await?;
+
+        for (i, (media_id, key, mime, caption)) in uploaded.iter().enumerate() {
+            album_media::ActiveModel {
+                id: Set(*media_id),
+                album_id: Set(album_id),
+                s3_key: Set(key.clone()),
+                mime_type: Set(mime.clone()),
+                width: Set(None),
+                height: Set(None),
+                ordinal: Set(i as i32),
+                caption: Set(caption.clone()),
+                created_at: Set(now),
+            }
+            .insert(&txn)
+            .await?;
+        }
+
+        txn.commit().await
+    }
+    .await;
+
+    if let Err(e) = txn_result {
+        for (_, key, _, _) in &uploaded {
             let _ = s3.delete_object_at(key).await;
         }
         return Err(anyhow::anyhow!("DB write failed: {}", e));
@@ -983,6 +1234,19 @@ fn is_supported_image_mime(mime: &str) -> bool {
         mime,
         "image/jpeg" | "image/png" | "image/gif" | "image/webp"
     )
+}
+
+/// Phase 9c: video mimes the importer is allowed to bring across into S3
+/// + post_media. Matches the live upload allowlist in
+/// [`crate::posts::routes::is_video_mime`]. `.mov` files are rejected
+/// because they don't play inline in browsers without transcoding —
+/// out-of-scope for the importer.
+fn is_supported_video_mime(mime: &str) -> bool {
+    matches!(mime, "video/mp4" | "video/webm")
+}
+
+fn is_supported_media_mime(mime: &str) -> bool {
+    is_supported_image_mime(mime) || is_supported_video_mime(mime)
 }
 
 #[cfg(test)]
@@ -1072,10 +1336,10 @@ mod tests {
         assert_eq!(fix_facebook_mojibake(stray_c2).as_ref(), stray_c2);
     }
 
-    // ----- album body composition -----
+    // ----- album normalization (Phase 9d: FacebookAlbum, not FacebookPost) -----
 
     #[test]
-    fn test_album_body_composition_with_description() {
+    fn test_album_normalizes_with_description() {
         let raw = RawAlbum {
             name: Some("Phone Pics".to_string()),
             photos: vec![RawAlbumPhoto {
@@ -1085,17 +1349,17 @@ mod tests {
             description: Some("Captured on the go.".to_string()),
             last_modified_timestamp: Some(1274792706),
         };
-        let post = normalize_album(raw).expect("album should normalize");
-        assert_eq!(
-            post.body,
-            "Phone Pics\n\nPhotos from the Phone Pics album.\n\nCaptured on the go."
-        );
+        let album = normalize_album(raw).expect("album should normalize");
+        assert_eq!(album.name, "Phone Pics");
+        assert_eq!(album.description.as_deref(), Some("Captured on the go."));
         // Earliest creation_timestamp wins over last_modified_timestamp.
-        assert_eq!(post.timestamp, 1262498419);
+        assert_eq!(album.timestamp, 1262498419);
+        assert_eq!(album.attachments.len(), 1);
+        assert_eq!(album.attachments[0].0, "posts/media/PhonePics/a.jpg");
     }
 
     #[test]
-    fn test_album_body_composition_without_description() {
+    fn test_album_normalizes_without_description() {
         let raw = RawAlbum {
             name: Some("Profile pictures".to_string()),
             photos: vec![RawAlbumPhoto {
@@ -1105,11 +1369,24 @@ mod tests {
             description: None,
             last_modified_timestamp: Some(1732132304),
         };
-        let post = normalize_album(raw).expect("album should normalize");
-        assert_eq!(
-            post.body,
-            "Profile pictures\n\nPhotos from the Profile pictures album."
-        );
+        let album = normalize_album(raw).expect("album should normalize");
+        assert_eq!(album.name, "Profile pictures");
+        assert!(album.description.is_none());
+    }
+
+    #[test]
+    fn test_album_synthesizes_name_when_missing() {
+        let raw = RawAlbum {
+            name: None,
+            photos: vec![RawAlbumPhoto {
+                uri: Some("posts/media/x/a.jpg".to_string()),
+                creation_timestamp: Some(123456),
+            }],
+            description: None,
+            last_modified_timestamp: None,
+        };
+        let album = normalize_album(raw).expect("album should normalize");
+        assert!(album.name.starts_with("Untitled album"));
     }
 
     #[test]

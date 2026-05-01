@@ -63,6 +63,7 @@ pub fn admin_user_routes() -> Router<AdminUserState> {
 pub struct AdminUserResponse {
     id: Uuid,
     email: String,
+    handle: String,
     email_verified: bool,
     totp_enabled: bool,
     mfa_locked: bool,
@@ -89,6 +90,7 @@ impl From<user::Model> for AdminUserResponse {
         Self {
             id: model.id,
             email: model.email,
+            handle: model.handle,
             email_verified: model.email_verified,
             totp_enabled: model.totp_enabled.unwrap_or(false),
             mfa_locked,
@@ -383,6 +385,9 @@ async fn create_admin_user(
     // activated_at gate is the actual security boundary.
     let placeholder_hash = crate::admin::auth::placeholder_password_hash()
         .map_err(|e| AppError::AuthError(format!("Failed to create placeholder: {}", e)))?;
+    let handle = crate::profile::mint_unique_handle(&txn, &req.email)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to mint handle: {}", e)))?;
     let new_user = user::ActiveModel {
         id: Set(Uuid::new_v4()),
         email: Set(req.email.clone()),
@@ -407,6 +412,10 @@ async fn create_admin_user(
         last_login_at: Set(None),
         invite_code_id: Set(Some(invite.id)),
         activated_at: Set(None),
+        handle: Set(handle),
+        bio: Set(None),
+        pronouns: Set(None),
+        avatar_s3_key: Set(None),
         ..Default::default()
     };
     let created = new_user.insert(&txn).await?;

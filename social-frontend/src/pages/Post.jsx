@@ -3,20 +3,25 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import CommentThread from "../components/CommentThread";
+import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
+import SkeletonCard from "../components/SkeletonCard";
 
 /// Permalink page at `/post/:id`. Renders a single post with the full-
-/// width media variant, plus a "back to feed" link. Author or admin sees
-/// edit + delete buttons; everyone else just sees the post.
+/// width media variant. Author or admin sees edit + delete buttons;
+/// everyone else just sees the post.
 ///
 /// Below the post, `<CommentThread />` lists existing comments and lets
 /// authenticated callers add new ones. The reaction bar lives inside
 /// `<PostCard />` so likes work from both feed and permalink without two
 /// separate code paths.
+///
+/// Wrapped in `<Layout>` (Phase 7a). Page-local navigation has shrunk to
+/// a single "Back to feed" link rendered above the post content.
 export default function Post() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [post, setPost] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -80,29 +85,12 @@ export default function Post() {
   }
 
   return (
-    <main className="feed">
-      <header className="feed-header">
-        <div className="feed-header-row">
-          <Link to="/" className="post-back-link">
-            ← Back to feed
-          </Link>
-          {user ? (
-            <button type="button" className="btn-secondary" onClick={logout}>
-              Sign out
-            </button>
-          ) : (
-            <Link to="/login" className="btn-primary">
-              Sign in
-            </Link>
-          )}
-        </div>
-      </header>
+    <Layout>
+      <Link to="/" className="post-back-link">
+        ← Back to feed
+      </Link>
 
-      {loading && (
-        <section className="feed-empty">
-          <p>Loading post…</p>
-        </section>
-      )}
+      {loading && <SkeletonCard />}
 
       {!loading && error && <div className="alert alert-error">{error}</div>}
 
@@ -130,6 +118,6 @@ export default function Post() {
           <CommentThread postId={post.id} />
         </>
       )}
-    </main>
+    </Layout>
   );
 }

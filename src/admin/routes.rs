@@ -185,6 +185,7 @@ async fn login(
         subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
     };
 
+    let (handle, avatar_url) = lookup_handle_and_avatar(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -194,6 +195,8 @@ async fn login(
         active: user.active,
         force_password_change: user.force_password_change,
         role: user.role,
+        handle,
+        avatar_url,
         features,
     }))
 }
@@ -251,6 +254,13 @@ struct UserResponse {
     active: bool,
     force_password_change: bool,
     role: String,
+    /// Public handle for the caller. Surfaced here so the social-frontend's
+    /// header dropdown can deep-link to `/u/{handle}` without an extra
+    /// fetch.
+    handle: Option<String>,
+    /// Caller's avatar URL (`/avatars/{user_id}` when set, else None).
+    /// Same rationale as `handle`.
+    avatar_url: Option<String>,
     features: FeatureFlags,
 }
 
@@ -280,6 +290,7 @@ async fn me(
         subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
     };
 
+    let (handle, avatar_url) = lookup_handle_and_avatar(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -289,8 +300,28 @@ async fn me(
         active: user.active,
         force_password_change: user.force_password_change,
         role: user.role,
+        handle,
+        avatar_url,
         features,
     }))
+}
+
+/// Look up the caller's `handle` + derived `avatar_url` for inclusion in
+/// the `/api/me` and `/api/auth/login` payloads. Failures here do not
+/// block the response: the caller is already authenticated, and the
+/// missing fields just mean the social-frontend's avatar dropdown falls
+/// back to its initials path.
+async fn lookup_handle_and_avatar(
+    state: &AdminState,
+    user_id: uuid::Uuid,
+) -> (Option<String>, Option<String>) {
+    match state.auth_backend.get_admin_by_id(user_id).await {
+        Ok(Some(model)) => (
+            Some(model.handle.clone()),
+            crate::profile::avatar_url_for(&model),
+        ),
+        _ => (None, None),
+    }
 }
 
 #[derive(Serialize)]

@@ -13,33 +13,15 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-// Library interface for riposte-social
-// This allows tests to access internal modules
+//! Albums (Phase 9d) — first-class media collections.
+//!
+//! Albums are explicitly *not* posts. They never appear in `/api/feed`;
+//! they're discovered via the left-rail Albums group and rendered at
+//! `/album/:id`. Each album has a name, optional description, ordered
+//! media items with per-item captions, a cover, the same four-value
+//! visibility enum as posts, and an FB import dedup key.
+//!
+//! Visibility filtering reuses [`crate::posts::can_read_post`] so the
+//! private-tier author override behaves the same as it does for posts.
 
-pub mod admin;
-pub mod albums;
-pub mod app;
-pub mod auth;
-pub mod contact;
-pub mod crypto;
-pub mod database;
-pub mod docx;
-pub mod email;
-pub mod engagement;
-pub mod entities;
-pub mod errors;
-pub mod imports;
-pub mod invites;
-pub mod metrics;
-pub mod middleware;
-pub mod migration;
-pub mod oidc;
-pub mod posts;
-pub mod profile;
-pub mod s3;
-pub mod security_callbacks;
-pub mod settings;
-pub mod subscribe;
-
-#[cfg(any(test, feature = "e2e_testing"))]
-pub mod tests;
+pub mod routes;

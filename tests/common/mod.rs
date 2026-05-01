@@ -129,13 +129,15 @@ pub async fn build_test_server_with(
     let email_service = match services.email {
         Some(email) => email,
         None => {
-            // Preserve legacy test behavior: build a real EmailService.
-            // `SITE_URL` must be set in the test environment (e.g. via .env).
-            Arc::new(
-                EmailService::new(settings)
-                    .await
-                    .expect("EmailService::new should succeed in tests"),
-            )
+            // Default to a mocked SES client that swallows every send_email
+            // call. The previous behavior — `EmailService::new()` — built a
+            // *real* SES client out of the test process's AWS env, so any
+            // test path that ended up calling `send_*` would fire actual
+            // emails. Tests that want to assert on email content pass an
+            // `Arc<EmailService>` explicitly via `services.email`; everyone
+            // else gets this no-op default.
+            let spy = ses_mock::EmailSpy::new();
+            ses_mock::build_test_email_service_any(&spy, &db)
         }
     };
 
