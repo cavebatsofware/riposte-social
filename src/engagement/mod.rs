@@ -38,6 +38,7 @@ use sea_orm::DatabaseConnection;
 #[derive(Clone)]
 pub struct EngagementState {
     pub db: DatabaseConnection,
+    pub settings: crate::settings::SettingsService,
 }
 
 /// Routes that require an authenticated principal: writing reactions and

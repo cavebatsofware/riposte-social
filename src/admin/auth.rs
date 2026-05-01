@@ -1091,7 +1091,7 @@ impl AuthnBackend for UserAuthBackend {
     ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
         let backend = self.clone();
         async move {
-            match creds {
+            let result = match creds {
                 Credentials::Password { email, password } => {
                     backend.authenticate_password(&email, &password).await
                 }
@@ -1114,7 +1114,15 @@ impl AuthnBackend for UserAuthBackend {
                         )
                         .await
                 }
+            };
+            // Count successful logins by tier so /metrics can show
+            // commenter vs poster vs admin login volume.
+            if let Ok(Some(ref user)) = result {
+                crate::metrics::LOGINS_TOTAL
+                    .with_label_values(&[user.role.as_str()])
+                    .inc();
             }
+            result
         }
     }
 

@@ -167,4 +167,37 @@ impl SettingsService {
         self.get_bool("subscriptions_enabled", Some("features"), None)
             .await
     }
+
+    /// Whether posters (not admins) can create new posts. Admins always
+    /// bypass this gate. Used to mute the poster tier without revoking
+    /// access entirely.
+    pub async fn get_poster_posting_enabled(&self) -> Result<bool> {
+        self.get_bool("poster_posting_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Whether the admin invite-creation endpoint accepts new invites.
+    /// Site-mode toggle: turning this off prevents new commenters from
+    /// being onboarded without removing existing invites.
+    pub async fn get_commenter_invites_enabled(&self) -> Result<bool> {
+        self.get_bool("commenter_invites_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Whether anonymous visitors can read the public feed. When false,
+    /// `/api/feed`, `/api/posts/{id}`, `/media/{id}`, and the public
+    /// comments list all return 401 to anonymous callers; authed users
+    /// of any tier are unaffected.
+    pub async fn get_public_feed_enabled(&self) -> Result<bool> {
+        self.get_bool("public_feed_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Whether the Facebook archive import endpoint accepts new uploads.
+    /// Useful for locking the importer while an admin investigates a
+    /// partial run.
+    pub async fn get_fb_import_enabled(&self) -> Result<bool> {
+        self.get_bool("fb_import_enabled", Some("features"), None)
+            .await
+    }
 }

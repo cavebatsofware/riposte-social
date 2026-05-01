@@ -18,6 +18,7 @@ use crate::auth;
 use crate::email::EmailService;
 use crate::engagement;
 use crate::entities::{access_code, AccessCode};
+use crate::imports;
 use crate::errors::{AppError, AppResult};
 use crate::middleware::{csrf_middleware, require_authenticated, require_admin, require_admin_or_poster};
 use crate::posts;
@@ -374,6 +375,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
     let oidc_state = auth::oidc_routes::OidcState {
         oidc_service: state.oidc.clone(),
         db: state.db.clone(),
+        settings: state.settings.clone(),
     };
     let oidc_routes = Router::new()
         .route("/api/auth/oidc/login", get(auth::oidc_routes::oidc_login))
@@ -435,11 +437,28 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
+    // Import job routes (admin-only): POST FB archive, list jobs, get job
+    // status. The POST handler streams the upload to a tempfile then
+    // spawns a tokio worker — see `src/imports/routes.rs` for the full
+    // lifecycle and `src/imports/facebook.rs` for the worker.
+    let imports_state = imports::routes::ImportsState {
+        db: state.db.clone(),
+        s3: state.s3.clone(),
+        settings: state.settings.clone(),
+    };
+    let imports_routes = imports::routes::imports_routes()
+        .with_state(imports_state)
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+
     // Invite-code admin routes (admin-on-others, gated on require_admin).
     let invite_state = invites::InviteState {
         db: state.db.clone(),
         auth_backend: admin_backend.clone(),
         oidc_enabled,
+        settings: state.settings.clone(),
     };
     let admin_invite_routes = invites::admin_invite_routes()
         .with_state(invite_state.clone())
@@ -468,6 +487,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
     let posts_state = posts::routes::PostsState {
         db: state.db.clone(),
         s3: state.s3.clone(),
+        settings: state.settings.clone(),
     };
     let post_write_routes = posts::routes::post_write_routes()
         .with_state(posts_state.clone())
@@ -484,6 +504,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // visibility-tier check against the parent post happens inline.
     let engagement_state = engagement::EngagementState {
         db: state.db.clone(),
+        settings: state.settings.clone(),
     };
     let engagement_write_routes = engagement::engagement_write_routes()
         .with_state(engagement_state.clone())
@@ -544,6 +565,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(access_log_routes)
         .merge(admin_user_routes)
         .merge(moderation_routes)
+        .merge(imports_routes)
         .merge(admin_invite_routes)
         .merge(public_invite_routes)
         .merge(auth_invite_routes)

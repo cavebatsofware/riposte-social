@@ -216,6 +216,11 @@ async fn bulk_delete_comments(
         .exec(&state.db)
         .await?;
 
+    if result.rows_affected > 0 {
+        crate::metrics::COMMENTS_TOTAL
+            .with_label_values(&["soft_delete"])
+            .inc_by(result.rows_affected);
+    }
     Ok(Json(BulkDeleteResponse {
         deleted: result.rows_affected,
     }))

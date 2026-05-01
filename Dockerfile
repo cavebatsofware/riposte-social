@@ -1,4 +1,6 @@
-# Frontend build stage (admin only - public frontend is pre-built by Makefile)
+# Frontend build stage. Builds both the admin SPA (admin-assets/) and the
+# social SPA (social-assets/). The two share package.json + node_modules
+# and are produced from one `npm run build` call (admin then social).
 FROM node:25.7-alpine3.23 AS frontend-builder
 
 WORKDIR /app
@@ -7,11 +9,14 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Copy vite config and admin frontend source
+# Copy vite configs + both frontend source trees.
 COPY vite.config.js ./
+COPY vite.social.config.js ./
 COPY admin-frontend ./admin-frontend
+COPY social-frontend ./social-frontend
 
-# Build admin frontend
+# Build both frontends. `npm run build` chains build:admin and build:social
+# per package.json scripts and emits to admin-assets/ and social-assets/.
 RUN npm run build
 
 # Rust build stage
@@ -43,12 +48,13 @@ RUN apk add --no-cache ca-certificates
 # Copy the binary from builder stage
 COPY --from=builder /app/target/release/riposte-social ./riposte-social
 
-# Copy built admin frontend from frontend-builder stage
+# Copy built admin and social frontends from frontend-builder stage.
 COPY --from=frontend-builder /app/admin-assets ./admin-assets
+COPY --from=frontend-builder /app/social-assets ./social-assets
 
-# Copy static assets
-COPY assets ./assets
-COPY landing.html ./landing.html
+# Static template files (assets/, landing.html) are no longer served by
+# the SPA root; the social-frontend handles `/`. Drop the COPY lines that
+# referenced them; revisit later if a bare landing page becomes useful.
 COPY entrypoint.sh ./entrypoint.sh
 
 # Create non-root user (Alpine style)

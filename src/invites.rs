@@ -60,6 +60,7 @@ pub struct InviteState {
     /// Mirror of OidcConfig::enabled so the password-mode acceptance endpoint
     /// can short-circuit when SSO is the active auth mode.
     pub oidc_enabled: bool,
+    pub settings: crate::settings::SettingsService,
 }
 
 pub fn admin_invite_routes() -> Router<InviteState> {
@@ -291,6 +292,19 @@ async fn create_invite(
     Extension(current): Extension<crate::admin::UserAuth>,
     Json(req): Json<CreateInviteRequest>,
 ) -> AppResult<(StatusCode, Json<InviteResponse>)> {
+    // Fail closed: settings read errors surface as 500 rather than
+    // silently allowing issuance during a transient DB problem.
+    let invites_enabled = state
+        .settings
+        .get_commenter_invites_enabled()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    if !invites_enabled {
+        return Err(AppError::AuthError(
+            "Invite creation is currently disabled by an administrator".to_string(),
+        ));
+    }
+
     let lifetime_hours = req
         .expires_in_hours
         .unwrap_or(DEFAULT_INVITE_LIFETIME_HOURS);
@@ -440,6 +454,22 @@ async fn confirm_invite(
     cookies: axum_extra::extract::CookieJar,
     Json(req): Json<ConfirmInviteRequest>,
 ) -> AppResult<(axum_extra::extract::CookieJar, Json<Option<CurrentInviteResponse>>)> {
+    // Kill switch: refuse to set the pending_invite cookie when commenter
+    // invites are off. Returning the same `None` shape as a stale/revoked
+    // invite means the SPA renders its "no live invite" state without
+    // distinguishing the kill-switch case (operators see the gate state
+    // in the admin UI; commenters don't need to). Fail closed on settings
+    // read errors — a 500 here forces the SPA to retry rather than
+    // silently letting a stale code persist.
+    let invites_enabled = state
+        .settings
+        .get_commenter_invites_enabled()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    if !invites_enabled {
+        return Ok((cookies, Json(None)));
+    }
+
     let row = match validate_invite_code(&state.db, &req.code).await? {
         Some(r) => r,
         None => return Ok((cookies, Json(None))),
@@ -530,6 +560,23 @@ async fn accept_invite_password(
     if state.oidc_enabled {
         return Err(AppError::AuthError(
             "Password-mode invite acceptance is disabled while OIDC is enabled.".to_string(),
+        ));
+    }
+
+    // Kill switch: when `commenter_invites_enabled` is off, refuse the
+    // acceptance even if the code is otherwise valid. Existing
+    // already-activated users are unaffected — they log in via the
+    // normal password path which doesn't touch this handler. Fail closed
+    // on settings read errors so a transient DB hiccup never permits a
+    // gated acceptance.
+    let invites_enabled = state
+        .settings
+        .get_commenter_invites_enabled()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    if !invites_enabled {
+        return Err(AppError::AuthError(
+            "Invite acceptance is currently disabled by an administrator".to_string(),
         ));
     }
 

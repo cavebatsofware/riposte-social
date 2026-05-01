@@ -28,8 +28,31 @@ function InviteCodes() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [issuedInvite, setIssuedInvite] = useState(null);
 
+  // The `commenter_invites_enabled` gate disables the create-invite button
+  // and surfaces an inline notice. The kill switch also blocks acceptance
+  // of existing un-redeemed invites — see the warning copy below.
+  //
+  // `null` while the fetch is in-flight or on failure. The render below
+  // treats anything other than explicit `true` as "Create disabled" —
+  // fail closed.
+  const [invitesEnabled, setInvitesEnabled] = useState(null);
+
   useEffect(() => {
     fetchInvites();
+    let cancelled = false;
+    fetchApi("/api/site/config")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((data) => {
+        if (!cancelled) {
+          setInvitesEnabled(data.commenter_invites_enabled === true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInvitesEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function fetchInvites() {
@@ -172,6 +195,14 @@ function InviteCodes() {
           <button
             type="button"
             className="btn-primary"
+            disabled={invitesEnabled !== true}
+            title={
+              invitesEnabled === true
+                ? undefined
+                : invitesEnabled === null
+                  ? "Loading site configuration…"
+                  : "Disabled in Settings — turn on commenter_invites_enabled to issue new invites"
+            }
             onClick={() => {
               setError("");
               setSuccess("");
@@ -182,6 +213,20 @@ function InviteCodes() {
           </button>
         </header>
 
+        {invitesEnabled === null && (
+          <div className="alert alert-warning">
+            Loading site configuration… invite creation is disabled until
+            config loads. If this persists, check the backend.
+          </div>
+        )}
+        {invitesEnabled === false && (
+          <div className="alert alert-warning">
+            Commenter invites are currently disabled in Settings. New invites
+            cannot be issued AND existing un-accepted invites cannot be
+            redeemed until this is turned back on. Already-activated
+            commenter accounts are unaffected.
+          </div>
+        )}
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 

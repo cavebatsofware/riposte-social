@@ -74,6 +74,7 @@ pub fn admin_api_routes(
         .route("/api/auth/verify-email", get(verify_email))
         .route("/api/auth/csrf-token", get(get_csrf_token))
         .route("/api/auth/config", get(auth_config))
+        .route("/api/site/config", get(site_config))
         .route("/api/me", get(me))
         .route("/api/me/mfa/setup", post(mfa_setup))
         .route("/api/me/mfa/confirm-setup", post(mfa_confirm_setup));
@@ -328,6 +329,93 @@ async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse
         login_url,
         account_url: state.oidc_account_url.clone(),
     })
+}
+
+/// Per-tier site configuration. Returns only the keys the caller can act
+/// on so the frontend never sees gates that are irrelevant to them:
+/// - everyone gets `site_name` + `public_feed_enabled` (the latter switches
+///   the empty-state copy and gates anonymous reads).
+/// - posters additionally see `poster_posting_enabled` (gates the Compose
+///   button).
+/// - admins additionally see `commenter_invites_enabled` and
+///   `fb_import_enabled` (gates the matching admin pages).
+///
+/// No auth required; the response just looks at the optional auth session.
+/// Each gate read is best-effort — a transient settings DB hiccup falls
+/// back to the safe default (true) so a flaky query never accidentally
+/// disables features in the UI.
+async fn site_config(
+    State(state): State<AdminState>,
+    auth_session: UserAuthSession,
+) -> AppResult<Json<serde_json::Value>> {
+    let user = auth_session.user().await;
+    let role = user.as_ref().map(|u| u.role.as_str());
+    let is_admin = role == Some(crate::entities::user::ROLE_ADMINISTRATOR);
+    let is_poster_or_admin = matches!(
+        role,
+        Some(crate::entities::user::ROLE_ADMINISTRATOR)
+            | Some(crate::entities::user::ROLE_POSTER)
+    );
+
+    // Settings reads bubble up as 500s rather than silently defaulting.
+    // The frontend's `SiteConfigContext` keeps gated affordances hidden
+    // until this fetch returns, so any read failure here means the SPA
+    // never reveals a feature that might actually be off — fail closed
+    // end-to-end.
+    fn read_err(e: anyhow::Error) -> AppError {
+        AppError::InternalError(format!("settings read failed: {:#}", e))
+    }
+
+    let mut payload = serde_json::Map::new();
+    payload.insert(
+        "site_name".to_string(),
+        serde_json::Value::String(state.settings.get_site_name().await.map_err(read_err)?),
+    );
+    payload.insert(
+        "public_feed_enabled".to_string(),
+        serde_json::Value::Bool(
+            state
+                .settings
+                .get_public_feed_enabled()
+                .await
+                .map_err(read_err)?,
+        ),
+    );
+    if is_poster_or_admin {
+        payload.insert(
+            "poster_posting_enabled".to_string(),
+            serde_json::Value::Bool(
+                state
+                    .settings
+                    .get_poster_posting_enabled()
+                    .await
+                    .map_err(read_err)?,
+            ),
+        );
+    }
+    if is_admin {
+        payload.insert(
+            "commenter_invites_enabled".to_string(),
+            serde_json::Value::Bool(
+                state
+                    .settings
+                    .get_commenter_invites_enabled()
+                    .await
+                    .map_err(read_err)?,
+            ),
+        );
+        payload.insert(
+            "fb_import_enabled".to_string(),
+            serde_json::Value::Bool(
+                state
+                    .settings
+                    .get_fb_import_enabled()
+                    .await
+                    .map_err(read_err)?,
+            ),
+        );
+    }
+    Ok(Json(serde_json::Value::Object(payload)))
 }
 
 /// Guard that returns an error when OIDC is enabled, directing users to SSO

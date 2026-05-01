@@ -16,6 +16,23 @@
 use anyhow::Result;
 use aws_sdk_s3::Client;
 use std::env;
+use std::error::Error as StdError;
+use std::fmt::Display;
+
+/// Render an AWS SDK error with its full cause chain so logs and admin UI
+/// see the underlying problem (DNS resolution, TLS handshake failure,
+/// service-side 4xx body, etc.) instead of the SDK's bland top-level
+/// message ("dispatch failure", "service error", ...).
+fn format_aws_error<E: Display + StdError + 'static>(e: &E) -> String {
+    let mut msg = format!("{}", e);
+    let mut source: Option<&dyn StdError> = e.source();
+    while let Some(s) = source {
+        msg.push_str(": ");
+        msg.push_str(&s.to_string());
+        source = s.source();
+    }
+    msg
+}
 
 #[derive(Clone)]
 pub struct S3Service {
@@ -96,7 +113,62 @@ impl S3Service {
             .body(data.into())
             .content_type(content_type)
             .send()
-            .await?;
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "S3 PutObject failed (bucket={}, key={}): {}",
+                    self.bucket_name,
+                    key,
+                    format_aws_error(&e)
+                )
+            })?;
+
+        Ok(())
+    }
+
+    /// Upload a local file at `path` to `key`. Used for archive uploads
+    /// where holding the whole payload in memory is wasteful: the multipart
+    /// handler streams the request body to a tempfile, then this method
+    /// streams the tempfile to S3 without buffering it back into a Vec.
+    pub async fn put_object_from_path(
+        &self,
+        key: &str,
+        path: &std::path::Path,
+        content_type: &str,
+    ) -> Result<()> {
+        tracing::info!(
+            "Uploading file to S3: bucket={}, key={}, src={}, type={}",
+            self.bucket_name,
+            key,
+            path.display(),
+            content_type
+        );
+
+        let body = aws_sdk_s3::primitives::ByteStream::from_path(path)
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!("failed to open archive {} for upload: {}", path.display(), e)
+            })?;
+
+        self.client
+            .put_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .body(body)
+            .content_type(content_type)
+            .send()
+            .await
+            .map_err(|e| {
+                // The SDK's top-level Display says "dispatch failure" or
+                // similar without a cause; the real reason (DNS, TLS,
+                // service error) is in the source chain. Walk it.
+                anyhow::anyhow!(
+                    "S3 PutObject failed (bucket={}, key={}): {}",
+                    self.bucket_name,
+                    key,
+                    format_aws_error(&e)
+                )
+            })?;
 
         Ok(())
     }
@@ -113,7 +185,15 @@ impl S3Service {
             .bucket(&self.bucket_name)
             .key(key)
             .send()
-            .await?;
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "S3 GetObject failed (bucket={}, key={}): {}",
+                    self.bucket_name,
+                    key,
+                    format_aws_error(&e)
+                )
+            })?;
 
         let content_type = response.content_type().map(|s| s.to_string());
         let data = response.body.collect().await?;

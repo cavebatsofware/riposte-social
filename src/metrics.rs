@@ -1,5 +1,8 @@
 use basic_axum_rate_limit::RateLimiter;
-use prometheus::{Encoder, IntCounter, IntGauge, TextEncoder};
+use prometheus::{
+    register_int_counter_vec_with_registry, Encoder, IntCounter, IntCounterVec, IntGauge,
+    TextEncoder,
+};
 use sea_orm::DatabaseConnection;
 use std::sync::LazyLock;
 
@@ -72,6 +75,52 @@ pub static NETWORK_TX_BYTES: LazyLock<IntGauge> = LazyLock::new(|| {
     .unwrap()
 });
 
+// Application-level event counters. Each is incremented best-effort from
+// the relevant route handler; counter failures never block the request.
+pub static POSTS_CREATED_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {
+    IntCounter::new(
+        "posts_created_total",
+        "Total posts created via the public composer or import",
+    )
+    .unwrap()
+});
+pub static REACTIONS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "reactions_total",
+        "Total reaction add / remove events",
+        &["op"],
+        prometheus::default_registry()
+    )
+    .unwrap()
+});
+pub static COMMENTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "comments_total",
+        "Total comment create / soft_delete events",
+        &["op"],
+        prometheus::default_registry()
+    )
+    .unwrap()
+});
+pub static LOGINS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "logins_total",
+        "Total successful logins, labeled by user tier",
+        &["tier"],
+        prometheus::default_registry()
+    )
+    .unwrap()
+});
+pub static IMPORTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "imports_total",
+        "Total import-job lifecycle events labeled by status",
+        &["status"],
+        prometheus::default_registry()
+    )
+    .unwrap()
+});
+
 /// Register all metrics with the default prometheus registry.
 /// Called once at startup to ensure metrics are initialized.
 pub fn register_metrics() {
@@ -85,6 +134,15 @@ pub fn register_metrics() {
     let _ = registry.register(Box::new(APP_MEMORY_RSS_BYTES.clone()));
     let _ = registry.register(Box::new(NETWORK_RX_BYTES.clone()));
     let _ = registry.register(Box::new(NETWORK_TX_BYTES.clone()));
+    let _ = registry.register(Box::new(POSTS_CREATED_TOTAL.clone()));
+    // The *_VEC counters are auto-registered via
+    // `register_int_counter_vec_with_registry!`; touching them here
+    // forces LazyLock initialization so they show up in /metrics even
+    // before any event has fired.
+    let _ = REACTIONS_TOTAL.with_label_values(&["add"]);
+    let _ = COMMENTS_TOTAL.with_label_values(&["create"]);
+    let _ = LOGINS_TOTAL.with_label_values(&["administrator"]);
+    let _ = IMPORTS_TOTAL.with_label_values(&["started"]);
 }
 
 /// Read RSS memory from /proc/self/status.

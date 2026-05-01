@@ -145,6 +145,10 @@ function Settings() {
       access_codes_enabled: "Access Codes",
       contact_form_enabled: "Contact Form",
       subscriptions_enabled: "Newsletter Subscriptions",
+      poster_posting_enabled: "Poster Posting",
+      commenter_invites_enabled: "Commenter Invites",
+      public_feed_enabled: "Public Feed",
+      fb_import_enabled: "Facebook Import",
       site_name: "Site Name",
       site_domain: "Site Domain",
       contact_email: "Contact Email",
@@ -162,6 +166,14 @@ function Settings() {
       contact_form_enabled: "Enable the public contact form endpoint",
       subscriptions_enabled:
         "Enable the public newsletter subscription endpoint",
+      poster_posting_enabled:
+        "Allow users with the Poster role to create new posts. Administrators always retain posting access.",
+      commenter_invites_enabled:
+        "Master switch for the invite system. When off, administrators cannot issue new invites AND existing un-accepted invites can no longer be redeemed (both OIDC and password modes). Already-activated commenter accounts continue to log in normally.",
+      public_feed_enabled:
+        "Allow anonymous visitors to read the public feed. When disabled, the site becomes invite-only and visitors see a sign-in prompt.",
+      fb_import_enabled:
+        "Allow administrators to upload new Facebook archives. Existing import jobs are unaffected.",
       site_name: "The name of your website displayed in emails and pages",
       site_domain: "The domain name of your website (e.g., example.com)",
       contact_email: "Email address for contact form submissions",

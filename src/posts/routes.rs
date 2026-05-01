@@ -50,6 +50,7 @@ use uuid::Uuid;
 pub struct PostsState {
     pub db: DatabaseConnection,
     pub s3: S3Service,
+    pub settings: crate::settings::SettingsService,
 }
 
 /// Per-file size cap (10 MiB). Beyond this we reject the upload before
@@ -217,6 +218,25 @@ async fn create_post(
     Extension(user): Extension<crate::admin::UserAuth>,
     mut multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<PostResponse>)> {
+    // Site-mode toggle: posters can be muted by an admin without revoking
+    // their role. Admins always bypass. Settings read failures bubble up
+    // as 500s rather than silently allowing the action — for a security
+    // gate, "I don't know" must mean "deny", not "permit".
+    if user.role == user::ROLE_POSTER {
+        let enabled = state
+            .settings
+            .get_poster_posting_enabled()
+            .await
+            .map_err(|e| {
+                AppError::InternalError(format!("settings read failed: {:#}", e))
+            })?;
+        if !enabled {
+            return Err(AppError::AuthError(
+                "Posting is currently disabled by an administrator".to_string(),
+            ));
+        }
+    }
+
     let mut body: Option<String> = None;
     let mut visibility: String = post::VISIBILITY_PUBLIC.to_string();
     let mut published_at: Option<DateTime<Utc>> = None;
@@ -403,6 +423,7 @@ async fn create_post(
     };
 
     let author = User::find_by_id(post_row.author_id).one(&state.db).await?;
+    crate::metrics::POSTS_CREATED_TOTAL.inc();
     // Newly created post: no reactions or comments yet, so engagement is
     // the default zero state. Skip the lookup.
     Ok((
@@ -426,6 +447,11 @@ async fn serve_media(
     auth_session: AuthSession<crate::admin::UserAuthBackend>,
     Path(media_id): Path<Uuid>,
 ) -> AppResult<Response> {
+    let tier = caller_tier(&auth_session).await;
+    enforce_public_feed_gate(&state.settings, tier)
+        .await
+        .map_err(|_| AppError::AuthError("Media not found".to_string()))?;
+
     let media = PostMedia::find_by_id(media_id)
         .one(&state.db)
         .await?
@@ -437,7 +463,6 @@ async fn serve_media(
         .await?
         .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
 
-    let tier = caller_tier(&auth_session).await;
     if !tier.can_read(&parent.visibility) {
         return Err(AppError::AuthError("Media not found".to_string()));
     }
@@ -479,13 +504,15 @@ async fn get_post(
     auth_session: AuthSession<crate::admin::UserAuthBackend>,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<PostResponse>> {
+    let tier = caller_tier(&auth_session).await;
+    enforce_public_feed_gate(&state.settings, tier).await?;
+
     let row = Post::find_by_id(id)
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
 
-    let tier = caller_tier(&auth_session).await;
     if !tier.can_read(&row.visibility) {
         // Don't disclose existence to under-tier callers. Same error as
         // missing post.
@@ -631,6 +658,7 @@ async fn feed(
     Query(query): Query<FeedQuery>,
 ) -> AppResult<Json<FeedResponse>> {
     let tier = caller_tier(&auth_session).await;
+    enforce_public_feed_gate(&state.settings, tier).await?;
     let limit = query
         .limit
         .unwrap_or(FEED_LIMIT_DEFAULT)
@@ -735,6 +763,30 @@ async fn caller_tier(
 ) -> FeedTier {
     let user = auth_session.user().await;
     FeedTier::from_role(user.as_ref().map(|u| u.role.as_str()))
+}
+
+/// Block anonymous reads when `public_feed_enabled` is off. Authed
+/// callers (any tier) bypass — the gate is about whether the feed is
+/// readable without an account, not about content visibility. A settings
+/// read failure surfaces as a 500 (fail-closed for a security gate)
+/// rather than silently allowing the read.
+async fn enforce_public_feed_gate(
+    settings: &crate::settings::SettingsService,
+    tier: FeedTier,
+) -> AppResult<()> {
+    if !matches!(tier, FeedTier::Anonymous) {
+        return Ok(());
+    }
+    let enabled = settings
+        .get_public_feed_enabled()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    if enabled {
+        return Ok(());
+    }
+    // Same surface as missing-post: don't disclose whether anything
+    // exists to a caller who shouldn't see anything.
+    Err(AppError::AuthError("Not found".to_string()))
 }
 
 fn parse_cursor(cursor: &str) -> Option<(chrono::DateTime<chrono::FixedOffset>, Uuid)> {

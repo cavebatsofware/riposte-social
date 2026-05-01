@@ -100,7 +100,12 @@ async fn create_reaction(
         .exec(&state.db)
         .await
     {
-        Ok(_) | Err(DbErr::RecordNotInserted) => {}
+        Ok(_) => {
+            crate::metrics::REACTIONS_TOTAL
+                .with_label_values(&["add"])
+                .inc();
+        }
+        Err(DbErr::RecordNotInserted) => {}
         Err(e) => return Err(e.into()),
     }
 
@@ -123,12 +128,17 @@ async fn delete_reaction(
 
     let parent = ensure_visible_post(&state.db, post_id, &user).await?;
 
-    Reaction::delete_many()
+    let result = Reaction::delete_many()
         .filter(reaction::Column::PostId.eq(parent.id))
         .filter(reaction::Column::UserId.eq(user.id))
         .filter(reaction::Column::Kind.eq(kind))
         .exec(&state.db)
         .await?;
+    if result.rows_affected > 0 {
+        crate::metrics::REACTIONS_TOTAL
+            .with_label_values(&["remove"])
+            .inc();
+    }
 
     Ok(Json(reaction_state(&state, parent.id, user.id).await?))
 }

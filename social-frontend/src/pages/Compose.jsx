@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
+import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
 
 const VISIBILITIES = [
@@ -30,6 +31,7 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024;
 /// attachments. To swap attachments, delete and re-create the post.
 export default function Compose() {
   const { user, loading: authLoading } = useAuth();
+  const { config: site } = useSiteConfig();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
@@ -97,6 +99,33 @@ export default function Compose() {
   }
   if (user.role !== "administrator" && user.role !== "poster") {
     return <Navigate to="/" replace />;
+  }
+  // Posters can be muted by an admin without revoking their role. When the
+  // gate is off the backend rejects POST anyway; surfacing a friendly
+  // notice here saves a confusing round-trip.
+  //
+  // Fail closed: until /api/site/config returns the gate explicitly true,
+  // refuse to render the form. A transient settings outage shouldn't let
+  // a poster paste in their post and then fail at submit.
+  if (
+    user.role === "poster" &&
+    !(site !== null && site.poster_posting_enabled === true)
+  ) {
+    return (
+      <main className="feed">
+        <header className="feed-header">
+          <Link to="/" className="post-back-link">
+            ← Back to feed
+          </Link>
+        </header>
+        <section className="feed-empty">
+          <p>
+            Posting has been temporarily disabled by an administrator.
+            Existing posts are unaffected.
+          </p>
+        </section>
+      </main>
+    );
   }
 
   function addFiles(incoming) {

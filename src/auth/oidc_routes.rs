@@ -41,6 +41,7 @@ type OidcAuthSession = AuthSession<UserAuthBackend>;
 pub struct OidcState {
     pub oidc_service: OidcService,
     pub db: DatabaseConnection,
+    pub settings: crate::settings::SettingsService,
 }
 
 /// GET /api/auth/oidc/login
@@ -135,6 +136,27 @@ pub async fn oidc_callback(
         .remove(PENDING_INVITE_SESSION_KEY)
         .await
         .map_err(|e| AppError::AuthError(format!("Session error: {}", e)))?;
+
+    // Kill switch: when `commenter_invites_enabled` is off, refuse any
+    // invite-driven OIDC acceptance. Already-bound users keep working
+    // (Flow B in `authenticate_oidc` does not require an invite_code).
+    // Fail closed on settings read errors — a 500 surfaces the underlying
+    // DB problem to the operator instead of silently permitting a gated
+    // acceptance.
+    if pending_invite.is_some() {
+        let invites_enabled = state
+            .settings
+            .get_commenter_invites_enabled()
+            .await
+            .map_err(|e| {
+                AppError::InternalError(format!("settings read failed: {:#}", e))
+            })?;
+        if !invites_enabled {
+            return Err(AppError::AuthError(
+                "Invite acceptance is currently disabled by an administrator".to_string(),
+            ));
+        }
+    }
 
     // Clean up OIDC session data
     let _ = session.remove::<String>(OIDC_STATE_KEY).await;

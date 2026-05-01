@@ -26,7 +26,9 @@ use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
-use riposte_social::{admin, app, crypto, database, email, errors, metrics, middleware};
+use riposte_social::{
+    admin, app, crypto, database, email, errors, imports, metrics, middleware,
+};
 
 use app::{AppState, RouterDeps};
 use basic_axum_rate_limit::{
@@ -151,6 +153,14 @@ async fn main() -> anyhow::Result<()> {
 
     // Create shared app state with database connection
     let state = AppState::new().await?;
+
+    // Sweep any import_job rows left in `running` state from a prior
+    // process. They could not have been reattached after restart, so we
+    // mark them failed with an explanatory error. Run after AppState::new
+    // so migrations are guaranteed to have applied.
+    if let Err(e) = imports::sweep_stale_running_jobs(&state.db).await {
+        tracing::error!("Boot-time import_job sweep failed: {}", e);
+    }
 
     // Setup PostgreSQL-backed session store for admin authentication
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");

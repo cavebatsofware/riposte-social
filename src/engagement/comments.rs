@@ -137,6 +137,9 @@ async fn create_comment(
     .await?;
 
     let author = User::find_by_id(row.user_id).one(&state.db).await?;
+    crate::metrics::COMMENTS_TOTAL
+        .with_label_values(&["create"])
+        .inc();
     Ok((
         StatusCode::CREATED,
         Json(build_comment_response(row, author.as_ref())),
@@ -152,6 +155,22 @@ async fn list_comments(
 ) -> AppResult<Json<CommentListResponse>> {
     let viewer = auth_session.user().await;
     let tier = FeedTier::from_role(viewer.as_ref().map(|u| u.role.as_str()));
+
+    // Anonymous reads are blocked when the public feed is muted; authed
+    // callers are unaffected. Fail closed: a settings read failure
+    // surfaces as a 500 rather than silently exposing comments.
+    if matches!(tier, FeedTier::Anonymous) {
+        let enabled = state
+            .settings
+            .get_public_feed_enabled()
+            .await
+            .map_err(|e| {
+                AppError::InternalError(format!("settings read failed: {:#}", e))
+            })?;
+        if !enabled {
+            return Err(AppError::AuthError("Post not found".to_string()));
+        }
+    }
 
     let parent = Post::find_by_id(post_id)
         .filter(post::Column::DeletedAt.is_null())
@@ -225,6 +244,9 @@ async fn delete_comment(
     let mut active: comment::ActiveModel = row.into();
     active.deleted_at = Set(Some(Utc::now().into()));
     active.update(&state.db).await?;
+    crate::metrics::COMMENTS_TOTAL
+        .with_label_values(&["soft_delete"])
+        .inc();
     Ok(StatusCode::NO_CONTENT)
 }
 

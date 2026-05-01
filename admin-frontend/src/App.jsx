@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import AccessCodes from "./pages/AccessCodes";
 import AccessLogs from "./pages/AccessLogs";
 import Users from "./pages/Users";
+import Imports from "./pages/Imports";
 import InviteCodes from "./pages/InviteCodes";
 import Moderation from "./pages/Moderation";
 import Settings from "./pages/Settings";
@@ -124,6 +125,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Moderation />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/imports"
+            element={
+              <ProtectedRoute>
+                <Imports />
               </ProtectedRoute>
             }
           />
