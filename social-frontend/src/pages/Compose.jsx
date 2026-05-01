@@ -6,13 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
 import Layout from "../components/Layout";
-
-const VISIBILITIES = [
-  { id: "private", label: "Private", desc: "Only you can see this" },
-  { id: "public", label: "Public", desc: "Anyone with the link" },
-  { id: "commenters", label: "Commenters", desc: "Friends with invites" },
-  { id: "posters", label: "Posters", desc: "Family authors only" },
-];
+import VisibilityPicker from "../components/VisibilityPicker";
 
 const ACCEPTED_IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const ACCEPTED_VIDEO_MIME = ["video/mp4", "video/webm"];
@@ -254,22 +248,7 @@ export default function Compose() {
 
         {error && <div className="alert alert-error">{error}</div>}
 
-        <fieldset className="compose-field">
-          <legend>Visibility</legend>
-          <div className="visibility-options">
-            {VISIBILITIES.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className={`visibility-pill ${visibility === v.id ? "selected" : ""}`}
-                onClick={() => setVisibility(v.id)}
-              >
-                <span className="visibility-pill-label">{v.label}</span>
-                <span className="visibility-pill-desc">{v.desc}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <VisibilityPicker value={visibility} onChange={setVisibility} />
 
         <div className="compose-field">
           <label htmlFor="compose-body">Body (markdown)</label>

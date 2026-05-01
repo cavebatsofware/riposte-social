@@ -4,13 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
 import Layout from "../components/Layout";
-
-const VISIBILITIES = [
-  { id: "private", label: "Private", desc: "Only you can see this" },
-  { id: "public", label: "Public", desc: "Anyone with the link" },
-  { id: "commenters", label: "Commenters", desc: "Friends with invites" },
-  { id: "posters", label: "Posters", desc: "Family authors only" },
-];
+import VisibilityPicker from "../components/VisibilityPicker";
 
 const ACCEPTED_IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 const ACCEPTED_VIDEO_MIME = ["video/mp4", "video/webm"];
@@ -301,52 +295,43 @@ export default function ComposeAlbum() {
       </Link>
 
       <form className="compose-card" onSubmit={handleSubmit}>
-        <h1 className="compose-title">{editId ? "Edit album" : "New album"}</h1>
+        <h2 className="compose-title">{editId ? "Edit album" : "New album"}</h2>
 
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 
-        <label htmlFor="album-name">Name</label>
-        <input
-          id="album-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          maxLength={150}
-          placeholder="Album name"
-        />
+        <div className="compose-field">
+          <label htmlFor="album-name">Name</label>
+          <input
+            id="album-name"
+            type="text"
+            className="compose-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            maxLength={150}
+            placeholder="Album name"
+          />
+        </div>
 
-        <label htmlFor="album-description">Description (optional)</label>
-        <textarea
-          id="album-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          maxLength={1000}
-          placeholder="A few words about this album."
-        />
+        <div className="compose-field">
+          <label htmlFor="album-description">Description (optional)</label>
+          <textarea
+            id="album-description"
+            className="compose-textarea-short"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder="A few words about this album."
+          />
+        </div>
 
-        <fieldset className="visibility-fieldset">
-          <legend>Visibility</legend>
-          <div className="visibility-options">
-            {VISIBILITIES.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                className={`visibility-pill ${visibility === v.id ? "selected" : ""}`}
-                onClick={() => setVisibility(v.id)}
-              >
-                <span className="visibility-pill-label">{v.label}</span>
-                <span className="visibility-pill-desc">{v.desc}</span>
-              </button>
-            ))}
-          </div>
-        </fieldset>
+        <VisibilityPicker value={visibility} onChange={setVisibility} />
 
         {existingMedia.length > 0 && (
-          <section className="album-edit-section">
-            <h2>Existing items ({existingMedia.length})</h2>
+          <div className="compose-field">
+            <label>Existing items ({existingMedia.length})</label>
             <div className="album-edit-grid">
               {existingMedia.map((m, idx) => (
                 <div key={m.id} className="album-edit-item">
@@ -375,11 +360,11 @@ export default function ComposeAlbum() {
                 </div>
               ))}
             </div>
-          </section>
+          </div>
         )}
 
-        <fieldset className="visibility-fieldset">
-          <legend>{editId ? "Add more items" : "Items"}</legend>
+        <div className="compose-field">
+          <label>{editId ? "Add more items" : "Items"}</label>
           <div
             className={`dropzone ${dragActive ? "drag-active" : ""}`}
             onDragEnter={(e) => {
@@ -456,19 +441,26 @@ export default function ComposeAlbum() {
               ))}
             </div>
           )}
-        </fieldset>
+        </div>
 
-        <div className="compose-actions">
-          <Link to={editId ? `/album/${editId}` : "/"} className="btn-secondary">
-            Cancel
-          </Link>
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={submitting || !name.trim()}
-          >
-            {submitting ? "Saving…" : editId ? "Save changes" : "Create album"}
-          </button>
+        <div className="compose-footer">
+          <span className="form-hint">
+            {editId
+              ? "Saving will update the album immediately."
+              : "Saving will publish immediately."}
+          </span>
+          <div className="compose-footer-actions">
+            <Link to={editId ? `/album/${editId}` : "/"} className="btn-secondary">
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={submitting || !name.trim()}
+            >
+              {submitting ? "Saving…" : editId ? "Save changes" : "Create album"}
+            </button>
+          </div>
         </div>
       </form>
     </Layout>

@@ -1578,6 +1578,41 @@ select:focus-visible,
   margin-top: 2px;
 }
 
+/* Plain text input matching the compose-textarea look. Used by
+   ComposeAlbum's Name field and any future text-only compose inputs. */
+.compose-input {
+  width: 100%;
+  font: inherit;
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+.compose-input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* A second textarea variant used when the field is a short prose field
+   (e.g. album description) rather than the markdown body. Removes the
+   monospace font and uses a smaller min-height than .compose-textarea. */
+.compose-textarea-short {
+  width: 100%;
+  font: inherit;
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+  min-height: 80px;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+.compose-textarea-short:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
 .compose-textarea {
   width: 100%;
   font: inherit;
