@@ -55,6 +55,9 @@ mod m20260503_000002_create_categories;
 mod m20260503_000003_add_category_to_posts_albums;
 mod m20260505_000001_add_locale_to_users;
 mod m20260507_000001_add_posts_body_tsv;
+mod m20260508_000001_add_visibility_to_categories;
+mod m20260508_000002_create_category_member;
+mod m20260508_000003_seed_category_mgmt_gate;
 mod m20260510_000001_add_comment_edited_at;
 mod m20260510_000002_create_comment_reactions;
 
@@ -103,6 +106,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260503_000003_add_category_to_posts_albums::Migration),
             Box::new(m20260505_000001_add_locale_to_users::Migration),
             Box::new(m20260507_000001_add_posts_body_tsv::Migration),
+            Box::new(m20260508_000001_add_visibility_to_categories::Migration),
+            Box::new(m20260508_000002_create_category_member::Migration),
+            Box::new(m20260508_000003_seed_category_mgmt_gate::Migration),
             Box::new(m20260510_000001_add_comment_edited_at::Migration),
             Box::new(m20260510_000002_create_comment_reactions::Migration),
         ]

@@ -524,13 +524,17 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // the social-frontend's left rail); CRUD is admin-only.
     let categories_state = categories::routes::CategoriesState {
         db: state.db.clone(),
+        settings: state.settings.clone(),
     };
     let public_category_routes = categories::routes::public_category_routes()
         .with_state(categories_state.clone())
         .layer(auth_layer.clone());
-    let admin_category_routes = categories::routes::admin_category_routes()
+    // Category management is open to admin OR poster (subject to the
+    // `poster_category_management_enabled` gate). The route layer just
+    // enforces "must be logged in"; per-row permission checks happen
+    // inside each handler against `can_manage_category`.
+    let category_management_routes = categories::routes::category_management_routes()
         .with_state(categories_state)
-        .layer(from_fn(require_admin))
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
@@ -626,7 +630,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(album_write_routes)
         .merge(album_read_routes)
         .merge(public_category_routes)
-        .merge(admin_category_routes)
+        .merge(category_management_routes)
         .merge(me_profile_routes)
         .merge(public_profile_routes)
         .merge(engagement_write_routes)

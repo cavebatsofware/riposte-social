@@ -39,6 +39,11 @@
       "name": "Auteurs",
       "desc": "Auteurs de la famille uniquement"
     },
+    "user_list": {
+      "name": "Liste d'utilisateurs",
+      "desc": "Seulement certaines personnes"
+    },
+    "fromCategory": "de la catégorie",
     "menuFailed": "Échec de la mise à jour de la visibilité"
   },
   "postCard": {

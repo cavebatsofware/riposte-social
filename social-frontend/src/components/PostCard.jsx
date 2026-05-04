@@ -79,10 +79,13 @@ export default function PostCard({ post, variant = "feed" }) {
           <div className="post-meta-line">
             <span>{time}</span>
             <span className="post-meta-dot" aria-hidden="true" />
-            {canEditVisibility ? (
+            {canEditVisibility && !post.category ? (
               <VisibilityMenu post={post} />
             ) : (
-              <VisibilityBadge visibility={post.visibility} />
+              <VisibilityBadge
+                visibility={post.effective_visibility || post.visibility}
+                fromCategory={Boolean(post.category)}
+              />
             )}
             {post.category && (
               <>
@@ -385,16 +388,25 @@ function truncate(s, max) {
   return s.slice(0, cut).replace(/\s+$/, "") + "…";
 }
 
-function VisibilityBadge({ visibility }) {
+function VisibilityBadge({ visibility, fromCategory }) {
   const { t } = useTranslation("feed");
   const cls = `visibility-badge ${visibility}`;
-  // Each tier's display name comes from the catalog; an unknown tier
-  // falls back to "Public" via the public branch's defaultValue so a
-  // future server-side tier doesn't render as a missing-key gap.
-  const key = ["private", "commenters", "posters"].includes(visibility)
-    ? visibility
-    : "public";
-  return <span className={cls}>{t(`visibility.${key}.name`)}</span>;
+  // Known tiers: post-level four + the category-only `user_list`. Unknown
+  // tiers fall back to "Public" so a future server-side tier doesn't
+  // render as a missing-key gap.
+  const known = ["private", "commenters", "posters", "user_list"];
+  const key = known.includes(visibility) ? visibility : "public";
+  return (
+    <span className={cls}>
+      {t(`visibility.${key}.name`)}
+      {fromCategory && (
+        <span className="visibility-badge-from-category">
+          {" "}
+          ({t("visibility.fromCategory")})
+        </span>
+      )}
+    </span>
+  );
 }
 
 function computeInitials(name) {

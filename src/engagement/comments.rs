@@ -224,8 +224,15 @@ async fn list_comments(
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
-    let viewer_id = viewer.as_ref().map(|u| u.id);
-    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, viewer_id) {
+    let parent_cat = if let Some(cid) = parent.category_id {
+        crate::entities::Category::find_by_id(cid).one(&state.db).await?
+    } else {
+        None
+    };
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
         return Err(AppError::AuthError("Post not found".to_string()));
     }
 
@@ -370,15 +377,5 @@ async fn ensure_visible_authenticated(
     post_id: Uuid,
     user: &UserAuth,
 ) -> AppResult<post::Model> {
-    let parent = Post::find_by_id(post_id)
-        .filter(post::Column::DeletedAt.is_null())
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
-
-    let tier = FeedTier::from_role(Some(user.role.as_str()));
-    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, Some(user.id)) {
-        return Err(AppError::AuthError("Post not found".to_string()));
-    }
-    Ok(parent)
+    crate::visibility::ensure_visible_post_for_user(db, post_id, user).await
 }

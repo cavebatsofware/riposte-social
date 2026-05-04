@@ -41,6 +41,7 @@ pub mod s3;
 pub mod security_callbacks;
 pub mod settings;
 pub mod subscribe;
+pub mod visibility;
 
 #[cfg(any(test, feature = "e2e_testing"))]
 pub mod tests;

@@ -23,7 +23,6 @@ use crate::engagement::EngagementState;
 use crate::entities::{comment, comment_reaction, post, Comment, CommentReaction, Post};
 use crate::entities::reaction;
 use crate::errors::{AppError, AppResult};
-use crate::posts::FeedTier;
 use axum::{
     extract::{Path, State},
     response::Json,
@@ -162,9 +161,16 @@ async fn ensure_visible_comment(
         .one(db)
         .await?
         .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+    let parent_cat = if let Some(cid) = parent.category_id {
+        crate::entities::Category::find_by_id(cid).one(db).await?
+    } else {
+        None
+    };
 
-    let tier = FeedTier::from_role(Some(user.role.as_str()));
-    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, Some(user.id)) {
+    let ctx = crate::visibility::ViewerCtx::from_user_auth_async(db, user)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
         return Err(AppError::AuthError("Comment not found".to_string()));
     }
     Ok(row)

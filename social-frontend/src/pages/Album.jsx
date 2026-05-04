@@ -136,7 +136,10 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
         <span className="album-meta-dot" aria-hidden="true" />
         <span>{t("albums.itemCount", { count: album.photo_count })}</span>
         <span className="album-meta-dot" aria-hidden="true" />
-        <VisibilityChip visibility={album.visibility} />
+        <VisibilityChip
+          visibility={album.effective_visibility || album.visibility}
+          fromCategory={Boolean(album.category_id)}
+        />
       </div>
       {album.description && (
         <p className="album-description">{album.description}</p>
@@ -196,11 +199,20 @@ function AlbumMediaGrid({ media, onOpen }) {
 
 /// Visibility tier label — same source-of-truth catalog the post badges
 /// use, so renaming a tier ripples here automatically.
-function VisibilityChip({ visibility }) {
+function VisibilityChip({ visibility, fromCategory }) {
   const { t } = useTranslation("feed");
   const cls = `visibility-badge ${visibility}`;
-  const key = ["private", "commenters", "posters"].includes(visibility)
-    ? visibility
-    : "public";
-  return <span className={cls}>{t(`visibility.${key}.name`)}</span>;
+  const known = ["private", "commenters", "posters", "user_list"];
+  const key = known.includes(visibility) ? visibility : "public";
+  return (
+    <span className={cls}>
+      {t(`visibility.${key}.name`)}
+      {fromCategory && (
+        <span className="visibility-badge-from-category">
+          {" "}
+          ({t("visibility.fromCategory")})
+        </span>
+      )}
+    </span>
+  );
 }

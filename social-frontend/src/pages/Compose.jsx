@@ -329,7 +329,13 @@ export default function Compose() {
           <PreviewPane html={previewHtml} />
         </div>
 
-        <VisibilityPicker value={visibility} onChange={setVisibility} />
+        {categoryId ? (
+          <CategoryDrivenVisibilityNote
+            category={categories.find((c) => c.id === categoryId)}
+          />
+        ) : (
+          <VisibilityPicker value={visibility} onChange={setVisibility} />
+        )}
 
         <div className="compose-field-row">
           <div className="compose-field">
@@ -458,6 +464,28 @@ export default function Compose() {
         </div>
       </form>
     </Layout>
+  );
+}
+
+/// Stand-in for `<VisibilityPicker>` when a category is selected. The
+/// category drives the post's effective visibility, so we surface that
+/// inline note instead of a picker the user can edit.
+function CategoryDrivenVisibilityNote({ category }) {
+  const { t } = useTranslation("feed");
+  const { t: tCompose } = useTranslation("compose");
+  if (!category) return null;
+  const known = ["private", "commenters", "posters", "user_list"];
+  const key = known.includes(category.visibility)
+    ? category.visibility
+    : "public";
+  return (
+    <div className="compose-field">
+      <label>{tCompose("visibility.legend")}</label>
+      <p className="form-hint">
+        {t(`visibility.${key}.name`)}{" "}
+        <span className="muted">({t("visibility.fromCategory")})</span>
+      </p>
+    </div>
   );
 }
 

@@ -28,7 +28,7 @@
 use crate::entities::{album, album_media, category, post, user, Album, AlbumMedia, Category, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
-use crate::posts::{can_read_post, FeedTier};
+use crate::posts::FeedTier;
 use crate::s3::S3Service;
 use axum::{
     extract::{DefaultBodyLimit, Multipart, Path, Query, State},
@@ -155,7 +155,13 @@ pub struct AlbumResponse {
     pub description: Option<String>,
     pub cover_media_id: Option<Uuid>,
     pub cover_url: Option<String>,
+    /// Visibility stored on the album row. For categorized albums this
+    /// is preserved-but-ignored — the category drives access; see
+    /// `effective_visibility`.
     pub visibility: String,
+    /// Visibility actually enforced. Equals the category's visibility
+    /// when categorized, else the album's own visibility.
+    pub effective_visibility: String,
     pub published_at: String,
     pub created_at: String,
     pub updated_at: String,
@@ -171,10 +177,14 @@ fn build_album_response(
     row: album::Model,
     author: Option<&user::Model>,
     media: Vec<album_media::Model>,
+    category: Option<&category::Model>,
 ) -> AlbumResponse {
     let cover_url = row.cover_media_id.map(|id| format!("/album-media/{}", id));
     let photo_count = media.len() as i64;
     let media_responses = media.into_iter().map(AlbumMediaResponse::from_model).collect();
+    let effective_visibility = category
+        .map(|c| c.visibility.clone())
+        .unwrap_or_else(|| row.visibility.clone());
     AlbumResponse {
         id: row.id,
         author_id: row.author_id,
@@ -186,6 +196,7 @@ fn build_album_response(
         cover_media_id: row.cover_media_id,
         cover_url,
         visibility: row.visibility,
+        effective_visibility,
         published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
@@ -341,12 +352,10 @@ async fn create_album(
         }
     }
     if let Some(cid) = category_id {
-        let exists = Category::find_by_id(cid).one(&state.db).await?;
-        if exists.is_none() {
-            return Err(AppError::ValidationError(
-                "Category not found".to_string(),
-            ));
-        }
+        let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
+            AppError::ValidationError("Category not found".to_string())
+        })?;
+        crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
     let album_id = Uuid::new_v4();
@@ -436,10 +445,30 @@ async fn create_album(
     let author = User::find_by_id(album_row.author_id)
         .one(&state.db)
         .await?;
+    let cat = load_album_category(&state.db, &album_row).await?;
     Ok((
         StatusCode::CREATED,
-        Json(build_album_response(album_row, author.as_ref(), media_rows)),
+        Json(build_album_response(
+            album_row,
+            author.as_ref(),
+            media_rows,
+            cat.as_ref(),
+        )),
     ))
+}
+
+/// Fetch the album's category row, when set. Used by every endpoint that
+/// produces an `AlbumResponse` so `effective_visibility` reflects the
+/// category-driven tier
+async fn load_album_category(
+    db: &sea_orm::DatabaseConnection,
+    row: &album::Model,
+) -> AppResult<Option<category::Model>> {
+    if let Some(cid) = row.category_id {
+        Ok(Category::find_by_id(cid).one(db).await?)
+    } else {
+        Ok(None)
+    }
 }
 
 #[derive(Deserialize)]
@@ -492,22 +521,17 @@ async fn list_albums(
         .min(ALBUMS_LIMIT_MAX)
         .max(1);
 
-    let allowed: Vec<&'static str> = tier.allowed_visibilities().to_vec();
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-
-    let mut visibility_cond =
-        sea_orm::Condition::any().add(album::Column::Visibility.is_in(allowed));
-    if let Some(vid) = viewer_id {
-        visibility_cond = visibility_cond.add(
-            sea_orm::Condition::all()
-                .add(album::Column::Visibility.eq(post::VISIBILITY_PRIVATE))
-                .add(album::Column::AuthorId.eq(vid)),
-        );
-    }
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
 
     let mut q = Album::find()
         .filter(album::Column::DeletedAt.is_null())
-        .filter(visibility_cond)
+        .filter(ctx.feed_condition(
+            album::Column::Visibility,
+            album::Column::AuthorId,
+            album::Column::CategoryId,
+        ))
         .order_by_desc(album::Column::PublishedAt)
         .order_by_desc(album::Column::Id);
 
@@ -627,8 +651,11 @@ async fn get_album(
         .await?
         .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
 
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-    if !can_read_post(tier, &row.visibility, row.author_id, viewer_id) {
+    let cat = load_album_category(&state.db, &row).await?;
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_album(&row, cat.as_ref()) {
         return Err(AppError::AuthError("Album not found".to_string()));
     }
 
@@ -638,7 +665,12 @@ async fn get_album(
         .all(&state.db)
         .await?;
     let author = User::find_by_id(row.author_id).one(&state.db).await?;
-    Ok(Json(build_album_response(row, author.as_ref(), media)))
+    Ok(Json(build_album_response(
+        row,
+        author.as_ref(),
+        media,
+        cat.as_ref(),
+    )))
 }
 
 async fn update_album(
@@ -706,12 +738,10 @@ async fn update_album(
     if req.clear_category {
         active.category_id = Set(None);
     } else if let Some(cid) = req.category_id {
-        let exists = Category::find_by_id(cid).one(&state.db).await?;
-        if exists.is_none() {
-            return Err(AppError::ValidationError(
-                "Category not found".to_string(),
-            ));
-        }
+        let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
+            AppError::ValidationError("Category not found".to_string())
+        })?;
+        crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
         active.category_id = Set(Some(cid));
     }
     let updated = active.update(&state.db).await?;
@@ -722,7 +752,13 @@ async fn update_album(
         .all(&state.db)
         .await?;
     let author = User::find_by_id(updated.author_id).one(&state.db).await?;
-    Ok(Json(build_album_response(updated, author.as_ref(), media)))
+    let cat = load_album_category(&state.db, &updated).await?;
+    Ok(Json(build_album_response(
+        updated,
+        author.as_ref(),
+        media,
+        cat.as_ref(),
+    )))
 }
 
 async fn delete_album(
@@ -907,7 +943,13 @@ async fn append_album_media(
     let author = User::find_by_id(updated_album.author_id)
         .one(&state.db)
         .await?;
-    Ok(Json(build_album_response(updated_album, author.as_ref(), media)))
+    let cat = load_album_category(&state.db, &updated_album).await?;
+    Ok(Json(build_album_response(
+        updated_album,
+        author.as_ref(),
+        media,
+        cat.as_ref(),
+    )))
 }
 
 async fn update_album_media(
@@ -1014,8 +1056,11 @@ async fn serve_album_media(
         .one(&state.db)
         .await?
         .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-    if !can_read_post(tier, &parent.visibility, parent.author_id, viewer_id) {
+    let parent_cat = load_album_category(&state.db, &parent).await?;
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_album(&parent, parent_cat.as_ref()) {
         return Err(AppError::AuthError("Media not found".to_string()));
     }
 
@@ -1025,7 +1070,11 @@ async fn serve_album_media(
         .await
         .map_err(|e| AppError::AuthError(format!("Failed to load media: {}", e)))?;
 
-    let cache_control = if parent.visibility == post::VISIBILITY_PUBLIC {
+    let effective_vis = parent_cat
+        .as_ref()
+        .map(|c| c.visibility.as_str())
+        .unwrap_or(parent.visibility.as_str());
+    let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
         "public, max-age=86400"
     } else {
         "private, max-age=300"

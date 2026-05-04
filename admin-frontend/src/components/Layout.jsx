@@ -66,12 +66,6 @@ function Layout({ children }) {
               onClick={go}
               label="Moderation"
             />
-            <SidebarLink
-              path="/categories"
-              isActive={isActive}
-              onClick={go}
-              label="Categories"
-            />
 
             <SidebarSection label="Users" />
             <SidebarLink

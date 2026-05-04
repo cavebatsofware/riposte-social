@@ -146,6 +146,7 @@ function Settings() {
       contact_form_enabled: "Contact Form",
       subscriptions_enabled: "Newsletter Subscriptions",
       poster_posting_enabled: "Poster Posting",
+      poster_category_management_enabled: "Poster Category Management",
       commenter_invites_enabled: "Commenter Invites",
       public_feed_enabled: "Public Feed",
       fb_import_enabled: "Facebook Import",
@@ -168,6 +169,8 @@ function Settings() {
         "Enable the public newsletter subscription endpoint",
       poster_posting_enabled:
         "Allow users with the Poster role to create new posts. Administrators always retain posting access.",
+      poster_category_management_enabled:
+        "Allow users with the Poster role to create, edit, delete, and manage membership of categories they own. Administrators always retain full category management.",
       commenter_invites_enabled:
         "Master switch for the invite system. When off, administrators cannot issue new invites AND existing un-accepted invites can no longer be redeemed (both OIDC and password modes). Already-activated commenter accounts continue to log in normally.",
       public_feed_enabled:

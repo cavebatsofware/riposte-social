@@ -433,6 +433,16 @@ async fn site_config(
                     .map_err(read_err)?,
             ),
         );
+        payload.insert(
+            "poster_category_management_enabled".to_string(),
+            serde_json::Value::Bool(
+                state
+                    .settings
+                    .get_poster_category_management_enabled()
+                    .await
+                    .map_err(read_err)?,
+            ),
+        );
     }
     if is_admin {
         payload.insert(

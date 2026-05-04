@@ -17,33 +17,47 @@ use sea_orm::entity::prelude::*;
 use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
+/// One row per (category, user) pair granting access to a `user_list`
+/// category. Composite PK on `(category_id, user_id)`.
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "categories")]
+#[sea_orm(table_name = "category_member")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
-    pub id: Uuid,
-    /// Display name. Unique across the table.
-    pub name: String,
-    /// URL-safe slug. Unique. Used in feed query (`?category=<slug>`).
-    pub slug: String,
-    /// Sort key for the rail listing. Lower = earlier.
-    pub ordinal: i32,
-    /// Optional hex color (e.g. `#aabbcc`) for the chip tint. None means
-    /// inherit the default chip color.
-    pub color: Option<String>,
-    /// Visibility tier governing posts/albums in this category. One of the
-    /// four post-level tiers OR `user_list` (whose membership lives in
-    /// `category_member`). Defaults to `public` at the DB level.
-    pub visibility: String,
-    /// Creator. NULL for admin-created rows; only admins can
-    /// manage those. New categories created via the API populate it.
-    pub created_by: Option<Uuid>,
+    pub category_id: Uuid,
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub user_id: Uuid,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(
+        belongs_to = "super::category::Entity",
+        from = "Column::CategoryId",
+        to = "super::category::Column::Id",
+        on_delete = "Cascade"
+    )]
+    Category,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
+        on_delete = "Cascade"
+    )]
+    User,
+}
+
+impl Related<super::category::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::Category.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
+    }
+}
 
 #[async_trait::async_trait]
 impl ActiveModelBehavior for ActiveModel {
@@ -51,11 +65,9 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
         if insert {
-            self.created_at = Set(now);
+            self.created_at = Set(chrono::Utc::now().into());
         }
-        self.updated_at = Set(now);
         Ok(self)
     }
 }

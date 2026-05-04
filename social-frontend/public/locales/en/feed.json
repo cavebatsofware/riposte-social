@@ -39,6 +39,11 @@
       "name": "Posters",
       "desc": "Family authors only"
     },
+    "user_list": {
+      "name": "User list",
+      "desc": "Specific people only"
+    },
+    "fromCategory": "from category",
     "menuFailed": "Failed to update visibility"
   },
   "postCard": {

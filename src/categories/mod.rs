@@ -13,19 +13,59 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Categories: a flat admin-managed taxonomy that groups posts and albums.
+//! Categories: a flat taxonomy that groups posts and albums.
 //!
-//! - Public read of `/api/categories` returns the full ordered list (used
-//!   by the social-frontend's left rail and the admin UI).
-//! - Admin-only create/update/delete via `/api/admin/categories[/{id}]`.
-//! - Posts and albums each have a nullable `category_id` FK; the feed and
-//!   album list endpoints accept `?category=<slug>` to filter.
+//! - `GET /api/categories` returns categories the caller can read, with
+//!   per-row visibility filtering done by `crate::visibility::ViewerCtx`.
+//! - `POST /api/categories` is admin-or-poster (with the
+//!   `poster_category_management_enabled` gate). New rows record the
+//!   creator in `created_by`.
+//! - `PATCH/DELETE /api/categories/{id}` and the membership endpoints are
+//!   gated by `can_manage_category` — admin always passes; posters pass
+//!   only on rows they created.
+//! - Posts and albums each have a nullable `category_id` FK; categorized
+//!   rows defer their effective visibility to the parent category
+//!   (`crate::visibility`).
 //!
 //! Slug rules: lowercase ASCII / digits / `-`, 2..=50 chars. Names are
 //! free-form (whitespace-trimmed, length 1..=80). Slugs are derived from
-//! the name when not supplied at create-time, but admins can override.
+//! the name when not supplied at create-time, but the creator can override.
 
 pub mod routes;
+
+use crate::admin::UserAuth;
+use crate::entities::category;
+use crate::entities::user::ROLE_ADMINISTRATOR;
+
+/// Whether a user may *create* new categories. Admins always pass; posters
+/// pass only when the global gate is on. Commenters never can.
+pub fn can_create_category(user: &UserAuth, gate_enabled: bool) -> bool {
+    if user.role == ROLE_ADMINISTRATOR {
+        return true;
+    }
+    if user.role == crate::entities::user::ROLE_POSTER && gate_enabled {
+        return true;
+    }
+    false
+}
+
+/// Whether a user may manage (edit / delete / change membership of) the
+/// given category. Admin can manage any. Poster can manage rows they
+/// created when the gate is on. Legacy rows (`created_by IS NULL`) are
+/// admin-only.
+pub fn can_manage_category(
+    user: &UserAuth,
+    cat: &category::Model,
+    gate_enabled: bool,
+) -> bool {
+    if user.role == ROLE_ADMINISTRATOR {
+        return true;
+    }
+    if user.role != crate::entities::user::ROLE_POSTER || !gate_enabled {
+        return false;
+    }
+    cat.created_by == Some(user.id)
+}
 
 /// Slug shape rules — lowercase ASCII letters/digits/`-`, length 2..=50.
 /// `validate_slug_shape` returns an error message on failure.

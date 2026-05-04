@@ -27,7 +27,7 @@ use crate::engagement::{fetch_engagement_for_posts, PostEngagement};
 use crate::entities::{category, post, post_media, user, Category, Post, PostMedia, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
-use crate::posts::{can_read_post, markdown, FeedTier};
+use crate::posts::{markdown, FeedTier};
 use crate::s3::S3Service;
 use axum::{
     body::Body,
@@ -195,7 +195,14 @@ pub struct PostResponse {
     pub author_avatar_url: Option<String>,
     pub body: String,
     pub body_html: String,
+    /// Visibility stored on the post row. For categorized posts this is
+    /// preserved-but-ignored — the category drives access; see
+    /// `effective_visibility` for the value clients should render.
     pub visibility: String,
+    /// Visibility actually enforced for this post: when the post has a
+    /// category, equals the category's visibility; otherwise equals the
+    /// post's own `visibility`. Always populated.
+    pub effective_visibility: String,
     pub content_lang: String,
     pub published_at: String,
     pub created_at: String,
@@ -279,6 +286,9 @@ fn build_post_response(
             build_comment_response(c, cauthor)
         })
         .collect();
+    let effective_visibility = category
+        .map(|c| c.visibility.clone())
+        .unwrap_or_else(|| row.visibility.clone());
     PostResponse {
         id: row.id,
         author_id: row.author_id,
@@ -288,6 +298,7 @@ fn build_post_response(
         body: row.body,
         body_html,
         visibility: row.visibility,
+        effective_visibility,
         content_lang: row.content_lang,
         published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
@@ -483,12 +494,11 @@ async fn create_post(
     }
 
     if let Some(cid) = category_id {
-        let exists = Category::find_by_id(cid).one(&state.db).await?;
-        if exists.is_none() {
-            return Err(AppError::ValidationError(
-                "Category not found".to_string(),
-            ));
-        }
+        let cat = Category::find_by_id(cid).one(&state.db).await?;
+        let cat = cat.ok_or_else(|| {
+            AppError::ValidationError("Category not found".to_string())
+        })?;
+        crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
     let post_id = Uuid::new_v4();
@@ -631,8 +641,15 @@ async fn serve_media(
         .await?
         .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
 
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-    if !can_read_post(tier, &parent.visibility, parent.author_id, viewer_id) {
+    let parent_cat = if let Some(cid) = parent.category_id {
+        Category::find_by_id(cid).one(&state.db).await?
+    } else {
+        None
+    };
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
         return Err(AppError::AuthError("Media not found".to_string()));
     }
 
@@ -642,11 +659,13 @@ async fn serve_media(
         .await
         .map_err(|e| AppError::AuthError(format!("Failed to load media: {}", e)))?;
 
-    // Public posts go to a CDN-friendly cache; gated tiers stay private so
-    // a shared cache can't leak commenter/poster content to anonymous
-    // visitors. Both still get a long max-age because media is keyed by an
-    // unguessable UUID and only ever changes via post deletion.
-    let cache_control = if parent.visibility == post::VISIBILITY_PUBLIC {
+    // Effective visibility (category-driven if categorized) decides cache
+    // policy. Public goes to a shared cache; everything else stays private.
+    let effective_vis = parent_cat
+        .as_ref()
+        .map(|c| c.visibility.as_str())
+        .unwrap_or(parent.visibility.as_str());
+    let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
         "public, max-age=86400"
     } else {
         "private, max-age=300"
@@ -682,8 +701,16 @@ async fn get_post(
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
 
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-    if !can_read_post(tier, &row.visibility, row.author_id, viewer_id) {
+    let parent_cat = if let Some(cid) = row.category_id {
+        Category::find_by_id(cid).one(&state.db).await?
+    } else {
+        None
+    };
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    let viewer_id = ctx.viewer_id;
+    if !ctx.can_view_post(&row, parent_cat.as_ref()) {
         // Don't disclose existence to under-tier callers. Same error as
         // missing post.
         return Err(AppError::AuthError("Post not found".to_string()));
@@ -696,21 +723,16 @@ async fn get_post(
         .await?;
 
     let author = User::find_by_id(row.author_id).one(&state.db).await?;
-    let viewer_id = auth_session.user().await.map(|u| u.id);
     let mut engagement_map =
         fetch_engagement_for_posts(&state.db, &[row.id], viewer_id).await?;
     let engagement = engagement_map.remove(&row.id).unwrap_or_default();
-    let cat = match row.category_id {
-        Some(cid) => Category::find_by_id(cid).one(&state.db).await?,
-        None => None,
-    };
     let comment_authors = load_top_comment_authors(&state.db, std::iter::once(&engagement)).await?;
     Ok(Json(build_post_response(
         row,
         author.as_ref(),
         media,
         engagement,
-        cat.as_ref(),
+        parent_cat.as_ref(),
         &comment_authors,
     )))
 }
@@ -763,6 +785,17 @@ async fn update_post(
                 "Invalid content_lang '{}'",
                 lang
             )));
+        }
+    }
+
+    // Compose-time member check: if the post is moving INTO a category,
+    // confirm the author may compose there. Admins always pass.
+    if !req.clear_category {
+        if let Some(cid) = req.category_id {
+            let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
+                AppError::ValidationError("Category not found".to_string())
+            })?;
+            crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
         }
     }
 
@@ -890,27 +923,17 @@ async fn feed(
         .min(FEED_LIMIT_MAX)
         .max(1);
 
-    let allowed: Vec<&'static str> = tier.allowed_visibilities().to_vec();
-
-    // Visibility predicate: `visibility IN role-allowed` OR (the viewer is
-    // signed in AND `visibility = 'private' AND author_id = viewer.id`).
-    // The author-only branch surfaces the viewer's own private posts on
-    // top of whatever their role grants. Anonymous viewers don't get the
-    // OR branch (no viewer_id), so they only see what the tier permits.
-    let viewer_id = auth_session.user().await.map(|u| u.id);
-    let mut visibility_cond = sea_orm::Condition::any()
-        .add(post::Column::Visibility.is_in(allowed));
-    if let Some(vid) = viewer_id {
-        visibility_cond = visibility_cond.add(
-            sea_orm::Condition::all()
-                .add(post::Column::Visibility.eq(post::VISIBILITY_PRIVATE))
-                .add(post::Column::AuthorId.eq(vid)),
-        );
-    }
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
 
     let mut q = Post::find()
         .filter(post::Column::DeletedAt.is_null())
-        .filter(visibility_cond)
+        .filter(ctx.feed_condition(
+            post::Column::Visibility,
+            post::Column::AuthorId,
+            post::Column::CategoryId,
+        ))
         .order_by_desc(post::Column::PublishedAt)
         .order_by_desc(post::Column::Id);
 
@@ -1022,10 +1045,9 @@ async fn feed(
 
     // Engagement is fetched in batch keyed by post_id. Anonymous callers
     // get reaction counts and comment counts but no `viewer_reaction_kinds`.
-    // viewer_id is the same one we computed for the visibility predicate above.
     let post_ids_for_engagement: Vec<Uuid> = page.iter().map(|p| p.id).collect();
     let mut engagement_by_post =
-        fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, viewer_id).await?;
+        fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, ctx.viewer_id).await?;
 
     // Phase 9e: hydrate the page's categories in one batched query so the
     // chip can render on each card without N+1.

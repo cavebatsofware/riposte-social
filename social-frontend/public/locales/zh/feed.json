@@ -39,6 +39,11 @@
       "name": "作者",
       "desc": "仅限家庭作者"
     },
+    "user_list": {
+      "name": "用户列表",
+      "desc": "仅限指定用户"
+    },
+    "fromCategory": "来自类别",
     "menuFailed": "更新可见性失败"
   },
   "postCard": {

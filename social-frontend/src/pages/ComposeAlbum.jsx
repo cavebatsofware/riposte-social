@@ -365,7 +365,13 @@ export default function ComposeAlbum() {
           />
         </div>
 
-        <VisibilityPicker value={visibility} onChange={setVisibility} />
+        {categoryId ? (
+          <CategoryDrivenVisibilityNote
+            category={categories.find((c) => c.id === categoryId)}
+          />
+        ) : (
+          <VisibilityPicker value={visibility} onChange={setVisibility} />
+        )}
 
         <div className="compose-field">
           <label htmlFor="album-category">{t("category.label")}</label>
@@ -529,5 +535,26 @@ export default function ComposeAlbum() {
         </div>
       </form>
     </Layout>
+  );
+}
+
+/// Stand-in for `<VisibilityPicker>` when a category is selected on an
+/// album. The category drives the album's effective visibility.
+function CategoryDrivenVisibilityNote({ category }) {
+  const { t: tFeed } = useTranslation("feed");
+  const { t: tCompose } = useTranslation("compose");
+  if (!category) return null;
+  const known = ["private", "commenters", "posters", "user_list"];
+  const key = known.includes(category.visibility)
+    ? category.visibility
+    : "public";
+  return (
+    <div className="compose-field">
+      <label>{tCompose("visibility.legend")}</label>
+      <p className="form-hint">
+        {tFeed(`visibility.${key}.name`)}{" "}
+        <span className="muted">({tFeed("visibility.fromCategory")})</span>
+      </p>
+    </div>
   );
 }

@@ -242,7 +242,14 @@
   color: var(--color-text-muted, var(--color-muted));
 }
 
-@media (max-width: 768px) {
+/* Below 1024px the rail eats too much space (~240px) and main collapses
+   to ~520px, which most pages — feed cards, the categories manage row,
+   compose form — can't fit comfortably. Hide the inline nav up to
+   1024px (revealed via hamburger) and drop the rail into the column
+   flow so main column gets the full width on tablet-sized viewports.
+   The rail still renders ABOVE main in this mode; users scroll past it
+   to reach feed content. */
+@media (max-width: 1024px) {
   .layout-nav,
   .layout-auth-btn,
   .layout-header-actions .theme-picker,
@@ -254,13 +261,18 @@
     align-items: center;
     justify-content: center;
   }
-  .layout-grid {
-    padding: var(--spacing-4) var(--spacing-3);
-  }
-  /* On mobile, drop side rails into the column flow. */
   .layout-grid.has-left,
   .layout-grid.has-right,
   .layout-grid.has-left.has-right {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Tighten outer padding only at true mobile widths so phones don't lose
+   visible content to gutters. Tablet viewports keep the desktop padding
+   so the main column stays visually anchored. */
+@media (max-width: 600px) {
+  .layout-grid {
+    padding: var(--spacing-4) var(--spacing-3);
   }
 }

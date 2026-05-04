@@ -1,24 +1,48 @@
-.categories-overflow-list {
+/* Page header — title on the left, primary CTA (New / Cancel) on the right. */
+.page-header {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-3);
+  gap: var(--spacing-3);
+}
+
+/* Form card wrapper. Mirrors the admin .card pattern but uses
+   social-frontend tokens. */
+.categories-card {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: var(--spacing-2);
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-4);
+  box-shadow: var(--shadow-card, 0 1px 3px rgba(0, 0, 0, 0.05));
 }
 
+.categories-form-actions {
+  margin-top: var(--spacing-3);
+}
+
+/* List wrapper: stack of read-only links + manageable rows. */
+.categories-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+/* Read-only row (categories the caller can see but not manage). */
 .categories-overflow-row {
   display: flex;
   align-items: center;
   gap: var(--spacing-2);
   padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: var(--color-text);
 }
 .categories-overflow-row:hover {
-  background: var(--color-overlay);
+  border-color: var(--color-primary);
 }
 
 .categories-overflow-swatch {
@@ -34,7 +58,278 @@
   font-weight: 600;
 }
 
+.categories-overflow-vis {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+
 .categories-overflow-slug {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  font-family: var(--font-mono, monospace);
+}
+
+/* Manageable row — inline edit. Controls are split into three groups
+   (text inputs / pickers / actions) and the row uses flex-wrap so each
+   group moves as a unit when the row narrows, instead of fragmenting
+   mid-group. The first group flex-grows to absorb any extra width;
+   actions hug the right edge until they wrap. */
+.categories-manage-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.categories-row-group {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: nowrap;
+}
+
+/* Text group: name + slug. Grows to absorb extra row width. */
+.categories-row-text {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.categories-row-text .categories-input-name {
+  flex: 1 1 0;
+  min-width: 8ch;
+}
+
+/* Picker group: visibility select + color picker. Compact, doesn't
+   grow. */
+.categories-row-pickers {
+  flex: 0 1 auto;
+}
+
+/* Action group: pinned right while there's room; wraps to a new line
+   together when there isn't. */
+.categories-row-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* Common input style for category management — matches admin's table
+   input chrome but with social-frontend tokens. */
+.categories-input {
+  font: inherit;
+  padding: var(--spacing-1) var(--spacing-2);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.categories-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light, rgba(0, 0, 0, 0.05));
+}
+
+/* In the create form, inputs span the full row so they line up under
+   their labels. Inside the manage row they shrink to natural widths. */
+.categories-card .categories-input {
+  width: 100%;
+}
+
+.categories-input-slug {
+  font-family: var(--font-mono, monospace);
+  width: 14ch;
+}
+
+.categories-input-color {
+  font-family: var(--font-mono, monospace);
+  width: 10ch;
+}
+
+.categories-color-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.categories-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+/* Rich color picker (used in the create form). Pairs a native
+   <input type="color"> swatch with a free-form hex text input and a
+   clear button. */
+.categories-color-input {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+/* Compact variant when used inline in the manage row, alongside other
+   small controls. The text input stays narrow rather than expanding to
+   fill the whole row. */
+.categories-manage-row .categories-color-input {
+  flex: 0 0 auto;
+}
+.categories-manage-row .categories-color-input input.categories-color-text {
+  flex: 0 0 12ch;
+  width: 12ch;
+}
+
+.categories-color-input input.categories-color-picker {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  cursor: pointer;
+  overflow: hidden;
+}
+.categories-color-input input.categories-color-picker::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.categories-color-input input.categories-color-picker::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+.categories-color-input input.categories-color-picker::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* Empty: hide the (browser-default-black) swatch behind a checkered
+   pattern so it reads as "no color set" rather than "black tint". */
+.categories-color-input.is-empty input.categories-color-picker {
+  background-color: var(--color-surface);
+  background-image:
+    linear-gradient(45deg, var(--color-border) 25%, transparent 25%, transparent 75%, var(--color-border) 75%),
+    linear-gradient(45deg, var(--color-border) 25%, transparent 25%, transparent 75%, var(--color-border) 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 4px 4px;
+}
+.categories-color-input.is-empty input.categories-color-picker::-webkit-color-swatch {
+  opacity: 0;
+}
+.categories-color-input.is-empty input.categories-color-picker::-moz-color-swatch {
+  opacity: 0;
+}
+
+.categories-color-input input.categories-color-text {
+  flex: 1 1 auto;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-size-base);
+  padding: var(--spacing-1) var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+.categories-color-input input.categories-color-text:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px var(--color-primary-light, rgba(0, 0, 0, 0.05));
+}
+
+.categories-color-clear {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.categories-color-clear:hover {
+  background: var(--color-overlay);
+  color: var(--color-text);
+}
+
+/* Danger button (Delete on a manage row). The social-frontend doesn't
+   have a global .btn-danger so we scope one here. */
+.btn-danger {
+  padding: var(--spacing-1) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  background: transparent;
+  color: #b42318;
+  border: 1px solid #b42318;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #fee4e2;
+}
+
+/* member-edit modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-4);
+  max-width: 520px;
+  width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--shadow-popover, 0 8px 24px rgba(0, 0, 0, 0.2));
+}
+
+.categories-member-modal h2 {
+  margin-top: 0;
+}
+
+.categories-member-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  max-height: 50vh;
+  overflow: auto;
+  margin: var(--spacing-3) 0;
+  padding: var(--spacing-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.categories-member-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+}
+.categories-member-row:hover {
+  background: var(--color-overlay);
+}
+
+.categories-member-name {
+  flex: 1 1 auto;
+}
+
+.categories-member-handle {
   flex: 0 0 auto;
   font-size: var(--font-size-sm);
   color: var(--color-muted);

@@ -20,9 +20,8 @@
 use crate::admin::UserAuth;
 use crate::engagement::aggregate::fetch_engagement_for_posts;
 use crate::engagement::EngagementState;
-use crate::entities::{post, reaction, Post, Reaction};
+use crate::entities::{post, reaction, Reaction};
 use crate::errors::{AppError, AppResult};
-use crate::posts::FeedTier;
 use axum::{
     extract::{Path, State},
     response::Json,
@@ -151,17 +150,7 @@ async fn ensure_visible_post(
     post_id: Uuid,
     user: &UserAuth,
 ) -> AppResult<post::Model> {
-    let parent = Post::find_by_id(post_id)
-        .filter(post::Column::DeletedAt.is_null())
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
-
-    let tier = FeedTier::from_role(Some(user.role.as_str()));
-    if !crate::posts::can_read_post(tier, &parent.visibility, parent.author_id, Some(user.id)) {
-        return Err(AppError::AuthError("Post not found".to_string()));
-    }
-    Ok(parent)
+    crate::visibility::ensure_visible_post_for_user(db, post_id, user).await
 }
 
 /// Re-aggregate counts and viewer reactions for a single post; used as the
