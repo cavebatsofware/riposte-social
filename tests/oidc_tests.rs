@@ -112,6 +112,7 @@ async fn insert_active_oidc_user(
         bio: Set(None),
         pronouns: Set(None),
         avatar_s3_key: Set(None),
+        locale: Set(None),
     }
     .insert(db)
     .await
@@ -673,6 +674,7 @@ async fn test_oidc_inert_row_login_rejected(pool: sqlx::PgPool) {
         bio: Set(None),
         pronouns: Set(None),
         avatar_s3_key: Set(None),
+        locale: Set(None),
     }
     .insert(&db)
     .await

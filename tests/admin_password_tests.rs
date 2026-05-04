@@ -147,7 +147,7 @@ async fn test_forgot_password_returns_success(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["requires_mfa"].as_bool().unwrap(), true);
+    assert!(json["requires_mfa"].as_bool().unwrap());
 }
 
 // ==================== Reset Password Tests ====================

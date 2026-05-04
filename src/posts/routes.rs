@@ -906,8 +906,7 @@ async fn feed(
     let limit = query
         .limit
         .unwrap_or(FEED_LIMIT_DEFAULT)
-        .min(FEED_LIMIT_MAX)
-        .max(1);
+        .clamp(1, FEED_LIMIT_MAX);
 
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await

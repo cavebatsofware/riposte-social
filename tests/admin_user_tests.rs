@@ -222,7 +222,7 @@ async fn test_update_user_set_email_verified(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["email_verified"].as_bool().unwrap(), false);
+    assert!(!json["email_verified"].as_bool().unwrap());
 }
 
 #[sqlx::test(migrations = false)]
@@ -243,7 +243,7 @@ async fn test_update_user_deactivate(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["active"].as_bool().unwrap(), false);
+    assert!(!json["active"].as_bool().unwrap());
     assert!(json["deactivated_at"].is_string());
 }
 
@@ -304,7 +304,7 @@ async fn test_update_user_disable_mfa(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["totp_enabled"].as_bool().unwrap(), false);
+    assert!(!json["totp_enabled"].as_bool().unwrap());
 }
 
 // ==================== Resend verification ====================

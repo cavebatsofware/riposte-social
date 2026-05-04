@@ -29,7 +29,7 @@ use axum::http::StatusCode;
 use axum_test::multipart::{MultipartForm, Part};
 use riposte_social::admin::UserAuthBackend;
 use riposte_social::entities::{post, user, Post, User};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use uuid::Uuid;
 
 const PNG_BYTES: &[u8] =

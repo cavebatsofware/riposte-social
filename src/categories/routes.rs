@@ -576,7 +576,7 @@ async fn replace_members(
     want.dedup();
 
     if let Some(creator_id) = cat.created_by {
-        if !want.iter().any(|u| *u == creator_id) {
+        if !want.contains(&creator_id) {
             return Err(AppError::ValidationError(
                 "the category creator cannot be removed".to_string(),
             ));

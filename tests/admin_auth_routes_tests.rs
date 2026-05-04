@@ -191,11 +191,11 @@ async fn test_login_success_returns_user(pool: sqlx::PgPool) {
     let json: serde_json::Value = response.json();
     assert_eq!(json["email"].as_str().unwrap(), email);
     assert!(json["id"].is_string());
-    assert_eq!(json["email_verified"].as_bool().unwrap(), true);
-    assert_eq!(json["totp_enabled"].as_bool().unwrap(), false);
-    assert_eq!(json["mfa_required"].as_bool().unwrap(), false);
-    assert_eq!(json["active"].as_bool().unwrap(), true);
-    assert_eq!(json["force_password_change"].as_bool().unwrap(), false);
+    assert!(json["email_verified"].as_bool().unwrap());
+    assert!(!json["totp_enabled"].as_bool().unwrap());
+    assert!(!json["mfa_required"].as_bool().unwrap());
+    assert!(json["active"].as_bool().unwrap());
+    assert!(!json["force_password_change"].as_bool().unwrap());
     assert_eq!(json["role"].as_str().unwrap(), "administrator");
     assert!(json["features"].is_object());
 }
@@ -266,7 +266,7 @@ async fn test_login_mfa_user_returns_mfa_required(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["mfa_required"].as_bool().unwrap(), true);
+    assert!(json["mfa_required"].as_bool().unwrap());
 }
 
 // ==================== Logout Tests ====================

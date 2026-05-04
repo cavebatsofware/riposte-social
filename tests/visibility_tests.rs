@@ -770,7 +770,7 @@ async fn test_admin_uncategorized_private_post_still_invisible(pool: sqlx::PgPoo
 
 #[sqlx::test(migrations = false)]
 async fn test_user_list_creator_cannot_be_removed_via_delete(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
+    let (server, backend, _db) = build_test_server(pool).await;
     let admin_email = test_email("13d-lock-admin");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 

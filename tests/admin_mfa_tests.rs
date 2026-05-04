@@ -105,7 +105,7 @@ async fn test_mfa_confirm_setup_success(pool: sqlx::PgPool) {
         response.text()
     );
     let json: serde_json::Value = response.json();
-    assert_eq!(json["totp_enabled"].as_bool().unwrap(), true);
+    assert!(json["totp_enabled"].as_bool().unwrap());
 
     // After enabling TOTP, the session hash changes (session invalidation).
     // Verify that re-login + MFA verify grants access to protected routes.
@@ -178,7 +178,7 @@ async fn test_mfa_disable_with_correct_password(pool: sqlx::PgPool) {
         response.text()
     );
     let json: serde_json::Value = response.json();
-    assert_eq!(json["totp_enabled"].as_bool().unwrap(), false);
+    assert!(!json["totp_enabled"].as_bool().unwrap());
 }
 
 #[sqlx::test(migrations = false)]

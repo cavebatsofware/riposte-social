@@ -1003,7 +1003,7 @@ async fn import_one_post(
         let published = chrono::Utc
             .timestamp_opt(fb_post.timestamp, 0)
             .single()
-            .unwrap_or_else(|| chrono::Utc::now());
+            .unwrap_or_else(chrono::Utc::now);
         post::ActiveModel {
             id: Set(post_id),
             author_id: Set(created_by),
@@ -1138,7 +1138,7 @@ async fn import_one_album(
         let published = chrono::Utc
             .timestamp_opt(fb_album.timestamp, 0)
             .single()
-            .unwrap_or_else(|| chrono::Utc::now());
+            .unwrap_or_else(chrono::Utc::now);
 
         album::ActiveModel {
             id: Set(album_id),
@@ -1250,7 +1250,7 @@ fn is_supported_image_mime(mime: &str) -> bool {
 }
 
 /// Phase 9c: video mimes the importer is allowed to bring across into S3
-/// + post_media. Matches the live upload allowlist in
+/// and post_media. Matches the live upload allowlist in
 /// [`crate::posts::routes::is_video_mime`]. `.mov` files are rejected
 /// because they don't play inline in browsers without transcoding —
 /// out-of-scope for the importer.

@@ -21,7 +21,7 @@
 //! - `DELETE /api/posts/{id}/comments/{cid}`   author or administrator
 //!
 //! Bodies are markdown, rendered server-side by the same `pulldown-cmark`
-//! + `ammonia` pipeline used for post bodies. Soft-deleted comments
+//! plus `ammonia` pipeline used for post bodies. Soft-deleted comments
 //! (`deleted_at IS NOT NULL`) are filtered out of public reads; they survive
 //! in the DB so admin moderation can audit. Edits set `edited_at` to a
 //! timestamp distinct from `updated_at` (which moves on any DB write) so

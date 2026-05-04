@@ -522,8 +522,7 @@ async fn list_albums(
     let limit = query
         .limit
         .unwrap_or(ALBUMS_LIMIT_DEFAULT)
-        .min(ALBUMS_LIMIT_MAX)
-        .max(1);
+        .clamp(1, ALBUMS_LIMIT_MAX);
 
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await

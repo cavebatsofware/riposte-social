@@ -93,7 +93,7 @@ async fn test_subscribe_invalid_email_returns_400(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["success"].as_bool().unwrap(), false);
+    assert!(!json["success"].as_bool().unwrap());
     assert!(json["message"]
         .as_str()
         .unwrap()
@@ -117,7 +117,7 @@ async fn test_subscribe_already_verified_returns_message(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
-    assert_eq!(json["success"].as_bool().unwrap(), true);
+    assert!(json["success"].as_bool().unwrap());
     assert!(json["message"]
         .as_str()
         .unwrap()

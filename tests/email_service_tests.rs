@@ -107,7 +107,7 @@ async fn test_subscribe_new_email_sends_confirmation(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let body: serde_json::Value = response.json();
-    assert_eq!(body["success"].as_bool().unwrap(), true);
+    assert!(body["success"].as_bool().unwrap());
 
     // Spy captured exactly one email addressed to the subscriber.
     let captured = spy.captured();
@@ -196,7 +196,7 @@ async fn test_subscribe_propagates_ses_error(pool: sqlx::PgPool) {
     // surfaced.
     assert_eq!(response.status_code(), StatusCode::INTERNAL_SERVER_ERROR);
     let body: serde_json::Value = response.json();
-    assert_eq!(body["success"].as_bool().unwrap(), false);
+    assert!(!body["success"].as_bool().unwrap());
 
     // Row WAS created before the email send attempt.
     let row = Subscriber::find()

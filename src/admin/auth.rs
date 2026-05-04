@@ -91,6 +91,18 @@ pub struct UserAuthBackend {
     allowed_domain: String,
 }
 
+/// IdP-attested claims for an OIDC sign-in. Bundles the fields that
+/// flow through every OIDC helper. `idp_tier` is resolved by
+/// `oidc::resolve_idp_tier` from the role claim; it is used for
+/// drift validation against the DB row.
+pub struct OidcAuthClaims<'a> {
+    pub sub: &'a str,
+    pub email: &'a str,
+    pub email_verified: bool,
+    pub idp_tier: &'a str,
+    pub display_name: Option<&'a str>,
+}
+
 impl UserAuthBackend {
     pub fn new(db: DatabaseConnection) -> Self {
         let allowed_domain =
@@ -640,40 +652,29 @@ impl UserAuthBackend {
         )))
     }
 
-    /// OIDC authentication. Dispatches between three structurally distinct
-    /// flows based on whether the user already has a row, an oidc_sub, and
-    /// whether they're presenting an invite. The `idp_tier` is the IdP-claimed
-    /// effective tier (resolved from the role claim by `oidc::resolve_idp_tier`)
-    /// used only to validate against the DB row, never to assign role.
-    ///
-    /// - **Flow B (normal login):** matched by oidc_sub. The DB and IdP must
-    ///   agree on role and email; if they drift, login fails closed. Refreshes
-    ///   last_login_at, display_name, email_verified, never role or email.
-    /// - **Flow A.1 (invite-bind existing pre-provisioned row):** matched by
-    ///   email when no oidc_sub matches and the row's oidc_sub is null. Requires
-    ///   the invite's email_hint to match the IdP-attested email exactly.
-    ///   Stamps oidc_sub, rotates password_hash, and sets activated_at.
-    /// - **Flow A.2 (mint new commenter):** no row found. Requires the IdP not
-    ///   to claim admin or poster (privileged accounts must be pre-provisioned).
-    ///   Creates the row with role = commenter, sets activated_at.
+    /// OIDC authentication. Three flows, dispatched by what's in the DB:
+    /// - **B — normal login:** existing `oidc_sub` match. Fails closed on
+    ///   role/email drift; refreshes `last_login_at`, `display_name`,
+    ///   `email_verified` only.
+    /// - **A.1 — invite-bind existing row:** invite's `email_hint` must
+    ///   match the IdP email. Stamps `oidc_sub`, rotates the placeholder
+    ///   `password_hash`, sets `activated_at`.
+    /// - **A.2 — mint new commenter:** privileged tiers rejected
+    ///   (must be pre-provisioned via A.1).
     pub async fn authenticate_oidc(
         &self,
-        sub: &str,
-        email: &str,
-        email_verified: bool,
-        idp_tier: &str,
-        display_name: Option<&str>,
+        claims: OidcAuthClaims<'_>,
         invite_code: Option<&str>,
     ) -> Result<Option<UserAuth>, AuthError> {
         // Flow B: existing oidc_sub match → normal login.
         if let Some(row) = User::find()
-            .filter(user::Column::OidcSub.eq(sub))
+            .filter(user::Column::OidcSub.eq(claims.sub))
             .one(&self.db)
             .await
             .map_err(AuthError::from)?
         {
             let user_row = self
-                .oidc_normal_login(row, email, email_verified, idp_tier, display_name)
+                .oidc_normal_login(row, &claims)
                 .await
                 .map_err(AuthError::from)?;
             return Ok(Some(self.user_auth_from_model(user_row, true)));
@@ -706,15 +707,7 @@ impl UserAuthBackend {
             .map_err(AuthError::from)?
         {
             let user_row = self
-                .oidc_bind_existing(
-                    row,
-                    sub,
-                    email,
-                    email_verified,
-                    idp_tier,
-                    display_name,
-                    &invite_row,
-                )
+                .oidc_bind_existing(row, &claims, &invite_row)
                 .await
                 .map_err(AuthError::from)?;
             return Ok(Some(self.user_auth_from_model(user_row, true)));
@@ -730,14 +723,7 @@ impl UserAuthBackend {
             )));
         }
         let user_row = self
-            .oidc_create_commenter(
-                sub,
-                email,
-                email_verified,
-                idp_tier,
-                display_name,
-                &invite_row,
-            )
+            .oidc_create_commenter(&claims, &invite_row)
             .await
             .map_err(AuthError::from)?;
         Ok(Some(self.user_auth_from_model(user_row, true)))
@@ -748,21 +734,18 @@ impl UserAuthBackend {
     async fn oidc_normal_login(
         &self,
         row: user::Model,
-        idp_email: &str,
-        email_verified: bool,
-        idp_tier: &str,
-        display_name: Option<&str>,
+        claims: &OidcAuthClaims<'_>,
     ) -> Result<user::Model> {
         ensure_activated(&row)?;
-        ensure_role_match(idp_tier, &row.role)?;
-        ensure_email_match(idp_email, &row.email)?;
+        ensure_role_match(claims.idp_tier, &row.role)?;
+        ensure_email_match(claims.email, &row.email)?;
         if !row.active {
             anyhow::bail!("Account has been deactivated");
         }
 
         let mut active: user::ActiveModel = row.into();
-        active.email_verified = Set(email_verified);
-        if let Some(name) = display_name {
+        active.email_verified = Set(claims.email_verified);
+        if let Some(name) = claims.display_name {
             active.display_name = Set(Some(name.to_string()));
         }
         active.last_login_at = Set(Some(Utc::now().into()));
@@ -775,11 +758,7 @@ impl UserAuthBackend {
     async fn oidc_bind_existing(
         &self,
         row: user::Model,
-        sub: &str,
-        idp_email: &str,
-        email_verified: bool,
-        idp_tier: &str,
-        display_name: Option<&str>,
+        claims: &OidcAuthClaims<'_>,
         invite: &crate::entities::invite_code::Model,
     ) -> Result<user::Model> {
         if row.oidc_sub.is_some() {
@@ -788,7 +767,7 @@ impl UserAuthBackend {
         if !row.active {
             anyhow::bail!("Account has been deactivated");
         }
-        ensure_role_match(idp_tier, &row.role)?;
+        ensure_role_match(claims.idp_tier, &row.role)?;
 
         // email_hint enforcement: the invite was created with intent to bind a
         // specific email. Without a matching hint, this invite cannot bind to
@@ -798,18 +777,18 @@ impl UserAuthBackend {
             .email_hint
             .as_deref()
             .ok_or_else(|| anyhow::anyhow!("Invite is not for this account"))?;
-        if hint != idp_email {
+        if hint != claims.email {
             anyhow::bail!("Invite is not for this account");
         }
 
         let row_id = row.id;
         let mut active: user::ActiveModel = row.into();
-        active.oidc_sub = Set(Some(sub.to_string()));
+        active.oidc_sub = Set(Some(claims.sub.to_string()));
         // Rotate password_hash to a fresh non-usable value so any placeholder
         // hash assigned at user-creation time is closed.
         active.password_hash = Set(format!("oidc_user_{}", Uuid::new_v4()));
-        active.email_verified = Set(email_verified);
-        if let Some(name) = display_name {
+        active.email_verified = Set(claims.email_verified);
+        if let Some(name) = claims.display_name {
             active.display_name = Set(Some(name.to_string()));
         }
         active.last_login_at = Set(Some(Utc::now().into()));
@@ -987,17 +966,13 @@ impl UserAuthBackend {
 
     async fn oidc_create_commenter(
         &self,
-        sub: &str,
-        idp_email: &str,
-        email_verified: bool,
-        idp_tier: &str,
-        display_name: Option<&str>,
+        claims: &OidcAuthClaims<'_>,
         invite: &crate::entities::invite_code::Model,
     ) -> Result<user::Model> {
         // Privileged accounts must be pre-provisioned by an admin (Flow A.1).
         // A first-time visitor with an admin or poster claim from the IdP is
         // either a misconfiguration or an attempted privilege escalation.
-        if idp_tier != user::ROLE_COMMENTER {
+        if claims.idp_tier != user::ROLE_COMMENTER {
             anyhow::bail!(
                 "Privileged accounts must be pre-provisioned by an administrator before signing in."
             );
@@ -1005,12 +980,12 @@ impl UserAuthBackend {
 
         let new_user_id = Uuid::new_v4();
         let random_hash = format!("oidc_user_{}", Uuid::new_v4());
-        let handle = crate::profile::mint_unique_handle(&self.db, idp_email).await?;
+        let handle = crate::profile::mint_unique_handle(&self.db, claims.email).await?;
         let new_user = user::ActiveModel {
             id: Set(new_user_id),
-            email: Set(idp_email.to_string()),
+            email: Set(claims.email.to_string()),
             password_hash: Set(random_hash),
-            email_verified: Set(email_verified),
+            email_verified: Set(claims.email_verified),
             verification_token: Set(None),
             verification_token_expires_at: Set(None),
             created_at: Set(Utc::now().into()),
@@ -1026,8 +1001,8 @@ impl UserAuthBackend {
             password_reset_token: Set(None),
             password_reset_token_expires_at: Set(None),
             role: Set(user::ROLE_COMMENTER.to_string()),
-            oidc_sub: Set(Some(sub.to_string())),
-            display_name: Set(display_name.map(|s| s.to_string())),
+            oidc_sub: Set(Some(claims.sub.to_string())),
+            display_name: Set(claims.display_name.map(|s| s.to_string())),
             avatar_url: Set(None),
             last_login_at: Set(Some(Utc::now().into())),
             invite_code_id: Set(Some(invite.id)),
@@ -1049,7 +1024,7 @@ impl UserAuthBackend {
             );
         }
 
-        tracing::info!("Created new OIDC commenter via invite: {}", idp_email);
+        tracing::info!("Created new OIDC commenter via invite: {}", claims.email);
         Ok(result)
     }
 
@@ -1158,15 +1133,15 @@ impl AuthnBackend for UserAuthBackend {
                     display_name,
                     invite_code,
                 } => {
+                    let claims = OidcAuthClaims {
+                        sub: &sub,
+                        email: &email,
+                        email_verified,
+                        idp_tier: &idp_tier,
+                        display_name: display_name.as_deref(),
+                    };
                     backend
-                        .authenticate_oidc(
-                            &sub,
-                            &email,
-                            email_verified,
-                            &idp_tier,
-                            display_name.as_deref(),
-                            invite_code.as_deref(),
-                        )
+                        .authenticate_oidc(claims, invite_code.as_deref())
                         .await
                 }
             };
