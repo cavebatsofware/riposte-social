@@ -27,10 +27,14 @@
 //!   parent post via the same `FeedTier` gate the post handlers use.
 
 pub mod aggregate;
+pub mod comment_reactions;
 pub mod comments;
 pub mod reactions;
 
 pub use aggregate::{fetch_engagement_for_posts, PostEngagement};
+pub use comment_reactions::{
+    fetch_comment_engagement, CommentEngagement,
+};
 
 use axum::Router;
 use sea_orm::DatabaseConnection;
@@ -48,6 +52,7 @@ pub fn engagement_write_routes() -> Router<EngagementState> {
     Router::new()
         .merge(reactions::reaction_write_routes())
         .merge(comments::comment_write_routes())
+        .merge(comment_reactions::comment_reaction_routes())
 }
 
 /// Public read routes: list comments on a post. Visibility is filtered

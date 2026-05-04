@@ -26,6 +26,7 @@ pub struct Model {
     pub user_id: Uuid,
     pub body: String,
     pub deleted_at: Option<DateTimeWithTimeZone>,
+    pub edited_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
 }

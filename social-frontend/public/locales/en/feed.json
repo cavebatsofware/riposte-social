@@ -1,0 +1,98 @@
+{
+  "fallbackAuthor": "Member",
+  "post": {
+    "notFound": "Post not found.",
+    "loadFailed": "Failed to load post",
+    "deleteConfirm": "Delete this post? This can't be undone.",
+    "deleteFailed": "Failed to delete post"
+  },
+  "feed": {
+    "loadFailed": "Failed to load feed",
+    "loadingAria": "Loading feed",
+    "anonInviteOnly": "This site is invite-only.",
+    "anonInviteOnlyHint": "<sign>Sign in</sign> if you have an invite, or check back if a friend has shared one with you.",
+    "anonNothingShared": "Nothing has been shared publicly yet.",
+    "anonNothingSharedHint": "Check back later, or <sign>sign in</sign> if you have an invite.",
+    "composeEmpty": "No posts yet.",
+    "composeEmptyHint": "<compose>Compose something</compose> to get started.",
+    "noPostsYet": "No posts to show yet. Come back later.",
+    "searchPlaceholder": "Search posts in {{language}}…",
+    "searchSubmitAria": "Search",
+    "searchClearAria": "Clear search",
+    "noResultsFor": "No posts in {{language}} match \"{{query}}\".",
+    "clearSearch": "Clear search"
+  },
+  "visibility": {
+    "private": {
+      "name": "Private",
+      "desc": "Only you can see this"
+    },
+    "public": {
+      "name": "Public",
+      "desc": "Anyone with the link"
+    },
+    "commenters": {
+      "name": "Commenters",
+      "desc": "Friends with invites"
+    },
+    "posters": {
+      "name": "Posters",
+      "desc": "Family authors only"
+    },
+    "menuFailed": "Failed to update visibility"
+  },
+  "postCard": {
+    "actionsAria": "Post actions",
+    "recentCommentsAria": "Recent comments",
+    "videoFallback": "Your browser doesn't support inline video playback.",
+    "openMediaAria": "Open media {{index}}",
+    "commentCount_one": "{{count}} comment",
+    "commentCount_other": "{{count}} comments",
+    "viewMore_one": "View {{count}} more comment",
+    "viewMore_other": "View {{count}} more comments"
+  },
+  "comments": {
+    "title": "Comments",
+    "titleWithCount": "Comments ({{count}})",
+    "empty": "No comments yet.",
+    "loadFailed": "Failed to load comments",
+    "submitFailed": "Failed to post comment",
+    "deleteConfirm": "Delete this comment? This can't be undone.",
+    "deleteFailed": "Failed to delete comment",
+    "editFailed": "Failed to save edit",
+    "signInPrompt": "Sign in to join the conversation.",
+    "edited": "(edited)",
+    "editedTitle": "Edited {{when}}",
+    "editAria": "Edit comment",
+    "deleteAria": "Delete comment",
+    "compose": {
+      "label": "Add a comment",
+      "placeholder": "Markdown is supported.",
+      "charCount": "{{current}}/{{max}} characters",
+      "submit": "Post comment",
+      "submitting": "Posting…"
+    },
+    "editor": {
+      "modeAria": "Editor mode",
+      "tabWrite": "Write",
+      "tabPreview": "Preview",
+      "previewEmpty": "Nothing to preview yet."
+    }
+  },
+  "reactions": {
+    "react": "React",
+    "reactedWith": "Reacted with {{kind}}",
+    "pickerAria": "Pick a reaction",
+    "reactWithAria": "React with {{kind}}",
+    "summaryAria_one": "{{count}} reaction",
+    "summaryAria_other": "{{count}} reactions",
+    "kind": {
+      "like": "Like",
+      "love": "Love",
+      "haha": "Haha",
+      "wow": "Wow",
+      "sad": "Sad",
+      "angry": "Angry"
+    }
+  }
+}

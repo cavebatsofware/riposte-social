@@ -51,6 +51,12 @@ mod m20260430_000004_add_import_job_log;
 mod m20260501_000001_seed_phase6_feature_gates;
 mod m20260502_000001_add_user_profile_fields;
 mod m20260503_000001_create_albums;
+mod m20260503_000002_create_categories;
+mod m20260503_000003_add_category_to_posts_albums;
+mod m20260505_000001_add_locale_to_users;
+mod m20260507_000001_add_posts_body_tsv;
+mod m20260510_000001_add_comment_edited_at;
+mod m20260510_000002_create_comment_reactions;
 
 pub struct Migrator;
 
@@ -93,6 +99,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20260501_000001_seed_phase6_feature_gates::Migration),
             Box::new(m20260502_000001_add_user_profile_fields::Migration),
             Box::new(m20260503_000001_create_albums::Migration),
+            Box::new(m20260503_000002_create_categories::Migration),
+            Box::new(m20260503_000003_add_category_to_posts_albums::Migration),
+            Box::new(m20260505_000001_add_locale_to_users::Migration),
+            Box::new(m20260507_000001_add_posts_body_tsv::Migration),
+            Box::new(m20260510_000001_add_comment_edited_at::Migration),
+            Box::new(m20260510_000002_create_comment_reactions::Migration),
         ]
     }
 }

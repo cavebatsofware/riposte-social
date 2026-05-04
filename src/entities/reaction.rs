@@ -17,13 +17,21 @@ use sea_orm::entity::prelude::*;
 use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
-/// Reaction kinds. The MVP exposes only `like`, but the schema and the
-/// validation here are written so adding `love`, `laugh`, etc. is a
-/// one-line change with no DDL.
+/// Reaction kinds. The schema column is freeform text validated here, so
+/// adding new variants is a one-line change with no DDL. Phase 10e
+/// expands the MVP's single `like` to the Facebook 6.
 pub const KIND_LIKE: &str = "like";
+pub const KIND_LOVE: &str = "love";
+pub const KIND_HAHA: &str = "haha";
+pub const KIND_WOW: &str = "wow";
+pub const KIND_SAD: &str = "sad";
+pub const KIND_ANGRY: &str = "angry";
 
-/// Allowed kinds. Add new variants here when expanding the reaction set.
-pub const ALLOWED_KINDS: &[&str] = &[KIND_LIKE];
+/// Allowed kinds, in display order. The first entry is the default kind
+/// surfaced when the user clicks the bare reaction button.
+pub const ALLOWED_KINDS: &[&str] = &[
+    KIND_LIKE, KIND_LOVE, KIND_HAHA, KIND_WOW, KIND_SAD, KIND_ANGRY,
+];
 
 pub fn is_valid_kind(kind: &str) -> bool {
     ALLOWED_KINDS.contains(&kind)

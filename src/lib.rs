@@ -20,6 +20,7 @@ pub mod admin;
 pub mod albums;
 pub mod app;
 pub mod auth;
+pub mod categories;
 pub mod contact;
 pub mod crypto;
 pub mod database;

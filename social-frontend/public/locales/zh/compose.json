@@ -1,0 +1,79 @@
+{
+  "backToFeed": "← 返回动态",
+  "composingAs": "以 {{name}} 身份发布 · {{role}}",
+  "role": {
+    "administrator": "管理员",
+    "poster": "作者"
+  },
+  "post": {
+    "editTitle": "编辑帖子",
+    "newTitle": "新建帖子",
+    "loadingExisting": "正在加载帖子…",
+    "loadFailed": "加载要编辑的帖子失败",
+    "saveFailed": "保存帖子失败",
+    "bodyEmpty": "帖子正文不能为空。",
+    "disabledNotice": "管理员已暂时停用发布功能。现有帖子不受影响。",
+    "publishHint": "保存即立即发布。",
+    "editHint": "保存即立即更新帖子。",
+    "publishCta": "发布",
+    "saveCta": "保存更改"
+  },
+  "album": {
+    "editTitle": "编辑相册",
+    "newTitle": "新建相册",
+    "loadFailed": "加载要编辑的相册失败",
+    "createFailed": "创建相册失败",
+    "updateFailed": "更新相册失败",
+    "captionUpdateFailed": "更新说明失败",
+    "uploadMoreFailed": "上传新媒体失败",
+    "removeItemFailed": "移除项目失败",
+    "removeItemConfirm": "从相册中移除此项目?",
+    "nameRequired": "名称为必填项。",
+    "nameLabel": "名称",
+    "namePlaceholder": "相册名称",
+    "descLabel": "描述(可选)",
+    "descPlaceholder": "关于这个相册的几句话。",
+    "createCta": "创建相册",
+    "addMore": "添加更多项目",
+    "items": "项目",
+    "existingItems_one": "现有项目 ({{count}})",
+    "existingItems_other": "现有项目 ({{count}})",
+    "captionPlaceholder": "说明",
+    "disabledShort": "相册创建目前已停用。",
+    "publishHint": "保存即立即发布。",
+    "editHint": "保存即立即更新相册。",
+    "errorTooMany": "每个相册最多 {{max}} 项。"
+  },
+  "category": {
+    "label": "类别",
+    "uncategorized": "未分类",
+    "empty": "尚未定义任何类别。管理员可在管理面板中添加。"
+  },
+  "body": {
+    "label": "正文(Markdown)",
+    "placeholder": "在想什么?\n\n**粗体**、*斜体*、[链接](https://example.com) 以及 ![图片](url) 都可使用。",
+    "hint": "Markdown 由服务端渲染。内嵌图片和链接为一等公民。HTML 会被清理。",
+    "previewLabel": "预览",
+    "previewEmpty": "实时预览将显示在这里。"
+  },
+  "attachments": {
+    "label": "附件",
+    "dropzonePrompt": "将图片或视频拖到此处,或点击浏览",
+    "dropzoneMeta": "图片(JPEG/PNG/GIF/WebP,每个 10 MB)或视频(MP4/WebM,每个 100 MB)· 最多 {{max}} 个文件",
+    "dropzoneMetaAlbum": "每个相册最多 {{max}} 项 · 图片 10 MB / 视频 100 MB",
+    "removeAria": "移除 {{name}}",
+    "errorTooMany": "每条帖子最多 {{max}} 个附件。",
+    "errorUnsupported": "不支持的文件类型「{{type}}」。图片(JPEG/PNG/GIF/WebP)或视频(MP4/WebM)。",
+    "errorTooLargeVideo": "文件「{{name}}」超出视频每文件 100 MB 上限。",
+    "errorTooLargeImage": "文件「{{name}}」超出图片每文件 10 MB 上限。",
+    "errorTooLargeAlbumVideo": "文件「{{name}}」超出每文件 100 MB 上限。",
+    "errorTooLargeAlbumImage": "文件「{{name}}」超出每文件 10 MB 上限。"
+  },
+  "visibility": {
+    "legend": "可见性"
+  },
+  "contentLang": {
+    "label": "语言",
+    "hint": "用于将帖子拆分为搜索词元。"
+  }
+}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 /// Avatar dropdown that replaces the bare Sign-out button in `<Layout>`.
 ///
@@ -10,6 +11,7 @@ import { Link } from "react-router-dom";
 export default function UserMenu({ user, onSignOut }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     if (!open) return undefined;
@@ -29,7 +31,8 @@ export default function UserMenu({ user, onSignOut }) {
     };
   }, [open]);
 
-  const display = user.display_name || user.handle || user.email || "Account";
+  const display =
+    user.display_name || user.handle || user.email || t("userMenu.fallbackName");
   const initials = computeInitials(display);
   const profileTo = user.handle ? `/u/${user.handle}` : null;
 
@@ -40,7 +43,7 @@ export default function UserMenu({ user, onSignOut }) {
         className="user-menu-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Open account menu"
+        aria-label={t("userMenu.openAria")}
         onClick={() => setOpen((v) => !v)}
       >
         {user.avatar_url ? (
@@ -68,7 +71,7 @@ export default function UserMenu({ user, onSignOut }) {
               role="menuitem"
               onClick={() => setOpen(false)}
             >
-              View profile
+              {t("userMenu.viewProfile")}
             </Link>
           )}
           <Link
@@ -77,7 +80,7 @@ export default function UserMenu({ user, onSignOut }) {
             role="menuitem"
             onClick={() => setOpen(false)}
           >
-            Settings
+            {t("userMenu.settings")}
           </Link>
           <button
             type="button"
@@ -88,7 +91,7 @@ export default function UserMenu({ user, onSignOut }) {
               onSignOut();
             }}
           >
-            Sign out
+            {t("auth.signOut")}
           </button>
         </div>
       )}

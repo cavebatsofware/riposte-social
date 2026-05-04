@@ -1,0 +1,61 @@
+{
+  "rail": {
+    "browseAria": "Durchsuchen",
+    "categoriesGroup": "Kategorien",
+    "albumsGroup": "Alben",
+    "peopleGroup": "Mitglieder",
+    "showAllCategories": "Alle Kategorien anzeigen →",
+    "showAllAlbums": "Alle Alben anzeigen →",
+    "showAllPeople": "Alle Mitglieder anzeigen →",
+    "searchCategoriesPlaceholder": "Kategorien durchsuchen…",
+    "searchAlbumsPlaceholder": "Alben durchsuchen…",
+    "searchPeoplePlaceholder": "Mitglieder durchsuchen…",
+    "noCategories": "Noch keine Kategorien.",
+    "noAlbums": "Noch keine Alben.",
+    "noPeople": "Noch keine weiteren Mitglieder.",
+    "allPosts": "Alle Beiträge"
+  },
+  "categories": {
+    "pageTitle": "Kategorien",
+    "loadFailed": "Kategorien konnten nicht geladen werden",
+    "allPosts": "Alle Beiträge",
+    "uncategorized": "Ohne Kategorie"
+  },
+  "albums": {
+    "pageTitle": "Alben",
+    "loadFailed": "Alben konnten nicht geladen werden",
+    "empty": "Noch keine Alben.",
+    "itemCount_one": "{{count}} Element",
+    "itemCount_other": "{{count}} Elemente"
+  },
+  "people": {
+    "pageTitle": "Mitglieder",
+    "loadFailed": "Mitglieder konnten nicht geladen werden",
+    "empty": "Noch keine weiteren Mitglieder."
+  },
+  "album": {
+    "notFound": "Album nicht gefunden.",
+    "loadFailed": "Album konnte nicht geladen werden",
+    "deleteConfirm": "Dieses Album löschen? Das kann nicht rückgängig gemacht werden.",
+    "deleteFailed": "Album konnte nicht gelöscht werden",
+    "fallbackAuthor": "Mitglied",
+    "noItems": "Dieses Album hat noch keine Elemente.",
+    "edit": "Album bearbeiten",
+    "itemAria": "Element {{index}}"
+  },
+  "profile": {
+    "notFound": "Profil nicht gefunden.",
+    "loadFailed": "Profil konnte nicht geladen werden",
+    "postsHeading": "Beiträge",
+    "postsLoadFailed": "Beiträge konnten nicht geladen werden",
+    "postsEmpty": "Nichts zu zeigen.",
+    "loadingPostsAria": "Beiträge werden geladen",
+    "edit": "Profil bearbeiten"
+  },
+  "lightbox": {
+    "viewerAria": "Medienbetrachter",
+    "close": "Betrachter schließen",
+    "prev": "Vorheriges",
+    "next": "Nächstes"
+  }
+}

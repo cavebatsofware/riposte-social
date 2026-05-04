@@ -1,6 +1,10 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
+import { formatRelativeTime } from "../utils/formatTime";
+import MediaLightbox from "./MediaLightbox";
 import ReactionBar from "./ReactionBar";
 import VisibilityMenu from "./VisibilityMenu";
 
@@ -26,14 +30,29 @@ import VisibilityMenu from "./VisibilityMenu";
 ///   as a full-width hero, subsequent attachments as a thumbnail row.
 export default function PostCard({ post, variant = "feed" }) {
   const { user } = useAuth();
-  const author = post.author_display || post.author_handle || "Member";
+  const { t, i18n } = useTranslation("feed");
+  const author =
+    post.author_display || post.author_handle || t("fallbackAuthor");
   const initials = computeInitials(author);
-  const time = formatRelativeTime(post.published_at);
+  const time = formatRelativeTime(post.published_at, i18n.language);
   const safeHtml = DOMPurify.sanitize(post.body_html || "");
   // Stop the click on the byline from bubbling up to the card-wrapping
   // <Link> on feed variant — clicking the avatar should land on the
   // profile, not the post permalink.
   const stopBubble = (e) => e.stopPropagation();
+
+  // Lightbox state. Mirrors the Album page pattern (Phase 9d) so post
+  // media gets the same click-in carousel — full-screen image/video
+  // viewer with prev/next, swipe, ESC. Null = closed; an index opens
+  // at that media position.
+  const [lightboxIndex, setLightboxIndex] = useState(null);
+  function openLightbox(idx, e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setLightboxIndex(idx);
+  }
 
   // Quick visibility toggle (Phase 9b) is shown only when the viewer is
   // the post's author or an administrator. Non-owners get the read-only
@@ -65,31 +84,76 @@ export default function PostCard({ post, variant = "feed" }) {
             ) : (
               <VisibilityBadge visibility={post.visibility} />
             )}
+            {post.category && (
+              <>
+                <span className="post-meta-dot" aria-hidden="true" />
+                <Link
+                  to={`/?category=${encodeURIComponent(post.category.slug)}`}
+                  className="post-category-chip"
+                  style={
+                    post.category.color
+                      ? { backgroundColor: post.category.color }
+                      : undefined
+                  }
+                  onClick={stopBubble}
+                >
+                  {post.category.name}
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      <div
-        className="post-body"
-        dangerouslySetInnerHTML={{ __html: safeHtml }}
-      />
+      <PostBody safeHtml={safeHtml} variant={variant} />
 
       {post.media && post.media.length > 0 && (
-        <PostMedia media={post.media} variant={variant} />
+        <PostMedia media={post.media} onOpen={openLightbox} />
       )}
 
-      <PostActions post={post} variant={variant} />
+      <PostActions post={post} variant={variant} target={{ kind: "post", postId: post.id }} />
+
+      {variant === "feed" &&
+        post.top_comments &&
+        post.top_comments.length > 0 && (
+          <TopComments
+            comments={post.top_comments}
+            commentCount={post.comment_count || 0}
+            postId={post.id}
+          />
+        )}
     </article>
+  );
+
+  // Lightbox renders as a portal-like overlay outside the card-link
+  // wrapper so a) it covers the full viewport regardless of where the
+  // PostCard sits in the layout, and b) clicking inside the lightbox
+  // doesn't bubble up to the card's <Link>.
+  const lightbox = lightboxIndex !== null && post.media && (
+    <MediaLightbox
+      items={post.media}
+      index={lightboxIndex}
+      onIndex={setLightboxIndex}
+      onClose={() => setLightboxIndex(null)}
+    />
   );
 
   if (variant === "feed") {
     return (
-      <Link to={`/post/${post.id}`} className="post-card-link">
-        {card}
-      </Link>
+      <>
+        <Link to={`/post/${post.id}`} className="post-card-link">
+          {card}
+        </Link>
+        {lightbox}
+      </>
     );
   }
-  return card;
+  return (
+    <>
+      {card}
+      {lightbox}
+    </>
+  );
 }
 
 /// Avatar bubble in the post-meta header. Renders an image when the
@@ -137,58 +201,94 @@ function PostAuthorName({ handle, author, stopBubble }) {
   return <div className="post-author">{author}</div>;
 }
 
-/// Renders one media item — image or video — based on `m.media_kind`
-/// (set by the backend in `PostMediaResponse::from_model`). Videos use
-/// the inline `<video controls>` path; the `playsinline` attribute keeps
-/// mobile Safari from launching its full-screen takeover. `preload="metadata"`
-/// fetches just enough for a poster/duration without auto-loading bytes.
-function MediaItem({ m, className }) {
-  if (m.media_kind === "video") {
-    return (
-      <video
-        className={className}
-        src={m.url}
-        controls
-        preload="metadata"
-        playsInline
-      >
-        Your browser doesn't support inline video playback.
-      </video>
-    );
-  }
-  return <img className={className} src={m.url} alt={m.caption || ""} />;
+/// Renders the post body. On the feed variant, clamp height and add the
+/// "Read more" gradient overlay only when the rendered body actually
+/// overflows the clamp — short posts get neither the clamp nor the fade.
+/// Detection runs on layout (post-paint, pre-flicker) and re-runs on the
+/// body content changing.
+function PostBody({ safeHtml, variant }) {
+  const ref = useRef(null);
+  const [clamped, setClamped] = useState(false);
+
+  useLayoutEffect(() => {
+    if (variant !== "feed") {
+      setClamped(false);
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    // scrollHeight is the full content height; if it exceeds clientHeight
+    // the post overflows the CSS max-height and the fade should render.
+    setClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [safeHtml, variant]);
+
+  return (
+    <div
+      ref={ref}
+      className="post-body"
+      data-clamped={clamped ? "true" : "false"}
+      dangerouslySetInnerHTML={{ __html: safeHtml }}
+    />
+  );
 }
 
-function PostMedia({ media, variant }) {
-  if (variant === "permalink" && media.length > 0) {
-    const [hero, ...rest] = media;
-    return (
-      <div className="post-media-permalink">
-        <MediaItem m={hero} className="post-media-hero" />
-        {rest.length > 0 && (
-          <div className="post-media-row">
-            {rest.map((m) => (
-              <MediaItem key={m.id} m={m} />
-            ))}
-          </div>
-        )}
-      </div>
+/// Renders one media item — image or video — wrapped in a click-target
+/// button that opens the lightbox at the given index. Mirrors the
+/// Album page (Phase 9d): videos render as a thumbnail with a play
+/// badge rather than an inline `<video controls>`, since the lightbox
+/// provides controls + autoplay when the user clicks in. Keeps the
+/// behavior consistent across post and album surfaces.
+function MediaItem({ m, index, className, onOpen }) {
+  const { t } = useTranslation("feed");
+  const inner =
+    m.media_kind === "video" ? (
+      <>
+        <video
+          className={className}
+          src={m.url}
+          muted
+          playsInline
+          preload="metadata"
+        >
+          {t("postCard.videoFallback")}
+        </video>
+        <span className="post-media-video-badge" aria-hidden="true">
+          ▶
+        </span>
+      </>
+    ) : (
+      <img className={className} src={m.url} alt={m.caption || ""} />
     );
-  }
+  return (
+    <button
+      type="button"
+      className="post-media-item"
+      onClick={(e) => onOpen(index, e)}
+      aria-label={m.caption || t("postCard.openMediaAria", { index: index + 1 })}
+    >
+      {inner}
+    </button>
+  );
+}
 
+/// Unified post-media layout. Renders a single full-width item or a
+/// 2-column grid of items, the same way on both feed and permalink
+/// variants. The previous hero+row split made 2-image posts look wrong
+/// on permalink (one thumb half-width, one empty grid cell). Unifying
+/// keeps the visual rhythm consistent across both surfaces.
+function PostMedia({ media, onOpen }) {
   if (media.length === 1) {
     const [m] = media;
     return (
       <div className="post-media-single">
-        <MediaItem m={m} />
+        <MediaItem m={m} index={0} onOpen={onOpen} />
       </div>
     );
   }
-
   return (
     <div className="post-media-row">
-      {media.map((m) => (
-        <MediaItem key={m.id} m={m} />
+      {media.map((m, i) => (
+        <MediaItem key={m.id} m={m} index={i} onOpen={onOpen} />
       ))}
     </div>
   );
@@ -198,32 +298,103 @@ function PostMedia({ media, variant }) {
 /// indicator. On the feed variant the wrapping `<Link>` makes the comment
 /// count area implicitly clickable; on the permalink variant the count is
 /// suppressed because the comment thread renders right below.
-function PostActions({ post, variant }) {
+function PostActions({ post, variant, target }) {
+  const { t } = useTranslation("feed");
   const commentCount = post.comment_count || 0;
   const showCommentCount = variant !== "permalink";
   return (
-    <footer className="post-actions" aria-label="Post actions">
-      <ReactionBar post={post} />
+    <footer className="post-actions" aria-label={t("postCard.actionsAria")}>
+      <ReactionBar target={target} state={post} />
       {showCommentCount && (
         <span className="post-actions-comments">
-          {commentCount} {commentCount === 1 ? "comment" : "comments"}
+          {t("postCard.commentCount", { count: commentCount })}
         </span>
       )}
     </footer>
   );
 }
 
+/// Inline preview of the latest 1-3 comments for a feed PostCard. The
+/// backend returns top_comments newest-first; we reverse so the row reads
+/// chronologically top-to-bottom, with the latest comment last (matching
+/// the way the full thread reads on the permalink page). Bodies are
+/// truncated to a single line at ~140 chars; the wrapping card-link
+/// handles navigation to the full thread.
+function TopComments({ comments, commentCount, postId }) {
+  const { t } = useTranslation("feed");
+  const ordered = [...comments].reverse();
+  const remaining = commentCount - comments.length;
+  return (
+    <div
+      className="post-top-comments"
+      aria-label={t("postCard.recentCommentsAria")}
+    >
+      {ordered.map((c) => (
+        <TopCommentRow key={c.id} comment={c} />
+      ))}
+      {remaining > 0 && (
+        <Link
+          to={`/post/${postId}#comments`}
+          className="post-top-comments-more"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {t("postCard.viewMore", { count: remaining })}
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function TopCommentRow({ comment }) {
+  const { t } = useTranslation("feed");
+  const author =
+    comment.author_display || comment.author_handle || t("fallbackAuthor");
+  // The inline snippet is one line of prose, not rendered markdown — strip
+  // tags from the server-sanitized body_html (preferred) or fall back to
+  // the raw markdown source. Rendering "## Heading" verbatim looks broken
+  // in the dense feed row.
+  const plain = htmlToPlainText(comment.body_html) || comment.body || "";
+  const body = truncate(plain, 140);
+  return (
+    <div className="post-top-comment">
+      <span className="post-top-comment-author">{author}</span>
+      <span className="post-top-comment-body">{body}</span>
+    </div>
+  );
+}
+
+/// Turn server-sanitized HTML into a single plain-text string. Sanitizes
+/// again with DOMPurify (defense-in-depth), parses, and reads `textContent`.
+/// Block-level newlines collapse to single spaces so the snippet stays
+/// on one line.
+function htmlToPlainText(html) {
+  if (!html) return "";
+  const safe = DOMPurify.sanitize(html);
+  if (typeof window === "undefined" || !window.DOMParser) return safe;
+  const doc = new window.DOMParser().parseFromString(safe, "text/html");
+  const text = (doc.body && doc.body.textContent) || "";
+  return text.replace(/\s+/g, " ").trim();
+}
+
+function truncate(s, max) {
+  if (s.length <= max) return s;
+  // Trim to the next word boundary up to max so we don't snap mid-word.
+  const slice = s.slice(0, max);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > max * 0.6 ? lastSpace : max;
+  return s.slice(0, cut).replace(/\s+$/, "") + "…";
+}
+
 function VisibilityBadge({ visibility }) {
+  const { t } = useTranslation("feed");
   const cls = `visibility-badge ${visibility}`;
-  const label =
-    visibility === "private"
-      ? "Private"
-      : visibility === "commenters"
-        ? "Commenters"
-        : visibility === "posters"
-          ? "Posters"
-          : "Public";
-  return <span className={cls}>{label}</span>;
+  // Each tier's display name comes from the catalog; an unknown tier
+  // falls back to "Public" via the public branch's defaultValue so a
+  // future server-side tier doesn't render as a missing-key gap.
+  const key = ["private", "commenters", "posters"].includes(visibility)
+    ? visibility
+    : "public";
+  return <span className={cls}>{t(`visibility.${key}.name`)}</span>;
 }
 
 function computeInitials(name) {
@@ -235,23 +406,3 @@ function computeInitials(name) {
   return parts.map((p) => p[0]).join("").toUpperCase() || "??";
 }
 
-function formatRelativeTime(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffSec = Math.floor((now - d) / 1000);
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) {
-    const m = Math.floor(diffSec / 60);
-    return `${m} minute${m === 1 ? "" : "s"} ago`;
-  }
-  if (diffSec < 86400) {
-    const h = Math.floor(diffSec / 3600);
-    return `${h} hour${h === 1 ? "" : "s"} ago`;
-  }
-  if (diffSec < 7 * 86400) {
-    const days = Math.floor(diffSec / 86400);
-    if (days === 1) return "yesterday";
-    return `${days} days ago`;
-  }
-  return d.toLocaleDateString();
-}

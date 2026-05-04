@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import Layout from "../components/Layout";
@@ -16,6 +17,8 @@ import "./Settings.css";
 export default function SettingsSecurity() {
   const { user, authConfig, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation("settings");
+  const { t: tCommon } = useTranslation("common");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -42,7 +45,7 @@ export default function SettingsSecurity() {
     setError("");
     setSuccess("");
     if (newPassword !== confirmPassword) {
-      setError("New password and confirmation don't match.");
+      setError(t("security.passwordMismatch"));
       return;
     }
     setPwLoading(true);
@@ -57,9 +60,9 @@ export default function SettingsSecurity() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to change password");
+        throw new Error(data.error || t("security.passwordChangeFailed"));
       }
-      setSuccess("Password changed.");
+      setSuccess(t("security.passwordChangedSuccess"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -78,7 +81,7 @@ export default function SettingsSecurity() {
       const response = await fetchApi("/api/me/mfa/setup", { method: "POST" });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to start MFA setup");
+        throw new Error(data.error || t("security.mfaSetupFailed"));
       }
       const data = await response.json();
       setMfaSetupData(data);
@@ -104,9 +107,9 @@ export default function SettingsSecurity() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to verify code");
+        throw new Error(data.error || t("security.mfaVerifyFailed"));
       }
-      setSuccess("MFA enabled.");
+      setSuccess(t("security.mfaEnabledSuccess"));
       setMfaSetupData(null);
       setVerificationCode("");
       if (refreshUser) await refreshUser();
@@ -129,9 +132,9 @@ export default function SettingsSecurity() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to disable MFA");
+        throw new Error(data.error || t("security.mfaDisableFailed"));
       }
-      setSuccess("MFA disabled.");
+      setSuccess(t("security.mfaDisabledSuccess"));
       setShowDisableConfirm(false);
       setDisablePassword("");
       if (refreshUser) await refreshUser();
@@ -145,7 +148,7 @@ export default function SettingsSecurity() {
   if (authLoading || !user) {
     return (
       <Layout>
-        <p className="muted">Loading…</p>
+        <p className="muted">{tCommon("loading")}</p>
       </Layout>
     );
   }
@@ -153,13 +156,13 @@ export default function SettingsSecurity() {
   return (
     <Layout>
       <header className="settings-header">
-        <h1>Security settings</h1>
-        <nav className="settings-tabs" aria-label="Settings sections">
+        <h1>{t("security.title")}</h1>
+        <nav className="settings-tabs" aria-label={t("tabsAria")}>
           <Link to="/settings/profile" className="settings-tab">
-            Profile
+            {t("tabProfile")}
           </Link>
           <Link to="/settings/security" className="settings-tab active">
-            Security
+            {t("tabSecurity")}
           </Link>
         </nav>
       </header>
@@ -169,11 +172,8 @@ export default function SettingsSecurity() {
 
       {authConfig.oidcEnabled ? (
         <section className="settings-section">
-          <h2>Account management</h2>
-          <p>
-            Your password and two-factor authentication are managed through
-            Single Sign-On.
-          </p>
+          <h2>{t("security.ssoHeading")}</h2>
+          <p>{t("security.ssoBody")}</p>
           {authConfig.accountUrl && (
             <a
               href={authConfig.accountUrl}
@@ -181,17 +181,17 @@ export default function SettingsSecurity() {
               rel="noopener noreferrer"
               className="btn-primary"
             >
-              Manage account in identity provider
+              {t("security.ssoCta")}
             </a>
           )}
         </section>
       ) : (
         <>
           <section className="settings-section">
-            <h2>Change password</h2>
+            <h2>{t("security.passwordHeading")}</h2>
             <form className="settings-form" onSubmit={handlePasswordChange}>
               <label htmlFor="security-current-password">
-                Current password
+                {t("security.currentPasswordLabel")}
               </label>
               <input
                 id="security-current-password"
@@ -201,7 +201,9 @@ export default function SettingsSecurity() {
                 autoComplete="current-password"
                 required
               />
-              <label htmlFor="security-new-password">New password</label>
+              <label htmlFor="security-new-password">
+                {t("security.newPasswordLabel")}
+              </label>
               <input
                 id="security-new-password"
                 type="password"
@@ -211,7 +213,7 @@ export default function SettingsSecurity() {
                 required
               />
               <label htmlFor="security-confirm-password">
-                Confirm new password
+                {t("security.confirmPasswordLabel")}
               </label>
               <input
                 id="security-confirm-password"
@@ -232,20 +234,22 @@ export default function SettingsSecurity() {
                     !confirmPassword
                   }
                 >
-                  {pwLoading ? "Saving…" : "Change password"}
+                  {pwLoading
+                    ? tCommon("actions.saving")
+                    : t("security.changePasswordCta")}
                 </button>
               </div>
             </form>
           </section>
 
           <section className="settings-section">
-            <h2>Two-factor authentication</h2>
+            <h2>{t("security.mfaHeading")}</h2>
             <p>
-              Status:{" "}
+              {t("security.mfaStatusLabel")}{" "}
               {user.totp_enabled ? (
-                <strong>Enabled</strong>
+                <strong>{t("security.mfaEnabled")}</strong>
               ) : (
-                <strong>Disabled</strong>
+                <strong>{t("security.mfaDisabled")}</strong>
               )}
             </p>
 
@@ -256,7 +260,9 @@ export default function SettingsSecurity() {
                 onClick={startMfaSetup}
                 disabled={mfaLoading}
               >
-                {mfaLoading ? "Setting up…" : "Enable MFA"}
+                {mfaLoading
+                  ? t("security.settingUp")
+                  : t("security.enableCta")}
               </button>
             )}
 
@@ -267,25 +273,25 @@ export default function SettingsSecurity() {
                 onClick={() => setShowDisableConfirm(true)}
                 disabled={mfaLoading}
               >
-                Disable MFA
+                {t("security.disableCta")}
               </button>
             )}
 
             {mfaSetupData && (
               <div className="mfa-setup">
-                <p>
-                  Scan this QR code in your authenticator app, then enter the
-                  6-digit code below.
-                </p>
+                <p>{t("security.qrInstruction")}</p>
                 <img
                   src={`data:image/png;base64,${mfaSetupData.qr_code}`}
-                  alt="MFA QR Code"
+                  alt={t("security.qrAlt")}
                 />
                 <p>
-                  Or enter manually: <code>{mfaSetupData.secret}</code>
+                  {t("security.manualEntryLabel")}{" "}
+                  <code>{mfaSetupData.secret}</code>
                 </p>
                 <form onSubmit={confirmMfaSetup} className="settings-form">
-                  <label htmlFor="security-totp-code">6-digit code</label>
+                  <label htmlFor="security-totp-code">
+                    {t("security.totpCodeLabel")}
+                  </label>
                   <input
                     id="security-totp-code"
                     type="text"
@@ -304,7 +310,9 @@ export default function SettingsSecurity() {
                       className="btn-primary"
                       disabled={mfaLoading || verificationCode.length !== 6}
                     >
-                      {mfaLoading ? "Verifying…" : "Verify and enable"}
+                      {mfaLoading
+                        ? t("security.verifying")
+                        : t("security.verifyAndEnable")}
                     </button>
                     <button
                       type="button"
@@ -315,7 +323,7 @@ export default function SettingsSecurity() {
                       }}
                       disabled={mfaLoading}
                     >
-                      Cancel
+                      {tCommon("actions.cancel")}
                     </button>
                   </div>
                 </form>
@@ -324,8 +332,10 @@ export default function SettingsSecurity() {
 
             {showDisableConfirm && (
               <form onSubmit={disableMfa} className="settings-form">
-                <p>Confirm your password to disable MFA.</p>
-                <label htmlFor="security-disable-password">Password</label>
+                <p>{t("security.disableConfirmPrompt")}</p>
+                <label htmlFor="security-disable-password">
+                  {t("security.disablePasswordLabel")}
+                </label>
                 <input
                   id="security-disable-password"
                   type="password"
@@ -340,7 +350,9 @@ export default function SettingsSecurity() {
                     className="btn-secondary"
                     disabled={mfaLoading || !disablePassword}
                   >
-                    {mfaLoading ? "Disabling…" : "Disable MFA"}
+                    {mfaLoading
+                      ? t("security.disabling")
+                      : t("security.disableCta")}
                   </button>
                   <button
                     type="button"
@@ -351,7 +363,7 @@ export default function SettingsSecurity() {
                     }}
                     disabled={mfaLoading}
                   >
-                    Cancel
+                    {tCommon("actions.cancel")}
                   </button>
                 </div>
               </form>

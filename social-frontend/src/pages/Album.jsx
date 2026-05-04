@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import { recordAlbumVisit } from "../utils/browseHistory";
 import Layout from "../components/Layout";
 import MediaLightbox from "../components/MediaLightbox";
 import SkeletonCard from "../components/SkeletonCard";
@@ -18,6 +20,8 @@ export default function Album() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation("browse");
+  const { t: tCommon } = useTranslation("common");
 
   const [album, setAlbum] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -34,14 +38,17 @@ export default function Album() {
         const response = await fetchApi(`/api/albums/${id}`);
         if (response.status === 404 || response.status === 401) {
           if (!cancelled) {
-            setError("Album not found.");
+            setError(t("album.notFound"));
             setAlbum(null);
           }
           return;
         }
-        if (!response.ok) throw new Error("Failed to load album");
+        if (!response.ok) throw new Error(t("album.loadFailed"));
         const data = await response.json();
-        if (!cancelled) setAlbum(data);
+        if (!cancelled) {
+          setAlbum(data);
+          recordAlbumVisit(data.id);
+        }
       } catch (err) {
         if (!cancelled) setError(err.message);
       } finally {
@@ -58,13 +65,13 @@ export default function Album() {
     user && album && (user.id === album.author_id || user.role === "administrator");
 
   async function handleDelete() {
-    if (!window.confirm("Delete this album? This can't be undone.")) return;
+    if (!window.confirm(t("album.deleteConfirm"))) return;
     setDeleting(true);
     try {
       const response = await fetchApi(`/api/albums/${id}`, { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete album");
+        throw new Error(data.error || t("album.deleteFailed"));
       }
       navigate("/", { replace: true });
     } catch (err) {
@@ -76,7 +83,7 @@ export default function Album() {
   return (
     <Layout>
       <Link to="/" className="post-back-link">
-        ← Back to feed
+        {tCommon("backToFeed")}
       </Link>
 
       {loading && <SkeletonCard />}
@@ -111,7 +118,10 @@ export default function Album() {
 }
 
 function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
-  const author = album.author_display || album.author_handle || "Member";
+  const { t } = useTranslation("browse");
+  const { t: tCommon } = useTranslation("common");
+  const author =
+    album.author_display || album.author_handle || t("album.fallbackAuthor");
   return (
     <header className="album-header">
       <h1 className="album-title">{album.name}</h1>
@@ -124,9 +134,7 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
           <span className="album-meta-author">{author}</span>
         )}
         <span className="album-meta-dot" aria-hidden="true" />
-        <span>
-          {album.photo_count} item{album.photo_count === 1 ? "" : "s"}
-        </span>
+        <span>{t("albums.itemCount", { count: album.photo_count })}</span>
         <span className="album-meta-dot" aria-hidden="true" />
         <VisibilityChip visibility={album.visibility} />
       </div>
@@ -136,7 +144,7 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
       {isAuthorOrAdmin && (
         <div className="album-actions">
           <Link to={`/compose-album?edit=${album.id}`} className="btn-secondary">
-            Edit album
+            {t("album.edit")}
           </Link>
           <button
             type="button"
@@ -144,7 +152,7 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
             onClick={onDelete}
             disabled={deleting}
           >
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? tCommon("actions.deleting") : tCommon("actions.delete")}
           </button>
         </div>
       )}
@@ -153,8 +161,9 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
 }
 
 function AlbumMediaGrid({ media, onOpen }) {
+  const { t } = useTranslation("browse");
   if (!media || media.length === 0) {
-    return <p className="muted">This album has no items yet.</p>;
+    return <p className="muted">{t("album.noItems")}</p>;
   }
   return (
     <div className="album-grid">
@@ -164,7 +173,7 @@ function AlbumMediaGrid({ media, onOpen }) {
           type="button"
           className="album-grid-item"
           onClick={() => onOpen(idx)}
-          aria-label={m.caption || `Item ${idx + 1}`}
+          aria-label={m.caption || t("album.itemAria", { index: idx + 1 })}
         >
           {m.media_kind === "video" ? (
             <>
@@ -185,15 +194,13 @@ function AlbumMediaGrid({ media, onOpen }) {
   );
 }
 
+/// Visibility tier label — same source-of-truth catalog the post badges
+/// use, so renaming a tier ripples here automatically.
 function VisibilityChip({ visibility }) {
+  const { t } = useTranslation("feed");
   const cls = `visibility-badge ${visibility}`;
-  const label =
-    visibility === "private"
-      ? "Private"
-      : visibility === "commenters"
-        ? "Commenters"
-        : visibility === "posters"
-          ? "Posters"
-          : "Public";
-  return <span className={cls}>{label}</span>;
+  const key = ["private", "commenters", "posters"].includes(visibility)
+    ? visibility
+    : "public";
+  return <span className={cls}>{t(`visibility.${key}.name`)}</span>;
 }

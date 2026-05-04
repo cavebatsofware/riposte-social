@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
+import { marked } from "marked";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import { formatRelativeTime } from "../utils/formatTime";
+import ReactionBar from "./ReactionBar";
 // `.skeleton-line` classes are defined in SkeletonCard.css.
 import "./SkeletonCard.css";
 
@@ -19,6 +23,7 @@ import "./SkeletonCard.css";
 ///   `<PostCard>`.
 export default function CommentThread({ postId }) {
   const { user } = useAuth();
+  const { t } = useTranslation("feed");
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -36,7 +41,7 @@ export default function CommentThread({ postId }) {
           if (!cancelled) setComments([]);
           return;
         }
-        if (!response.ok) throw new Error("Failed to load comments");
+        if (!response.ok) throw new Error(t("comments.loadFailed"));
         const data = await response.json();
         if (!cancelled) setComments(data.comments || []);
       } catch (err) {
@@ -64,7 +69,7 @@ export default function CommentThread({ postId }) {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to post comment");
+        throw new Error(data.error || t("comments.submitFailed"));
       }
       const created = await response.json();
       setComments((prev) => [...prev, created]);
@@ -77,7 +82,7 @@ export default function CommentThread({ postId }) {
   }
 
   async function handleDelete(commentId) {
-    if (!window.confirm("Delete this comment? This can't be undone.")) return;
+    if (!window.confirm(t("comments.deleteConfirm"))) return;
     try {
       const response = await fetchApi(
         `/api/posts/${postId}/comments/${commentId}`,
@@ -85,7 +90,7 @@ export default function CommentThread({ postId }) {
       );
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete comment");
+        throw new Error(data.error || t("comments.deleteFailed"));
       }
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
@@ -93,11 +98,31 @@ export default function CommentThread({ postId }) {
     }
   }
 
+  async function handleEdit(commentId, body) {
+    const response = await fetchApi(
+      `/api/posts/${postId}/comments/${commentId}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      },
+    );
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || t("comments.editFailed"));
+    }
+    const updated = await response.json();
+    setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+  }
+
+  const titleText =
+    comments.length > 0
+      ? t("comments.titleWithCount", { count: comments.length })
+      : t("comments.title");
+
   return (
-    <section className="comment-thread" aria-label="Comments">
-      <h3 className="comment-thread-title">
-        Comments {comments.length > 0 && `(${comments.length})`}
-      </h3>
+    <section className="comment-thread" aria-label={t("comments.title")}>
+      <h3 className="comment-thread-title">{titleText}</h3>
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -116,15 +141,17 @@ export default function CommentThread({ postId }) {
           ))}
         </ol>
       ) : comments.length === 0 ? (
-        <p className="muted">No comments yet.</p>
+        <p className="muted">{t("comments.empty")}</p>
       ) : (
         <ol className="comment-list">
           {comments.map((c) => (
             <CommentItem
               key={c.id}
+              postId={postId}
               comment={c}
               viewer={user}
               onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           ))}
         </ol>
@@ -133,31 +160,37 @@ export default function CommentThread({ postId }) {
       {user ? (
         <form className="comment-compose" onSubmit={handleSubmit}>
           <label htmlFor="comment-draft" className="comment-compose-label">
-            Add a comment
+            {t("comments.compose.label")}
           </label>
-          <textarea
+          <CommentMarkdownArea
             id="comment-draft"
-            className="comment-compose-textarea"
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Markdown is supported."
+            onChange={setDraft}
+            placeholder={t("comments.compose.placeholder")}
             rows={3}
             maxLength={4000}
           />
           <div className="comment-compose-actions">
-            <span className="form-hint">{draft.length}/4000 characters</span>
+            <span className="form-hint">
+              {t("comments.compose.charCount", {
+                current: draft.length,
+                max: 4000,
+              })}
+            </span>
             <button
               type="submit"
               className="btn-primary"
               disabled={submitting || !draft.trim()}
             >
-              {submitting ? "Posting…" : "Post comment"}
+              {submitting
+                ? t("comments.compose.submitting")
+                : t("comments.compose.submit")}
             </button>
           </div>
         </form>
       ) : (
         <p className="comment-thread-signin muted">
-          Sign in to join the conversation.
+          {t("comments.signInPrompt")}
         </p>
       )}
     </section>
@@ -167,13 +200,52 @@ export default function CommentThread({ postId }) {
 /// Single comment row. Body HTML is run through DOMPurify here as a
 /// localized invariant: this component never accepts unsanitized HTML, even
 /// if a future caller forgets the upstream sanitization step.
-function CommentItem({ comment, viewer, onDelete }) {
-  const author = comment.author_display || comment.author_handle || "Member";
-  const time = formatRelativeTime(comment.created_at);
+function CommentItem({ postId, comment, viewer, onDelete, onEdit }) {
+  const { t, i18n } = useTranslation("feed");
+  const { t: tCommon } = useTranslation("common");
+  const author =
+    comment.author_display || comment.author_handle || t("fallbackAuthor");
+  const time = formatRelativeTime(comment.created_at, i18n.language);
   const safe = DOMPurify.sanitize(comment.body_html || "");
-  const canDelete =
-    viewer &&
-    (viewer.id === comment.user_id || viewer.role === "administrator");
+  const isAuthor = viewer && viewer.id === comment.user_id;
+  const isAdmin = viewer && viewer.role === "administrator";
+  const canEdit = isAuthor || isAdmin;
+  const canDelete = isAuthor || isAdmin;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(comment.body);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
+  function startEdit() {
+    setDraft(comment.body);
+    setEditError("");
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditing(false);
+    setEditError("");
+  }
+
+  async function saveEdit() {
+    const next = draft.trim();
+    if (!next || saving) return;
+    if (next === comment.body.trim()) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    setEditError("");
+    try {
+      await onEdit(comment.id, next);
+      setEditing(false);
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const authorEl = comment.author_handle ? (
     <Link
       to={`/u/${comment.author_handle}`}
@@ -191,42 +263,161 @@ function CommentItem({ comment, viewer, onDelete }) {
         {authorEl}
         <span className="comment-item-dot" aria-hidden="true" />
         <span className="comment-item-time">{time}</span>
-        {canDelete && (
+        {comment.edited_at && (
+          <span
+            className="comment-item-edited muted"
+            title={t("comments.editedTitle", {
+              when: formatRelativeTime(comment.edited_at, i18n.language),
+            })}
+          >
+            {t("comments.edited")}
+          </span>
+        )}
+        {!editing && canEdit && (
+          <button
+            type="button"
+            className="comment-item-action"
+            onClick={startEdit}
+            aria-label={t("comments.editAria")}
+          >
+            {tCommon("actions.edit")}
+          </button>
+        )}
+        {!editing && canDelete && (
           <button
             type="button"
             className="comment-item-delete"
             onClick={() => onDelete(comment.id)}
-            aria-label="Delete comment"
+            aria-label={t("comments.deleteAria")}
           >
-            Delete
+            {tCommon("actions.delete")}
           </button>
         )}
       </header>
-      <div
-        className="comment-item-body post-body"
-        dangerouslySetInnerHTML={{ __html: safe }}
-      />
+      {editing ? (
+        <div className="comment-item-edit">
+          {editError && <div className="alert alert-error">{editError}</div>}
+          <CommentMarkdownArea
+            value={draft}
+            onChange={setDraft}
+            rows={3}
+            maxLength={4000}
+            autoFocus
+          />
+          <div className="comment-compose-actions">
+            <span className="form-hint">
+              {t("comments.compose.charCount", {
+                current: draft.length,
+                max: 4000,
+              })}
+            </span>
+            <div className="comment-item-edit-buttons">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                {tCommon("actions.cancel")}
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={saveEdit}
+                disabled={saving || !draft.trim()}
+              >
+                {saving
+                  ? tCommon("actions.saving")
+                  : tCommon("actions.save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div
+            className="comment-item-body post-body"
+            dangerouslySetInnerHTML={{ __html: safe }}
+          />
+          <ReactionBar
+            target={{ kind: "comment", postId, commentId: comment.id }}
+            state={comment}
+            compact
+          />
+        </>
+      )}
     </li>
   );
 }
 
-function formatRelativeTime(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  const diffSec = Math.floor((now - d) / 1000);
-  if (diffSec < 60) return "just now";
-  if (diffSec < 3600) {
-    const m = Math.floor(diffSec / 60);
-    return `${m} minute${m === 1 ? "" : "s"} ago`;
-  }
-  if (diffSec < 86400) {
-    const h = Math.floor(diffSec / 3600);
-    return `${h} hour${h === 1 ? "" : "s"} ago`;
-  }
-  if (diffSec < 7 * 86400) {
-    const days = Math.floor(diffSec / 86400);
-    if (days === 1) return "yesterday";
-    return `${days} days ago`;
-  }
-  return d.toLocaleDateString();
+/// Edit/Preview-tabbed textarea used by both the new-comment composer and
+/// the inline edit form on existing comments. Preview pipes the markdown
+/// source through `marked` and DOMPurify, mirroring the Compose page's
+/// approximate-but-safe live preview pipeline.
+function CommentMarkdownArea({
+  id,
+  value,
+  onChange,
+  rows = 3,
+  maxLength = 4000,
+  placeholder,
+  autoFocus = false,
+}) {
+  const { t } = useTranslation("feed");
+  const [tab, setTab] = useState("write");
+  const previewHtml = useMemo(() => {
+    if (!value || !value.trim()) {
+      const empty = t("comments.editor.previewEmpty");
+      return `<p class="muted">${empty}</p>`;
+    }
+    const raw = marked.parse(value, { breaks: true, gfm: true });
+    return DOMPurify.sanitize(raw);
+  }, [value, t]);
+
+  return (
+    <div className="comment-md-area">
+      <div
+        className="comment-md-tabs"
+        role="tablist"
+        aria-label={t("comments.editor.modeAria")}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "write"}
+          className={`comment-md-tab ${tab === "write" ? "is-active" : ""}`}
+          onClick={() => setTab("write")}
+        >
+          {t("comments.editor.tabWrite")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "preview"}
+          className={`comment-md-tab ${tab === "preview" ? "is-active" : ""}`}
+          onClick={() => setTab("preview")}
+        >
+          {t("comments.editor.tabPreview")}
+        </button>
+      </div>
+      {tab === "write" ? (
+        <textarea
+          id={id}
+          className="comment-compose-textarea"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={rows}
+          maxLength={maxLength}
+          placeholder={placeholder}
+          autoFocus={autoFocus}
+        />
+      ) : (
+        <div
+          className="comment-md-preview post-body"
+          dangerouslySetInnerHTML={{ __html: previewHtml }}
+        />
+      )}
+    </div>
+  );
 }
+

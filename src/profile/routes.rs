@@ -17,6 +17,7 @@
 //!
 //! - `GET    /api/me/profile`           caller's own profile (auth required)
 //! - `PATCH  /api/me/profile`           edit handle/display_name/bio/pronouns
+//! - `PATCH  /api/me/locale`            save UI locale preference
 //! - `POST   /api/me/avatar`            multipart upload, server-side crop
 //! - `DELETE /api/me/avatar`            remove avatar, drop S3 object
 //! - `GET    /api/profiles/{handle}`    public profile by handle
@@ -32,19 +33,22 @@ use crate::entities::{user, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
 use crate::profile::{
-    avatar_url_for, validate_handle_shape, BIO_MAX_LEN, PRONOUNS_MAX_LEN,
+    avatar_url_for, locale, validate_handle_shape, BIO_MAX_LEN, PRONOUNS_MAX_LEN,
 };
 use crate::s3::S3Service;
 use crate::settings::SettingsService;
 use axum::{
     body::Body,
-    extract::{DefaultBodyLimit, Multipart, Path, State},
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
     routing::{get, post},
     Extension, Router,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
+    QuerySelect, Set,
+};
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use uuid::Uuid;
@@ -79,6 +83,7 @@ pub struct ProfileState {
 pub fn me_profile_routes() -> Router<ProfileState> {
     Router::new()
         .route("/api/me/profile", get(get_me_profile).patch(patch_me_profile))
+        .route("/api/me/locale", axum::routing::patch(patch_me_locale))
         .route(
             "/api/me/avatar",
             post(post_me_avatar)
@@ -91,6 +96,7 @@ pub fn me_profile_routes() -> Router<ProfileState> {
 /// gate filters anonymous callers when the site is in invite-only mode.
 pub fn public_profile_routes() -> Router<ProfileState> {
     Router::new()
+        .route("/api/profiles", get(list_profiles))
         .route("/api/profiles/{handle}", get(get_profile_by_handle))
         .route("/avatars/{user_id}", get(serve_avatar))
 }
@@ -125,6 +131,30 @@ pub struct PublicProfileResponse {
     pub role: String,
 }
 
+/// Compact profile shape used by the list endpoint. Drops `bio` and
+/// `pronouns` since they aren't shown in the rail or directory grid;
+/// callers fetch the full `PublicProfileResponse` when navigating to a
+/// profile.
+#[derive(Serialize)]
+pub struct ProfileSummary {
+    pub user_id: Uuid,
+    pub handle: String,
+    pub display_name: Option<String>,
+    pub avatar_url: Option<String>,
+    pub role: String,
+}
+
+#[derive(Serialize)]
+pub struct ListProfilesResponse {
+    pub profiles: Vec<ProfileSummary>,
+}
+
+#[derive(Deserialize, Default)]
+#[serde(default)]
+pub struct ListProfilesQuery {
+    pub limit: Option<u64>,
+}
+
 #[derive(Deserialize, Default)]
 #[serde(default)]
 pub struct PatchMeProfileRequest {
@@ -142,6 +172,18 @@ pub struct PatchMeProfileRequest {
 #[derive(Serialize)]
 pub struct AvatarUploadResponse {
     pub avatar_url: String,
+}
+
+#[derive(Deserialize)]
+pub struct PatchMeLocaleRequest {
+    /// One of `crate::profile::locale::SUPPORTED_LOCALES`. Anything else
+    /// returns 400.
+    pub locale: String,
+}
+
+#[derive(Serialize)]
+pub struct LocaleResponse {
+    pub locale: String,
 }
 
 // ==================== handlers ====================
@@ -165,6 +207,39 @@ async fn get_me_profile(
         avatar_url: avatar_url_for(&model),
         role: model.role.clone(),
     }))
+}
+
+/// `PATCH /api/me/locale`. Single-purpose write that runs on every
+/// language switch from the social-frontend's LanguagePicker. Cheaper than
+/// going through `/api/me/profile` (which validates handle uniqueness and
+/// other fields). Idempotent — re-saving the same locale is a no-op write.
+async fn patch_me_locale(
+    State(state): State<ProfileState>,
+    Extension(user_auth): Extension<UserAuth>,
+    Json(req): Json<PatchMeLocaleRequest>,
+) -> AppResult<Json<LocaleResponse>> {
+    if !locale::is_supported(&req.locale) {
+        return Err(AppError::ValidationError(format!(
+            "Unsupported locale '{}'",
+            req.locale
+        )));
+    }
+
+    let model = User::find_by_id(user_auth.id)
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+
+    // No-op when the value hasn't changed: avoids touching `updated_at`
+    // on every page-load that fires a redundant PATCH.
+    if model.locale.as_deref() == Some(req.locale.as_str()) {
+        return Ok(Json(LocaleResponse { locale: req.locale }));
+    }
+
+    let mut active: user::ActiveModel = model.into();
+    active.locale = Set(Some(req.locale.clone()));
+    active.update(&state.db).await?;
+    Ok(Json(LocaleResponse { locale: req.locale }))
 }
 
 async fn patch_me_profile(
@@ -253,6 +328,44 @@ async fn patch_me_profile(
         avatar_url: avatar_url_for(&updated),
         role: updated.role.clone(),
     }))
+}
+
+/// `GET /api/profiles` returns activated, active users visible to the
+/// caller. Anonymous callers are gated by `public_feed_enabled` (same as
+/// the per-handle read). The caller's own row is excluded so the rail and
+/// directory show *other* members; callers reach their own profile via the
+/// avatar menu.
+async fn list_profiles(
+    State(state): State<ProfileState>,
+    auth_session: UserAuthSession,
+    Query(query): Query<ListProfilesQuery>,
+) -> AppResult<Json<ListProfilesResponse>> {
+    enforce_public_profile_gate(&state.settings, &auth_session).await?;
+
+    let limit = query.limit.unwrap_or(50).clamp(1, 200);
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+
+    let mut q = User::find()
+        .filter(user::Column::Active.eq(true))
+        .filter(user::Column::ActivatedAt.is_not_null())
+        .order_by_asc(user::Column::Handle)
+        .limit(limit);
+    if let Some(vid) = viewer_id {
+        q = q.filter(user::Column::Id.ne(vid));
+    }
+
+    let rows = q.all(&state.db).await?;
+    let profiles = rows
+        .into_iter()
+        .map(|m| ProfileSummary {
+            user_id: m.id,
+            handle: m.handle.clone(),
+            display_name: m.display_name.clone(),
+            avatar_url: avatar_url_for(&m),
+            role: m.role.clone(),
+        })
+        .collect();
+    Ok(Json(ListProfilesResponse { profiles }))
 }
 
 async fn get_profile_by_handle(

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import LanguagePicker from "./LanguagePicker";
 import ThemePicker from "./ThemePicker";
 import "./MobileDrawer.css";
 
@@ -18,6 +20,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
   const panelRef = useRef(null);
   const closeBtnRef = useRef(null);
   const lastFocusRef = useRef(null);
+  const { t } = useTranslation("common");
 
   // Close on Escape, restore prior focus on close, focus the close button on open.
   useEffect(() => {
@@ -73,21 +76,21 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
         className="mobile-drawer-panel"
         role="dialog"
         aria-modal="true"
-        aria-label="Menu"
+        aria-label={t("menuTitle")}
       >
         <div className="mobile-drawer-header">
-          <span className="mobile-drawer-title">Menu</span>
+          <span className="mobile-drawer-title">{t("menuTitle")}</span>
           <button
             ref={closeBtnRef}
             type="button"
             className="mobile-drawer-close"
-            aria-label="Close menu"
+            aria-label={t("closeMenu")}
             onClick={onClose}
           >
             ×
           </button>
         </div>
-        <nav className="mobile-drawer-nav" aria-label="Primary">
+        <nav className="mobile-drawer-nav" aria-label={t("primaryNav")}>
           {navLinks.map((l) => (
             <Link
               key={l.to}
@@ -104,7 +107,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
               className="mobile-drawer-nav-link"
               onClick={onClose}
             >
-              View profile
+              {t("userMenu.viewProfile")}
             </Link>
           )}
           {user && (
@@ -113,10 +116,13 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
               className="mobile-drawer-nav-link"
               onClick={onClose}
             >
-              Settings
+              {t("userMenu.settings")}
             </Link>
           )}
         </nav>
+        <div className="mobile-drawer-section">
+          <LanguagePicker variant="inline" />
+        </div>
         <div className="mobile-drawer-section">
           <ThemePicker variant="inline" />
         </div>
@@ -130,7 +136,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
                 onClose();
               }}
             >
-              Sign out
+              {t("auth.signOut")}
             </button>
           ) : (
             <Link
@@ -138,7 +144,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
               className="btn-primary mobile-drawer-btn"
               onClick={onClose}
             >
-              Sign in
+              {t("auth.signIn")}
             </Link>
           )}
         </div>

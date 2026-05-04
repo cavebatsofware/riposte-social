@@ -242,6 +242,20 @@ async fn main() -> anyhow::Result<()> {
                 ))
                 .service(ServeDir::new("./social-assets/app").precompressed_gzip()),
         )
+        // i18n catalogs (vite copies social-frontend/public/locales/* to
+        // social-assets/locales/* on build). Loaded lazily by namespace
+        // through i18next-http-backend at /locales/{lng}/{ns}.json. Cache
+        // for an hour — short enough that a translation fix is visible
+        // without forcing a hash-based busting scheme.
+        .nest_service(
+            "/locales",
+            tower::ServiceBuilder::new()
+                .layer(SetResponseHeaderLayer::if_not_present(
+                    header::CACHE_CONTROL,
+                    header::HeaderValue::from_static("public, max-age=3600"),
+                ))
+                .service(ServeDir::new("./social-assets/locales")),
+        )
         // Social SPA fallback: any unmatched path serves index.html so React
         // Router handles client-side routing.
         .fallback(serve_social_spa);

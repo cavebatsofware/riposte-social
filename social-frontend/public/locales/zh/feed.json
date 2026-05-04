@@ -1,0 +1,98 @@
+{
+  "fallbackAuthor": "成员",
+  "post": {
+    "notFound": "找不到该帖子。",
+    "loadFailed": "加载帖子失败",
+    "deleteConfirm": "删除这条帖子吗?此操作无法撤销。",
+    "deleteFailed": "删除帖子失败"
+  },
+  "feed": {
+    "loadFailed": "加载动态失败",
+    "loadingAria": "正在加载动态",
+    "anonInviteOnly": "本站仅限受邀使用。",
+    "anonInviteOnlyHint": "如果你有邀请,请<sign>登录</sign>;或稍后回来看看朋友是否已分享给你。",
+    "anonNothingShared": "尚未公开发布任何内容。",
+    "anonNothingSharedHint": "稍后再来看看,或者如果你有邀请请<sign>登录</sign>。",
+    "composeEmpty": "暂时没有帖子。",
+    "composeEmptyHint": "<compose>写点什么</compose>开始吧。",
+    "noPostsYet": "暂时没有帖子。稍后再来看看。",
+    "searchPlaceholder": "搜索 {{language}} 帖子…",
+    "searchSubmitAria": "搜索",
+    "searchClearAria": "清除搜索",
+    "noResultsFor": "没有匹配「{{query}}」的 {{language}} 帖子。",
+    "clearSearch": "清除搜索"
+  },
+  "visibility": {
+    "private": {
+      "name": "私密",
+      "desc": "只有你能看到"
+    },
+    "public": {
+      "name": "公开",
+      "desc": "任何拥有链接的人"
+    },
+    "commenters": {
+      "name": "评论者",
+      "desc": "受邀的朋友"
+    },
+    "posters": {
+      "name": "作者",
+      "desc": "仅限家庭作者"
+    },
+    "menuFailed": "更新可见性失败"
+  },
+  "postCard": {
+    "actionsAria": "帖子操作",
+    "recentCommentsAria": "最近的评论",
+    "videoFallback": "你的浏览器不支持内嵌视频播放。",
+    "openMediaAria": "打开第 {{index}} 项",
+    "commentCount_one": "{{count}} 条评论",
+    "commentCount_other": "{{count}} 条评论",
+    "viewMore_one": "再查看 {{count}} 条评论",
+    "viewMore_other": "再查看 {{count}} 条评论"
+  },
+  "comments": {
+    "title": "评论",
+    "titleWithCount": "评论 ({{count}})",
+    "empty": "暂时没有评论。",
+    "loadFailed": "加载评论失败",
+    "submitFailed": "发布评论失败",
+    "deleteConfirm": "删除这条评论吗?此操作无法撤销。",
+    "deleteFailed": "删除评论失败",
+    "editFailed": "保存编辑失败",
+    "signInPrompt": "登录以参与讨论。",
+    "edited": "(已编辑)",
+    "editedTitle": "{{when}}已编辑",
+    "editAria": "编辑评论",
+    "deleteAria": "删除评论",
+    "compose": {
+      "label": "添加评论",
+      "placeholder": "支持 Markdown。",
+      "charCount": "{{current}}/{{max}} 个字符",
+      "submit": "发布评论",
+      "submitting": "发布中…"
+    },
+    "editor": {
+      "modeAria": "编辑模式",
+      "tabWrite": "编写",
+      "tabPreview": "预览",
+      "previewEmpty": "暂时没有可预览的内容。"
+    }
+  },
+  "reactions": {
+    "react": "反应",
+    "reactedWith": "已用 {{kind}} 反应",
+    "pickerAria": "选择反应",
+    "reactWithAria": "用 {{kind}} 反应",
+    "summaryAria_one": "{{count}} 个反应",
+    "summaryAria_other": "{{count}} 个反应",
+    "kind": {
+      "like": "赞",
+      "love": "爱心",
+      "haha": "哈哈",
+      "wow": "哇",
+      "sad": "难过",
+      "angry": "生气"
+    }
+  }
+}

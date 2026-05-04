@@ -1,0 +1,79 @@
+{
+  "backToFeed": "← Volver al feed",
+  "composingAs": "Publicando como {{name}} · {{role}}",
+  "role": {
+    "administrator": "Administrador",
+    "poster": "Autor"
+  },
+  "post": {
+    "editTitle": "Editar publicación",
+    "newTitle": "Nueva publicación",
+    "loadingExisting": "Cargando publicación…",
+    "loadFailed": "Error al cargar la publicación para editar",
+    "saveFailed": "Error al guardar la publicación",
+    "bodyEmpty": "El cuerpo de la publicación no puede estar vacío.",
+    "disabledNotice": "Un administrador ha desactivado temporalmente las publicaciones. Las publicaciones existentes no se ven afectadas.",
+    "publishHint": "Al guardar se publicará inmediatamente.",
+    "editHint": "Al guardar se actualizará la publicación inmediatamente.",
+    "publishCta": "Publicar",
+    "saveCta": "Guardar cambios"
+  },
+  "album": {
+    "editTitle": "Editar álbum",
+    "newTitle": "Nuevo álbum",
+    "loadFailed": "Error al cargar el álbum para editar",
+    "createFailed": "Error al crear el álbum",
+    "updateFailed": "Error al actualizar el álbum",
+    "captionUpdateFailed": "Error al actualizar el pie de foto",
+    "uploadMoreFailed": "Error al subir nuevos elementos",
+    "removeItemFailed": "Error al quitar el elemento",
+    "removeItemConfirm": "¿Quitar este elemento del álbum?",
+    "nameRequired": "El nombre es obligatorio.",
+    "nameLabel": "Nombre",
+    "namePlaceholder": "Nombre del álbum",
+    "descLabel": "Descripción (opcional)",
+    "descPlaceholder": "Unas palabras sobre este álbum.",
+    "createCta": "Crear álbum",
+    "addMore": "Añadir más elementos",
+    "items": "Elementos",
+    "existingItems_one": "Elementos existentes ({{count}})",
+    "existingItems_other": "Elementos existentes ({{count}})",
+    "captionPlaceholder": "Pie de foto",
+    "disabledShort": "La creación de álbumes está desactivada actualmente.",
+    "publishHint": "Al guardar se publicará inmediatamente.",
+    "editHint": "Al guardar se actualizará el álbum inmediatamente.",
+    "errorTooMany": "Como máximo {{max}} elementos por álbum."
+  },
+  "category": {
+    "label": "Categoría",
+    "uncategorized": "Sin categoría",
+    "empty": "Aún no hay categorías definidas. Los administradores pueden añadirlas en el panel de administración."
+  },
+  "body": {
+    "label": "Cuerpo (Markdown)",
+    "placeholder": "¿Qué quieres compartir?\n\n**Negrita**, *cursiva*, [enlaces](https://example.com) e ![imágenes](url) funcionan.",
+    "hint": "El Markdown se renderiza en el servidor. Las imágenes y los enlaces son de primer nivel. El HTML se sanea.",
+    "previewLabel": "Vista previa",
+    "previewEmpty": "La vista previa en vivo aparecerá aquí."
+  },
+  "attachments": {
+    "label": "Adjuntos",
+    "dropzonePrompt": "Arrastra imágenes o vídeos aquí, o haz clic para examinar",
+    "dropzoneMeta": "Imágenes (JPEG/PNG/GIF/WebP, 10 MB cada una) o vídeos (MP4/WebM, 100 MB cada uno) · hasta {{max}} archivos",
+    "dropzoneMetaAlbum": "Hasta {{max}} elementos por álbum · 10 MB por imagen / 100 MB por vídeo",
+    "removeAria": "Quitar {{name}}",
+    "errorTooMany": "Como máximo {{max}} adjuntos por publicación.",
+    "errorUnsupported": "Tipo de archivo no admitido «{{type}}». Imágenes (JPEG/PNG/GIF/WebP) o vídeos (MP4/WebM).",
+    "errorTooLargeVideo": "El archivo «{{name}}» supera el límite de 100 MB por archivo de vídeo.",
+    "errorTooLargeImage": "El archivo «{{name}}» supera el límite de 10 MB por archivo de imagen.",
+    "errorTooLargeAlbumVideo": "El archivo «{{name}}» supera el límite de 100 MB por archivo.",
+    "errorTooLargeAlbumImage": "El archivo «{{name}}» supera el límite de 10 MB por archivo."
+  },
+  "visibility": {
+    "legend": "Visibilidad"
+  },
+  "contentLang": {
+    "label": "Idioma",
+    "hint": "Se usa para tokenizar la publicación al buscar."
+  }
+}

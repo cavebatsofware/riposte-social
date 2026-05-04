@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
+import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
+import {
+  ftsConfigForLocale,
+  SUPPORTED_CONTENT_LANGS,
+} from "../utils/contentLang";
 import Layout from "../components/Layout";
 import VisibilityPicker from "../components/VisibilityPicker";
 
@@ -37,12 +43,28 @@ export default function Compose() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
+  const { t, i18n } = useTranslation("compose");
+  const { t: tCommon } = useTranslation("common");
 
   const [body, setBody] = useState("");
   // New posts default to "private" — author can promote at compose time
   // or with the quick-toggle on the feed card (Phase 9b). Edit mode
   // overwrites this with the post's actual visibility on load.
   const [visibility, setVisibility] = useState("private");
+  // Phase 9e: empty string means "uncategorized". On edit, hydrated from
+  // the post's existing category_id. Categories list is fetched once on
+  // mount; the dropdown shows the full set ordered by ordinal.
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState([]);
+  // FTS configuration the post will be tokenized under. Default derives
+  // from the user's UI locale; edit mode overwrites with the post's
+  // existing value on load.
+  const [contentLang, setContentLang] = useState(() => {
+    const active = (i18n.resolvedLanguage || i18n.language || "en").split(
+      "-",
+    )[0];
+    return ftsConfigForLocale(active);
+  });
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -51,16 +73,37 @@ export default function Compose() {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadCategories() {
+      try {
+        const response = await fetchApi("/api/categories");
+        if (response.ok) {
+          const data = await response.json();
+          if (!cancelled) setCategories(data.categories || []);
+        }
+      } catch {
+        // Categories unavailable just hides the picker; not a hard error.
+      }
+    }
+    loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!editId) return;
     let cancelled = false;
     async function load() {
       try {
         const response = await fetchApi(`/api/posts/${editId}`);
-        if (!response.ok) throw new Error("Failed to load post for editing");
+        if (!response.ok) throw new Error(t("post.loadFailed"));
         const data = await response.json();
         if (!cancelled) {
           setBody(data.body);
           setVisibility(data.visibility);
+          setCategoryId(data.category ? data.category.id : "");
+          if (data.content_lang) setContentLang(data.content_lang);
         }
       } catch (err) {
         if (!cancelled) setError(err.message);
@@ -86,16 +129,17 @@ export default function Compose() {
   // intentionally to test, matching the server's ammonia allowlist.
   const previewHtml = useMemo(() => {
     if (!body.trim()) {
-      return '<p class="muted">Live preview will appear here.</p>';
+      const empty = t("body.previewEmpty");
+      return `<p class="muted">${empty}</p>`;
     }
     const raw = marked.parse(body, { breaks: true, gfm: true });
     return DOMPurify.sanitize(raw);
-  }, [body]);
+  }, [body, t]);
 
   if (authLoading) {
     return (
       <Layout>
-        <p>Loading…</p>
+        <p>{tCommon("loading")}</p>
       </Layout>
     );
   }
@@ -119,13 +163,10 @@ export default function Compose() {
     return (
       <Layout>
         <Link to="/" className="post-back-link">
-          ← Back to feed
+          {t("backToFeed")}
         </Link>
         <section className="feed-empty">
-          <p>
-            Posting has been temporarily disabled by an administrator.
-            Existing posts are unaffected.
-          </p>
+          <p>{t("post.disabledNotice")}</p>
         </section>
       </Layout>
     );
@@ -137,20 +178,23 @@ export default function Compose() {
     let remaining = MAX_MEDIA - files.length;
     for (const f of incoming) {
       if (remaining <= 0) {
-        setError(`At most ${MAX_MEDIA} attachments per post.`);
+        setError(t("attachments.errorTooMany", { max: MAX_MEDIA }));
         break;
       }
       if (!ACCEPTED_MIME.includes(f.type)) {
-        setError(
-          `Unsupported file type '${f.type}'. Images (JPEG/PNG/GIF/WebP) or videos (MP4/WebM).`,
-        );
+        setError(t("attachments.errorUnsupported", { type: f.type }));
         continue;
       }
       const cap = maxBytesFor(f.type);
       if (f.size > cap) {
         const isVideo = ACCEPTED_VIDEO_MIME.includes(f.type);
         setError(
-          `File '${f.name}' exceeds the ${isVideo ? "100 MB" : "10 MB"} per-file limit for ${isVideo ? "video" : "image"} content.`,
+          t(
+            isVideo
+              ? "attachments.errorTooLargeVideo"
+              : "attachments.errorTooLargeImage",
+            { name: f.name },
+          ),
         );
         continue;
       }
@@ -189,22 +233,33 @@ export default function Compose() {
     e.preventDefault();
     setError("");
     if (!body.trim()) {
-      setError("Post body cannot be empty.");
+      setError(t("post.bodyEmpty"));
       return;
     }
     setSubmitting(true);
     try {
       let response;
       if (editId) {
+        // Phase 9e: send category_id when set, or `clear_category: true`
+        // to drop an existing assignment (the empty-string option in the
+        // picker becomes a clear).
+        const patchBody = { body, visibility, content_lang: contentLang };
+        if (categoryId) {
+          patchBody.category_id = categoryId;
+        } else {
+          patchBody.clear_category = true;
+        }
         response = await fetchApi(`/api/posts/${editId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ body, visibility }),
+          body: JSON.stringify(patchBody),
         });
       } else {
         const form = new FormData();
         form.append("body", body);
         form.append("visibility", visibility);
+        form.append("content_lang", contentLang);
+        if (categoryId) form.append("category_id", categoryId);
         for (const { file } of files) {
           form.append("media", file);
         }
@@ -215,7 +270,7 @@ export default function Compose() {
       }
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save post");
+        throw new Error(data.error || t("post.saveFailed"));
       }
       const saved = await response.json();
       navigate(`/post/${saved.id}`, { replace: true });
@@ -228,53 +283,102 @@ export default function Compose() {
   if (loadingExisting) {
     return (
       <Layout>
-        <p>Loading post…</p>
+        <p>{t("post.loadingExisting")}</p>
       </Layout>
     );
   }
 
+  const roleLabel =
+    user.role === "administrator"
+      ? t("role.administrator")
+      : t("role.poster");
+
   return (
     <Layout>
       <Link to="/" className="post-back-link">
-        ← Back to feed
+        {t("backToFeed")}
       </Link>
       <p className="feed-subtitle">
-        Composing as {user.display_name || user.email} ·{" "}
-        {user.role === "administrator" ? "Administrator" : "Poster"}
+        {t("composingAs", {
+          name: user.display_name || user.email,
+          role: roleLabel,
+        })}
       </p>
 
       <form className="compose-card" onSubmit={handleSubmit}>
-        <h2 className="compose-title">{editId ? "Edit post" : "New post"}</h2>
+        <h2 className="compose-title">
+          {editId ? t("post.editTitle") : t("post.newTitle")}
+        </h2>
 
         {error && <div className="alert alert-error">{error}</div>}
 
-        <VisibilityPicker value={visibility} onChange={setVisibility} />
-
         <div className="compose-field">
-          <label htmlFor="compose-body">Body (markdown)</label>
+          <label htmlFor="compose-body">{t("body.label")}</label>
           <textarea
             id="compose-body"
             className="compose-textarea"
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder={
-              "What's on your mind?\n\n**Bold**, *italic*, [links](https://example.com), and ![images](url) all work."
-            }
+            placeholder={t("body.placeholder")}
           />
-          <p className="form-hint">
-            Markdown is rendered server-side. Inline images and links are
-            first-class. HTML is sanitized.
-          </p>
+          <p className="form-hint">{t("body.hint")}</p>
         </div>
 
         <div className="compose-field">
-          <label>Preview</label>
+          <label>{t("body.previewLabel")}</label>
           <PreviewPane html={previewHtml} />
+        </div>
+
+        <VisibilityPicker value={visibility} onChange={setVisibility} />
+
+        <div className="compose-field-row">
+          <div className="compose-field">
+            <label htmlFor="compose-category">{t("category.label")}</label>
+            <select
+              id="compose-category"
+              className="compose-input"
+              value={categoryId}
+              onChange={(e) => setCategoryId(e.target.value)}
+            >
+              <option value="">{t("category.uncategorized")}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            {categories.length === 0 && (
+              <p className="form-hint">{t("category.empty")}</p>
+            )}
+          </div>
+
+          <div className="compose-field">
+            <label htmlFor="compose-content-lang">
+              {t("contentLang.label")}
+            </label>
+            <select
+              id="compose-content-lang"
+              className="compose-input"
+              value={contentLang}
+              onChange={(e) => setContentLang(e.target.value)}
+            >
+              {SUPPORTED_LOCALES.map((loc) => {
+                const cfg = ftsConfigForLocale(loc);
+                if (!SUPPORTED_CONTENT_LANGS.includes(cfg)) return null;
+                return (
+                  <option key={loc} value={cfg}>
+                    {LOCALE_NATIVE_NAMES[loc]}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="form-hint">{t("contentLang.hint")}</p>
+          </div>
         </div>
 
         {!editId && (
           <div className="compose-field">
-            <label>Attachments</label>
+            <label>{t("attachments.label")}</label>
             <div
               className={`dropzone ${dragActive ? "drag-active" : ""}`}
               onDragOver={handleDragOver}
@@ -285,11 +389,10 @@ export default function Compose() {
               tabIndex={0}
             >
               <p className="dropzone-prompt">
-                Drop images or videos here, or click to browse
+                {t("attachments.dropzonePrompt")}
               </p>
               <p className="dropzone-meta">
-                Images (JPEG/PNG/GIF/WebP, 10 MB each) or videos (MP4/WebM,
-                100 MB each) · up to {MAX_MEDIA} files
+                {t("attachments.dropzoneMeta", { max: MAX_MEDIA })}
               </p>
               <input
                 ref={fileInputRef}
@@ -321,7 +424,7 @@ export default function Compose() {
                       type="button"
                       className="attached-remove"
                       onClick={() => removeFile(i)}
-                      aria-label={`Remove ${f.file.name}`}
+                      aria-label={t("attachments.removeAria", { name: f.file.name })}
                     >
                       ×
                     </button>
@@ -334,20 +437,22 @@ export default function Compose() {
 
         <div className="compose-footer">
           <span className="form-hint">
-            {editId
-              ? "Saving will update the post immediately."
-              : "Saving will publish immediately."}
+            {editId ? t("post.editHint") : t("post.publishHint")}
           </span>
           <div className="compose-footer-actions">
             <Link to="/" className="btn-secondary">
-              Cancel
+              {tCommon("actions.cancel")}
             </Link>
             <button
               type="submit"
               className="btn-primary"
               disabled={submitting || !body.trim()}
             >
-              {submitting ? "Saving…" : editId ? "Save changes" : "Publish"}
+              {submitting
+                ? tCommon("actions.saving")
+                : editId
+                  ? t("post.saveCta")
+                  : t("post.publishCta")}
             </button>
           </div>
         </div>

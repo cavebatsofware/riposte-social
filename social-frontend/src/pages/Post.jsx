@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import CommentThread from "../components/CommentThread";
@@ -26,6 +27,8 @@ export default function Post() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const { t } = useTranslation("feed");
+  const { t: tCommon } = useTranslation("common");
 
   useEffect(() => {
     let cancelled = false;
@@ -36,13 +39,13 @@ export default function Post() {
         const response = await fetchApi(`/api/posts/${id}`);
         if (response.status === 404 || response.status === 401) {
           if (!cancelled) {
-            setError("Post not found.");
+            setError(t("post.notFound"));
             setPost(null);
           }
           return;
         }
         if (!response.ok) {
-          throw new Error("Failed to load post");
+          throw new Error(t("post.loadFailed"));
         }
         const data = await response.json();
         if (!cancelled) {
@@ -66,7 +69,7 @@ export default function Post() {
     (user.id === post.author_id || user.role === "administrator");
 
   async function handleDelete() {
-    if (!window.confirm("Delete this post? This can't be undone.")) {
+    if (!window.confirm(t("post.deleteConfirm"))) {
       return;
     }
     setDeleting(true);
@@ -75,7 +78,7 @@ export default function Post() {
       const response = await fetchApi(`/api/posts/${id}`, { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to delete post");
+        throw new Error(data.error || t("post.deleteFailed"));
       }
       navigate("/", { replace: true });
     } catch (err) {
@@ -87,7 +90,7 @@ export default function Post() {
   return (
     <Layout>
       <Link to="/" className="post-back-link">
-        ← Back to feed
+        {tCommon("backToFeed")}
       </Link>
 
       {loading && <SkeletonCard />}
@@ -103,7 +106,7 @@ export default function Post() {
                 to={`/compose?edit=${post.id}`}
                 className="btn-secondary"
               >
-                Edit
+                {tCommon("actions.edit")}
               </Link>
               <button
                 type="button"
@@ -111,7 +114,7 @@ export default function Post() {
                 onClick={handleDelete}
                 disabled={deleting}
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? tCommon("actions.deleting") : tCommon("actions.delete")}
               </button>
             </div>
           )}

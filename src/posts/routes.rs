@@ -22,8 +22,9 @@
 //! - `DELETE /api/posts/{id}`      author or admin (soft delete)
 //! - `GET    /api/feed`            public; cursor-paginated, visibility-filtered
 
+use crate::engagement::comments::{build_comment_response, CommentResponse};
 use crate::engagement::{fetch_engagement_for_posts, PostEngagement};
-use crate::entities::{post, post_media, user, Post, PostMedia, User};
+use crate::entities::{category, post, post_media, user, Category, Post, PostMedia, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::{can_read_post, markdown, FeedTier};
@@ -38,6 +39,7 @@ use axum::{
 };
 use axum_login::AuthSession;
 use chrono::{DateTime, Utc};
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
     QuerySelect, Set, TransactionTrait,
@@ -146,6 +148,34 @@ pub struct UpdatePostRequest {
     pub body: Option<String>,
     #[serde(default)]
     pub visibility: Option<String>,
+    /// Phase 9e: assign / move to a different category. Send `null` to
+    /// clear (mark uncategorized); omit to leave unchanged. JSON
+    /// distinguishes `{}` (omitted) from `{"category_id": null}` (clear)
+    /// only with a sentinel; we use a double-Option via serde_with's
+    /// `default + skip_serializing_if = is_none` pattern, but for the v1
+    /// the simpler-but-good-enough rule is: provide a UUID to set; omit
+    /// to leave alone. To clear, edit through the admin UI or PATCH a
+    /// distinct sentinel value (handled at the handler).
+    #[serde(default)]
+    pub category_id: Option<Uuid>,
+    /// Explicit boolean: set to true to clear the post's category.
+    /// Mirrors the `category_id` field — omitted = no change, true =
+    /// clear, false = no change. Pairs with `category_id` so a single
+    /// payload can either set or clear without serde-with gymnastics.
+    #[serde(default)]
+    pub clear_category: bool,
+    /// FTS configuration name. Validated against the allowlist when
+    /// present. Omitting leaves the existing value alone.
+    #[serde(default)]
+    pub content_lang: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct PostCategoryRef {
+    pub id: Uuid,
+    pub slug: String,
+    pub name: String,
+    pub color: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -166,6 +196,7 @@ pub struct PostResponse {
     pub body: String,
     pub body_html: String,
     pub visibility: String,
+    pub content_lang: String,
     pub published_at: String,
     pub created_at: String,
     pub updated_at: String,
@@ -178,6 +209,14 @@ pub struct PostResponse {
     pub viewer_reaction_kinds: Vec<String>,
     /// Live (non-soft-deleted) comment count.
     pub comment_count: i64,
+    /// The post's category, or null when uncategorized. Includes slug +
+    /// color so PostCard can render the chip without a second fetch.
+    pub category: Option<PostCategoryRef>,
+    /// Up to three most-recent live comments on this post, newest-first.
+    /// Used by the feed PostCard to surface inline conversation context;
+    /// the permalink page renders the full thread separately and can
+    /// ignore this field.
+    pub top_comments: Vec<CommentResponse>,
 }
 
 #[derive(Serialize)]
@@ -222,8 +261,24 @@ fn build_post_response(
     author: Option<&user::Model>,
     media: Vec<post_media::Model>,
     engagement: PostEngagement,
+    category: Option<&category::Model>,
+    top_comment_authors: &HashMap<Uuid, user::Model>,
 ) -> PostResponse {
     let body_html = markdown::render_to_html(&row.body);
+    let category_ref = category.map(|c| PostCategoryRef {
+        id: c.id,
+        slug: c.slug.clone(),
+        name: c.name.clone(),
+        color: c.color.clone(),
+    });
+    let top_comments = engagement
+        .top_comments
+        .into_iter()
+        .map(|c| {
+            let cauthor = top_comment_authors.get(&c.user_id);
+            build_comment_response(c, cauthor)
+        })
+        .collect();
     PostResponse {
         id: row.id,
         author_id: row.author_id,
@@ -233,6 +288,7 @@ fn build_post_response(
         body: row.body,
         body_html,
         visibility: row.visibility,
+        content_lang: row.content_lang,
         published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
@@ -240,6 +296,8 @@ fn build_post_response(
         reaction_counts: engagement.reaction_counts,
         viewer_reaction_kinds: engagement.viewer_reaction_kinds,
         comment_count: engagement.comment_count,
+        category: category_ref,
+        top_comments,
     }
 }
 
@@ -303,6 +361,8 @@ async fn create_post(
     let mut visibility: String = post::VISIBILITY_PRIVATE.to_string();
     let mut published_at: Option<DateTime<Utc>> = None;
     let mut media: Vec<PendingMedia> = Vec::new();
+    let mut category_id: Option<Uuid> = None;
+    let mut content_lang: String = post::CONTENT_LANG_ENGLISH.to_string();
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
@@ -318,6 +378,26 @@ async fn create_post(
                 visibility = field.text().await.map_err(|e| {
                     AppError::ValidationError(format!("Failed to read visibility: {}", e))
                 })?;
+            }
+            "category_id" => {
+                let text = field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read category_id: {}", e))
+                })?;
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    category_id = Some(Uuid::parse_str(trimmed).map_err(|e| {
+                        AppError::ValidationError(format!("category_id must be a UUID: {}", e))
+                    })?);
+                }
+            }
+            "content_lang" => {
+                let text = field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read content_lang: {}", e))
+                })?;
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    content_lang = trimmed.to_string();
+                }
             }
             "published_at" => {
                 let text = field.text().await.map_err(|e| {
@@ -395,6 +475,21 @@ async fn create_post(
             visibility
         )));
     }
+    if !post::is_valid_content_lang(&content_lang) {
+        return Err(AppError::ValidationError(format!(
+            "Invalid content_lang '{}'",
+            content_lang
+        )));
+    }
+
+    if let Some(cid) = category_id {
+        let exists = Category::find_by_id(cid).one(&state.db).await?;
+        if exists.is_none() {
+            return Err(AppError::ValidationError(
+                "Category not found".to_string(),
+            ));
+        }
+    }
 
     let post_id = Uuid::new_v4();
     let now = Utc::now();
@@ -446,6 +541,8 @@ async fn create_post(
             import_source: Set(None),
             import_external_id: Set(None),
             deleted_at: Set(None),
+            category_id: Set(category_id),
+            content_lang: Set(content_lang),
             ..Default::default()
         }
         .insert(&txn)
@@ -491,6 +588,10 @@ async fn create_post(
     crate::metrics::POSTS_CREATED_TOTAL.inc();
     // Newly created post: no reactions or comments yet, so engagement is
     // the default zero state. Skip the lookup.
+    let cat = match post_row.category_id {
+        Some(cid) => Category::find_by_id(cid).one(&state.db).await?,
+        None => None,
+    };
     Ok((
         StatusCode::CREATED,
         Json(build_post_response(
@@ -498,6 +599,8 @@ async fn create_post(
             author.as_ref(),
             media_rows,
             PostEngagement::default(),
+            cat.as_ref(),
+            &HashMap::new(),
         )),
     ))
 }
@@ -597,11 +700,18 @@ async fn get_post(
     let mut engagement_map =
         fetch_engagement_for_posts(&state.db, &[row.id], viewer_id).await?;
     let engagement = engagement_map.remove(&row.id).unwrap_or_default();
+    let cat = match row.category_id {
+        Some(cid) => Category::find_by_id(cid).one(&state.db).await?,
+        None => None,
+    };
+    let comment_authors = load_top_comment_authors(&state.db, std::iter::once(&engagement)).await?;
     Ok(Json(build_post_response(
         row,
         author.as_ref(),
         media,
         engagement,
+        cat.as_ref(),
+        &comment_authors,
     )))
 }
 
@@ -639,13 +749,37 @@ async fn update_post(
             ));
         }
     }
+    if let Some(cid) = req.category_id {
+        let exists = Category::find_by_id(cid).one(&state.db).await?;
+        if exists.is_none() {
+            return Err(AppError::ValidationError(
+                "Category not found".to_string(),
+            ));
+        }
+    }
+    if let Some(ref lang) = req.content_lang {
+        if !post::is_valid_content_lang(lang) {
+            return Err(AppError::ValidationError(format!(
+                "Invalid content_lang '{}'",
+                lang
+            )));
+        }
+    }
 
     let mut active: post::ActiveModel = row.into();
+    if req.clear_category {
+        active.category_id = Set(None);
+    } else if let Some(cid) = req.category_id {
+        active.category_id = Set(Some(cid));
+    }
     if let Some(body) = req.body {
         active.body = Set(body);
     }
     if let Some(v) = req.visibility {
         active.visibility = Set(v);
+    }
+    if let Some(lang) = req.content_lang {
+        active.content_lang = Set(lang);
     }
     let updated = active.update(&state.db).await?;
 
@@ -658,11 +792,18 @@ async fn update_post(
     let mut engagement_map =
         fetch_engagement_for_posts(&state.db, &[updated.id], Some(user.id)).await?;
     let engagement = engagement_map.remove(&updated.id).unwrap_or_default();
+    let cat = match updated.category_id {
+        Some(cid) => Category::find_by_id(cid).one(&state.db).await?,
+        None => None,
+    };
+    let comment_authors = load_top_comment_authors(&state.db, std::iter::once(&engagement)).await?;
     Ok(Json(build_post_response(
         updated,
         author.as_ref(),
         media,
         engagement,
+        cat.as_ref(),
+        &comment_authors,
     )))
 }
 
@@ -706,6 +847,18 @@ pub struct FeedQuery {
     /// posts that are visible to them.
     #[serde(default)]
     pub author: Option<Uuid>,
+    /// Optional category filter (Phase 9e). Slug, not id, for nice URLs.
+    /// `?category=uncategorized` is reserved as a synthetic filter that
+    /// matches posts with `category_id IS NULL`.
+    #[serde(default)]
+    pub category: Option<String>,
+    /// Search term. Empty/whitespace = no filter.
+    #[serde(default)]
+    pub q: Option<String>,
+    /// Locale code (en/es/fr/zh/de) the search term is parsed under.
+    /// Defaults to English when omitted or unrecognized.
+    #[serde(default)]
+    pub lang: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -763,6 +916,45 @@ async fn feed(
 
     if let Some(author_id) = query.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));
+    }
+    // Phase 9e: ?category=<slug> filters by category. The synthetic
+    // `uncategorized` slug matches NULL category_id. An unknown slug
+    // returns an empty page (no error — the rail typically built the
+    // URL from a known slug, so a stale rail entry just renders empty).
+    if let Some(slug) = query.category.as_deref() {
+        let slug = slug.trim();
+        if slug == "uncategorized" {
+            q = q.filter(post::Column::CategoryId.is_null());
+        } else {
+            let cat = Category::find()
+                .filter(category::Column::Slug.eq(slug))
+                .one(&state.db)
+                .await?;
+            match cat {
+                Some(c) => q = q.filter(post::Column::CategoryId.eq(c.id)),
+                None => {
+                    // Force-empty result so callers see {posts: [], next_cursor: null}.
+                    return Ok(Json(FeedResponse {
+                        posts: vec![],
+                        next_cursor: None,
+                    }));
+                }
+            }
+        }
+    }
+
+    // Search filters on content_lang as well as the FTS predicate. The
+    // explicit language match prevents cross-language coincidences from
+    // stemmer overlap and shrinks the scan to the same-language subset
+    // before the GIN index does the per-token lookup.
+    if let Some(term) = query.q.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let lang = crate::posts::fts_config_for_locale(query.lang.as_deref());
+        q = q
+            .filter(post::Column::ContentLang.eq(lang))
+            .filter(Expr::cust_with_values(
+                "body_tsv @@ websearch_to_tsquery($1::regconfig, $2)",
+                [lang.to_string(), term.to_string()],
+            ));
     }
 
     if let Some(cursor) = query.cursor.as_deref().and_then(parse_cursor) {
@@ -835,13 +1027,35 @@ async fn feed(
     let mut engagement_by_post =
         fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, viewer_id).await?;
 
+    // Phase 9e: hydrate the page's categories in one batched query so the
+    // chip can render on each card without N+1.
+    let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
+    let categories_by_id: HashMap<Uuid, category::Model> = if category_ids.is_empty() {
+        HashMap::new()
+    } else {
+        Category::find()
+            .filter(category::Column::Id.is_in(category_ids))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|c| (c.id, c))
+            .collect()
+    };
+
+    // Hydrate authors of any top_comments returned by the engagement
+    // batch so each PostCard can render the inline conversation context
+    // with display name + avatar without N+1.
+    let top_comment_authors =
+        load_top_comment_authors(&state.db, engagement_by_post.values()).await?;
+
     let posts: Vec<PostResponse> = page
         .into_iter()
         .map(|row| {
             let author = authors_by_id.get(&row.author_id);
             let media = media_by_post.remove(&row.id).unwrap_or_default();
             let engagement = engagement_by_post.remove(&row.id).unwrap_or_default();
-            build_post_response(row, author, media, engagement)
+            let cat = row.category_id.and_then(|id| categories_by_id.get(&id));
+            build_post_response(row, author, media, engagement, cat, &top_comment_authors)
         })
         .collect();
 
@@ -849,6 +1063,33 @@ async fn feed(
 }
 
 // ==================== Helpers ====================
+
+/// Batch-fetch user rows for every author referenced by the `top_comments`
+/// in the given engagement entries. Returns a single map keyed by user_id
+/// so the response builder can hydrate display name + avatar without
+/// per-comment round trips.
+async fn load_top_comment_authors<'a, I>(
+    db: &DatabaseConnection,
+    engagement_iter: I,
+) -> AppResult<HashMap<Uuid, user::Model>>
+where
+    I: IntoIterator<Item = &'a PostEngagement>,
+{
+    let mut ids: Vec<Uuid> = engagement_iter
+        .into_iter()
+        .flat_map(|e| e.top_comments.iter().map(|c| c.user_id))
+        .collect();
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+    let rows = User::find()
+        .filter(user::Column::Id.is_in(ids))
+        .all(db)
+        .await?;
+    Ok(rows.into_iter().map(|u| (u.id, u)).collect())
+}
 
 async fn caller_tier(
     auth_session: &AuthSession<crate::admin::UserAuthBackend>,

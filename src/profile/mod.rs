@@ -24,6 +24,7 @@
 //! source of truth, used both at write time and (via the migration backfill)
 //! at first deployment.
 
+pub mod locale;
 pub mod routes;
 
 use crate::entities::{user, User};

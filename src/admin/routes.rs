@@ -185,7 +185,8 @@ async fn login(
         subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
     };
 
-    let (handle, avatar_url) = lookup_handle_and_avatar(&state, user.id).await;
+    let (handle, avatar_url, locale) =
+        lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -197,6 +198,7 @@ async fn login(
         role: user.role,
         handle,
         avatar_url,
+        locale,
         features,
     }))
 }
@@ -261,6 +263,11 @@ struct UserResponse {
     /// Caller's avatar URL (`/avatars/{user_id}` when set, else None).
     /// Same rationale as `handle`.
     avatar_url: Option<String>,
+    /// Saved UI locale (Phase 11e). NULL when the user has never explicitly
+    /// chosen one — the frontend's i18next browser-language detector
+    /// fills the gap. Surfaced here so AuthContext can sync `i18n.changeLanguage`
+    /// once on first login.
+    locale: Option<String>,
     features: FeatureFlags,
 }
 
@@ -290,7 +297,8 @@ async fn me(
         subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
     };
 
-    let (handle, avatar_url) = lookup_handle_and_avatar(&state, user.id).await;
+    let (handle, avatar_url, locale) =
+        lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -302,6 +310,7 @@ async fn me(
         role: user.role,
         handle,
         avatar_url,
+        locale,
         features,
     }))
 }
@@ -311,16 +320,17 @@ async fn me(
 /// block the response: the caller is already authenticated, and the
 /// missing fields just mean the social-frontend's avatar dropdown falls
 /// back to its initials path.
-async fn lookup_handle_and_avatar(
+async fn lookup_handle_avatar_locale(
     state: &AdminState,
     user_id: uuid::Uuid,
-) -> (Option<String>, Option<String>) {
+) -> (Option<String>, Option<String>, Option<String>) {
     match state.auth_backend.get_admin_by_id(user_id).await {
         Ok(Some(model)) => (
             Some(model.handle.clone()),
             crate::profile::avatar_url_for(&model),
+            model.locale.clone(),
         ),
-        _ => (None, None),
+        _ => (None, None, None),
     }
 }
 

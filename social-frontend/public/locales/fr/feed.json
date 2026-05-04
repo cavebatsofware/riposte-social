@@ -1,0 +1,98 @@
+{
+  "fallbackAuthor": "Membre",
+  "post": {
+    "notFound": "Publication introuvable.",
+    "loadFailed": "Échec du chargement de la publication",
+    "deleteConfirm": "Supprimer cette publication ? Cette action est irréversible.",
+    "deleteFailed": "Échec de la suppression de la publication"
+  },
+  "feed": {
+    "loadFailed": "Échec du chargement du fil",
+    "loadingAria": "Chargement du fil",
+    "anonInviteOnly": "Ce site est sur invitation uniquement.",
+    "anonInviteOnlyHint": "<sign>Connectez-vous</sign> si vous avez une invitation, ou revenez plus tard si un ami vous en partage une.",
+    "anonNothingShared": "Rien n'a encore été partagé publiquement.",
+    "anonNothingSharedHint": "Revenez plus tard, ou <sign>connectez-vous</sign> si vous avez une invitation.",
+    "composeEmpty": "Aucune publication pour l'instant.",
+    "composeEmptyHint": "<compose>Rédigez quelque chose</compose> pour commencer.",
+    "noPostsYet": "Aucune publication à afficher pour l'instant. Revenez plus tard.",
+    "searchPlaceholder": "Rechercher des publications en {{language}}…",
+    "searchSubmitAria": "Rechercher",
+    "searchClearAria": "Effacer la recherche",
+    "noResultsFor": "Aucune publication en {{language}} ne correspond à « {{query}} ».",
+    "clearSearch": "Effacer la recherche"
+  },
+  "visibility": {
+    "private": {
+      "name": "Privé",
+      "desc": "Vous seul pouvez voir ceci"
+    },
+    "public": {
+      "name": "Public",
+      "desc": "Toute personne disposant du lien"
+    },
+    "commenters": {
+      "name": "Commentateurs",
+      "desc": "Amis disposant d'une invitation"
+    },
+    "posters": {
+      "name": "Auteurs",
+      "desc": "Auteurs de la famille uniquement"
+    },
+    "menuFailed": "Échec de la mise à jour de la visibilité"
+  },
+  "postCard": {
+    "actionsAria": "Actions sur la publication",
+    "recentCommentsAria": "Commentaires récents",
+    "videoFallback": "Votre navigateur ne prend pas en charge la lecture vidéo intégrée.",
+    "openMediaAria": "Ouvrir l'élément {{index}}",
+    "commentCount_one": "{{count}} commentaire",
+    "commentCount_other": "{{count}} commentaires",
+    "viewMore_one": "Voir {{count}} commentaire de plus",
+    "viewMore_other": "Voir {{count}} commentaires de plus"
+  },
+  "comments": {
+    "title": "Commentaires",
+    "titleWithCount": "Commentaires ({{count}})",
+    "empty": "Aucun commentaire pour l'instant.",
+    "loadFailed": "Échec du chargement des commentaires",
+    "submitFailed": "Échec de la publication du commentaire",
+    "deleteConfirm": "Supprimer ce commentaire ? Cette action est irréversible.",
+    "deleteFailed": "Échec de la suppression du commentaire",
+    "editFailed": "Échec de l'enregistrement de la modification",
+    "signInPrompt": "Connectez-vous pour rejoindre la conversation.",
+    "edited": "(modifié)",
+    "editedTitle": "Modifié {{when}}",
+    "editAria": "Modifier le commentaire",
+    "deleteAria": "Supprimer le commentaire",
+    "compose": {
+      "label": "Ajouter un commentaire",
+      "placeholder": "Markdown est pris en charge.",
+      "charCount": "{{current}}/{{max}} caractères",
+      "submit": "Publier le commentaire",
+      "submitting": "Publication…"
+    },
+    "editor": {
+      "modeAria": "Mode de l'éditeur",
+      "tabWrite": "Écrire",
+      "tabPreview": "Aperçu",
+      "previewEmpty": "Rien à prévisualiser pour l'instant."
+    }
+  },
+  "reactions": {
+    "react": "Réagir",
+    "reactedWith": "Réagi avec {{kind}}",
+    "pickerAria": "Choisir une réaction",
+    "reactWithAria": "Réagir avec {{kind}}",
+    "summaryAria_one": "{{count}} réaction",
+    "summaryAria_other": "{{count}} réactions",
+    "kind": {
+      "like": "J'aime",
+      "love": "J'adore",
+      "haha": "Haha",
+      "wow": "Wouah",
+      "sad": "Triste",
+      "angry": "Grrr"
+    }
+  }
+}

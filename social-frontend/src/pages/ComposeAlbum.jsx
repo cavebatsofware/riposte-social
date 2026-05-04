@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
@@ -34,10 +35,14 @@ export default function ComposeAlbum() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
+  const { t } = useTranslation("compose");
+  const { t: tCommon } = useTranslation("common");
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState("private");
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState([]);
   // For create flow only — pending unsaved files with optional captions.
   // Shape: [{ file, previewUrl, caption }]
   const [pendingFiles, setPendingFiles] = useState([]);
@@ -53,17 +58,39 @@ export default function ComposeAlbum() {
 
   // Edit-mode load.
   useEffect(() => {
+    let cancelled = false;
+    async function loadCategories() {
+      try {
+        const response = await fetchApi("/api/categories");
+        if (response.ok) {
+          const data = await response.json();
+          if (!cancelled) setCategories(data.categories || []);
+        }
+      } catch {
+        // not fatal — picker just hides
+      }
+    }
+    loadCategories();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!editId) return;
     let cancelled = false;
     async function load() {
       try {
         const response = await fetchApi(`/api/albums/${editId}`);
-        if (!response.ok) throw new Error("Failed to load album for editing");
+        if (!response.ok) throw new Error(t("album.loadFailed"));
         const data = await response.json();
         if (!cancelled) {
           setName(data.name);
           setDescription(data.description || "");
           setVisibility(data.visibility);
+          // The album response doesn't currently expose `category` like
+          // posts do; fall back to the raw category_id when present.
+          setCategoryId(data.category_id || "");
           setExistingMedia(
             data.media.map((m) => ({
               id: m.id,
@@ -100,7 +127,7 @@ export default function ComposeAlbum() {
   if (authLoading || loadingExisting) {
     return (
       <Layout>
-        <p className="muted">Loading…</p>
+        <p className="muted">{tCommon("loading")}</p>
       </Layout>
     );
   }
@@ -111,7 +138,7 @@ export default function ComposeAlbum() {
   ) {
     return (
       <Layout>
-        <div className="alert alert-error">Album creation is currently disabled.</div>
+        <div className="alert alert-error">{t("album.disabledShort")}</div>
       </Layout>
     );
   }
@@ -122,20 +149,23 @@ export default function ComposeAlbum() {
     const accepted = [];
     for (const f of incoming) {
       if (accepted.length >= remaining) {
-        setError(`At most ${MAX_MEDIA} items per album.`);
+        setError(t("album.errorTooMany", { max: MAX_MEDIA }));
         break;
       }
       if (!ACCEPTED_MIME.includes(f.type)) {
-        setError(
-          `Unsupported file type '${f.type}'. Images (JPEG/PNG/GIF/WebP) or videos (MP4/WebM).`,
-        );
+        setError(t("attachments.errorUnsupported", { type: f.type }));
         continue;
       }
       const cap = maxBytesFor(f.type);
       if (f.size > cap) {
         const isVideo = ACCEPTED_VIDEO_MIME.includes(f.type);
         setError(
-          `File '${f.name}' exceeds the ${isVideo ? "100 MB" : "10 MB"} per-file limit.`,
+          t(
+            isVideo
+              ? "attachments.errorTooLargeAlbumVideo"
+              : "attachments.errorTooLargeAlbumImage",
+            { name: f.name },
+          ),
         );
         continue;
       }
@@ -176,7 +206,7 @@ export default function ComposeAlbum() {
   async function deleteExistingMedia(idx) {
     const target = existingMedia[idx];
     if (!target) return;
-    if (!window.confirm("Remove this item from the album?")) return;
+    if (!window.confirm(t("album.removeItemConfirm"))) return;
     try {
       const response = await fetchApi(
         `/api/albums/${editId}/media/${target.id}`,
@@ -184,7 +214,7 @@ export default function ComposeAlbum() {
       );
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to remove item");
+        throw new Error(data.error || t("album.removeItemFailed"));
       }
       setExistingMedia((prev) => prev.filter((_, i) => i !== idx));
     } catch (err) {
@@ -197,7 +227,7 @@ export default function ComposeAlbum() {
     setError("");
     setSuccess("");
     if (!name.trim()) {
-      setError("Name is required.");
+      setError(t("album.nameRequired"));
       return;
     }
     setSubmitting(true);
@@ -208,6 +238,7 @@ export default function ComposeAlbum() {
         form.append("name", name);
         if (description.trim()) form.append("description", description);
         form.append("visibility", visibility);
+        if (categoryId) form.append("category_id", categoryId);
         pendingFiles.forEach((f, i) => {
           form.append("media", f.file, f.file.name);
           if (f.caption.trim()) form.append(`caption_${i}`, f.caption);
@@ -218,19 +249,24 @@ export default function ComposeAlbum() {
         });
         if (!response.ok) {
           const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to create album");
+          throw new Error(data.error || t("album.createFailed"));
         }
         const data = await response.json();
         navigate(`/album/${data.id}`, { replace: true });
         return;
       }
       // Edit: stage of patches.
-      // 1) PATCH metadata (name/desc/visibility) if any changed.
+      // 1) PATCH metadata (name/desc/visibility/category) if any changed.
       const patchBody = {
         name,
         description: description,
         visibility,
       };
+      if (categoryId) {
+        patchBody.category_id = categoryId;
+      } else {
+        patchBody.clear_category = true;
+      }
       const patchResp = await fetchApi(`/api/albums/${editId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -238,7 +274,7 @@ export default function ComposeAlbum() {
       });
       if (!patchResp.ok) {
         const data = await patchResp.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to update album");
+        throw new Error(data.error || t("album.updateFailed"));
       }
       // 2) PATCH dirty caption changes one at a time.
       for (const m of existingMedia) {
@@ -253,7 +289,7 @@ export default function ComposeAlbum() {
         );
         if (!r.ok) {
           const data = await r.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to update caption");
+          throw new Error(data.error || t("album.captionUpdateFailed"));
         }
       }
       // 3) POST new media if any pendingFiles exist.
@@ -269,7 +305,7 @@ export default function ComposeAlbum() {
         });
         if (!r.ok) {
           const data = await r.json().catch(() => ({}));
-          throw new Error(data.error || "Failed to upload new media");
+          throw new Error(data.error || t("album.uploadMoreFailed"));
         }
       }
       navigate(`/album/${editId}`, { replace: true });
@@ -291,17 +327,19 @@ export default function ComposeAlbum() {
   return (
     <Layout>
       <Link to="/" className="post-back-link">
-        ← Back to feed
+        {t("backToFeed")}
       </Link>
 
       <form className="compose-card" onSubmit={handleSubmit}>
-        <h2 className="compose-title">{editId ? "Edit album" : "New album"}</h2>
+        <h2 className="compose-title">
+          {editId ? t("album.editTitle") : t("album.newTitle")}
+        </h2>
 
         {error && <div className="alert alert-error">{error}</div>}
         {success && <div className="alert alert-success">{success}</div>}
 
         <div className="compose-field">
-          <label htmlFor="album-name">Name</label>
+          <label htmlFor="album-name">{t("album.nameLabel")}</label>
           <input
             id="album-name"
             type="text"
@@ -310,12 +348,12 @@ export default function ComposeAlbum() {
             onChange={(e) => setName(e.target.value)}
             required
             maxLength={150}
-            placeholder="Album name"
+            placeholder={t("album.namePlaceholder")}
           />
         </div>
 
         <div className="compose-field">
-          <label htmlFor="album-description">Description (optional)</label>
+          <label htmlFor="album-description">{t("album.descLabel")}</label>
           <textarea
             id="album-description"
             className="compose-textarea-short"
@@ -323,15 +361,37 @@ export default function ComposeAlbum() {
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={1000}
-            placeholder="A few words about this album."
+            placeholder={t("album.descPlaceholder")}
           />
         </div>
 
         <VisibilityPicker value={visibility} onChange={setVisibility} />
 
+        <div className="compose-field">
+          <label htmlFor="album-category">{t("category.label")}</label>
+          <select
+            id="album-category"
+            className="compose-input"
+            value={categoryId}
+            onChange={(e) => setCategoryId(e.target.value)}
+          >
+            <option value="">{t("category.uncategorized")}</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          {categories.length === 0 && (
+            <p className="form-hint">{t("category.empty")}</p>
+          )}
+        </div>
+
         {existingMedia.length > 0 && (
           <div className="compose-field">
-            <label>Existing items ({existingMedia.length})</label>
+            <label>
+              {t("album.existingItems", { count: existingMedia.length })}
+            </label>
             <div className="album-edit-grid">
               {existingMedia.map((m, idx) => (
                 <div key={m.id} className="album-edit-item">
@@ -347,7 +407,7 @@ export default function ComposeAlbum() {
                     className="album-edit-caption"
                     value={m.caption}
                     onChange={(e) => setExistingCaption(idx, e.target.value)}
-                    placeholder="Caption"
+                    placeholder={t("album.captionPlaceholder")}
                     maxLength={500}
                   />
                   <button
@@ -355,7 +415,7 @@ export default function ComposeAlbum() {
                     className="btn-secondary album-edit-remove"
                     onClick={() => deleteExistingMedia(idx)}
                   >
-                    Remove
+                    {tCommon("actions.remove")}
                   </button>
                 </div>
               ))}
@@ -364,7 +424,7 @@ export default function ComposeAlbum() {
         )}
 
         <div className="compose-field">
-          <label>{editId ? "Add more items" : "Items"}</label>
+          <label>{editId ? t("album.addMore") : t("album.items")}</label>
           <div
             className={`dropzone ${dragActive ? "drag-active" : ""}`}
             onDragEnter={(e) => {
@@ -388,10 +448,10 @@ export default function ComposeAlbum() {
             tabIndex={0}
           >
             <p className="dropzone-prompt">
-              Drop images or videos here, or click to browse
+              {t("attachments.dropzonePrompt")}
             </p>
             <p className="dropzone-meta">
-              Up to {MAX_MEDIA} items per album · 10 MB image / 100 MB video each
+              {t("attachments.dropzoneMetaAlbum", { max: MAX_MEDIA })}
             </p>
             <input
               ref={fileInputRef}
@@ -427,7 +487,7 @@ export default function ComposeAlbum() {
                     className="album-edit-caption"
                     value={f.caption}
                     onChange={(e) => setPendingCaption(i, e.target.value)}
-                    placeholder="Caption"
+                    placeholder={t("album.captionPlaceholder")}
                     maxLength={500}
                   />
                   <button
@@ -435,7 +495,7 @@ export default function ComposeAlbum() {
                     className="btn-secondary album-edit-remove"
                     onClick={() => removePending(i)}
                   >
-                    Remove
+                    {tCommon("actions.remove")}
                   </button>
                 </div>
               ))}
@@ -445,20 +505,25 @@ export default function ComposeAlbum() {
 
         <div className="compose-footer">
           <span className="form-hint">
-            {editId
-              ? "Saving will update the album immediately."
-              : "Saving will publish immediately."}
+            {editId ? t("album.editHint") : t("album.publishHint")}
           </span>
           <div className="compose-footer-actions">
-            <Link to={editId ? `/album/${editId}` : "/"} className="btn-secondary">
-              Cancel
+            <Link
+              to={editId ? `/album/${editId}` : "/"}
+              className="btn-secondary"
+            >
+              {tCommon("actions.cancel")}
             </Link>
             <button
               type="submit"
               className="btn-primary"
               disabled={submitting || !name.trim()}
             >
-              {submitting ? "Saving…" : editId ? "Save changes" : "Create album"}
+              {submitting
+                ? tCommon("actions.saving")
+                : editId
+                  ? t("post.saveCta")
+                  : t("album.createCta")}
             </button>
           </div>
         </div>

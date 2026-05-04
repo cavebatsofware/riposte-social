@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 
@@ -14,11 +15,12 @@ import { fetchApi } from "../utils/api";
 /// successful password acceptance (OIDC redirects away).
 export default function InviteAcceptForm({ invite, onAccepted }) {
   const { authConfig } = useAuth();
+  const { t } = useTranslation("auth");
 
   if (authConfig.oidcEnabled) {
     return (
       <a className="btn-primary invite-splash-cta" href="/api/auth/oidc/login">
-        Sign in to accept
+        {t("invite.form.ssoCta")}
       </a>
     );
   }
@@ -30,6 +32,7 @@ function PasswordAccept({ invite, onAccepted }) {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation("auth");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -47,7 +50,7 @@ function PasswordAccept({ invite, onAccepted }) {
       });
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Failed to accept invite");
+        throw new Error(data.error || t("invite.form.submitFailed"));
       }
       if (onAccepted) {
         await onAccepted();
@@ -62,16 +65,18 @@ function PasswordAccept({ invite, onAccepted }) {
   return (
     <form onSubmit={handleSubmit} className="invite-splash-form">
       {error && <div className="alert alert-error">{error}</div>}
-      <label htmlFor="invite-accept-email">Email</label>
+      <label htmlFor="invite-accept-email">{t("invite.form.emailLabel")}</label>
       <input
         id="invite-accept-email"
         type="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="you@example.com"
+        placeholder={t("invite.form.emailPlaceholder")}
       />
-      <label htmlFor="invite-accept-password">Choose a password</label>
+      <label htmlFor="invite-accept-password">
+        {t("invite.form.passwordLabel")}
+      </label>
       <input
         id="invite-accept-password"
         type="password"
@@ -79,10 +84,10 @@ function PasswordAccept({ invite, onAccepted }) {
         minLength={12}
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-        placeholder="Minimum 12 characters"
+        placeholder={t("invite.form.passwordPlaceholder")}
       />
       <button type="submit" className="btn-primary" disabled={submitting}>
-        {submitting ? "Accepting..." : "Accept invite"}
+        {submitting ? t("invite.form.submitting") : t("invite.form.submit")}
       </button>
     </form>
   );

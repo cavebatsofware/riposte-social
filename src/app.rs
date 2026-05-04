@@ -16,6 +16,7 @@
 use crate::admin::{self, UserAuthBackend};
 use crate::albums;
 use crate::auth;
+use crate::categories;
 use crate::email::EmailService;
 use crate::engagement;
 use crate::entities::{access_code, AccessCode};
@@ -519,6 +520,21 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(albums_state)
         .layer(auth_layer.clone());
 
+    // Categories (Phase 9e). Public list is readable by anyone (used by
+    // the social-frontend's left rail); CRUD is admin-only.
+    let categories_state = categories::routes::CategoriesState {
+        db: state.db.clone(),
+    };
+    let public_category_routes = categories::routes::public_category_routes()
+        .with_state(categories_state.clone())
+        .layer(auth_layer.clone());
+    let admin_category_routes = categories::routes::admin_category_routes()
+        .with_state(categories_state)
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+
     // Profile: self-service writes for the authenticated viewer; public
     // reads for profile pages and avatar serving.
     let profile_state = profile::routes::ProfileState {
@@ -609,6 +625,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(post_read_routes)
         .merge(album_write_routes)
         .merge(album_read_routes)
+        .merge(public_category_routes)
+        .merge(admin_category_routes)
         .merge(me_profile_routes)
         .merge(public_profile_routes)
         .merge(engagement_write_routes)

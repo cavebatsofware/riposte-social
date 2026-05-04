@@ -1,0 +1,64 @@
+{
+  "siteName": "Riposte Social",
+  "skipToContent": "Aller au contenu",
+  "homeAria": "Accueil Riposte Social",
+  "primaryNav": "Principale",
+  "openMenu": "Ouvrir le menu",
+  "closeMenu": "Fermer le menu",
+  "menuTitle": "Menu",
+  "loading": "Chargement…",
+  "loadMore": "Charger plus",
+  "backToFeed": "← Retour au fil",
+  "actions": {
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "saving": "Enregistrement…",
+    "edit": "Modifier",
+    "delete": "Supprimer",
+    "deleting": "Suppression…",
+    "remove": "Retirer"
+  },
+  "nav": {
+    "feed": "Fil",
+    "compose": "Rédiger",
+    "newAlbum": "Nouvel album"
+  },
+  "auth": {
+    "signIn": "Se connecter",
+    "signOut": "Se déconnecter"
+  },
+  "userMenu": {
+    "openAria": "Ouvrir le menu de compte",
+    "viewProfile": "Voir le profil",
+    "settings": "Paramètres",
+    "fallbackName": "Compte"
+  },
+  "theme": {
+    "title": "Thème",
+    "toggleAria": "Choisir un thème",
+    "dialogAria": "Choisir un thème",
+    "colorwayAria": "Coloris",
+    "modeAria": "Clair ou sombre",
+    "colorways": {
+      "forest": "Forêt et crème",
+      "warm": "Éditorial chaleureux",
+      "plum": "Prune et abricot",
+      "avernus": "Averne et nuages",
+      "mineral": "Roches et minéraux"
+    },
+    "mode": {
+      "light": "Clair",
+      "dark": "Sombre"
+    }
+  },
+  "language": {
+    "toggleAria": "Changer la langue",
+    "title": "Langue",
+    "menuAria": "Choisir une langue"
+  },
+  "cookieBanner": {
+    "regionLabel": "Avis sur les cookies",
+    "text": "Riposte Social utilise des cookies strictement nécessaires à la connexion et à la sécurité. Nous n'utilisons pas de cookies de suivi, d'analytique ni publicitaires.",
+    "ack": "OK"
+  }
+}

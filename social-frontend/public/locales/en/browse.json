@@ -1,0 +1,61 @@
+{
+  "rail": {
+    "browseAria": "Browse",
+    "categoriesGroup": "Categories",
+    "albumsGroup": "Albums",
+    "peopleGroup": "People",
+    "showAllCategories": "Show all categories →",
+    "showAllAlbums": "Show all albums →",
+    "showAllPeople": "Show all people →",
+    "searchCategoriesPlaceholder": "Search categories…",
+    "searchAlbumsPlaceholder": "Search albums…",
+    "searchPeoplePlaceholder": "Search people…",
+    "noCategories": "No categories yet.",
+    "noAlbums": "No albums yet.",
+    "noPeople": "No other members yet.",
+    "allPosts": "All posts"
+  },
+  "categories": {
+    "pageTitle": "Categories",
+    "loadFailed": "Failed to load categories",
+    "allPosts": "All posts",
+    "uncategorized": "Uncategorized"
+  },
+  "albums": {
+    "pageTitle": "Albums",
+    "loadFailed": "Failed to load albums",
+    "empty": "No albums yet.",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items"
+  },
+  "people": {
+    "pageTitle": "People",
+    "loadFailed": "Failed to load people",
+    "empty": "No other members yet."
+  },
+  "album": {
+    "notFound": "Album not found.",
+    "loadFailed": "Failed to load album",
+    "deleteConfirm": "Delete this album? This can't be undone.",
+    "deleteFailed": "Failed to delete album",
+    "fallbackAuthor": "Member",
+    "noItems": "This album has no items yet.",
+    "edit": "Edit album",
+    "itemAria": "Item {{index}}"
+  },
+  "profile": {
+    "notFound": "Profile not found.",
+    "loadFailed": "Failed to load profile",
+    "postsHeading": "Posts",
+    "postsLoadFailed": "Failed to load posts",
+    "postsEmpty": "Nothing to show.",
+    "loadingPostsAria": "Loading posts",
+    "edit": "Edit profile"
+  },
+  "lightbox": {
+    "viewerAria": "Media viewer",
+    "close": "Close viewer",
+    "prev": "Previous",
+    "next": "Next"
+  }
+}

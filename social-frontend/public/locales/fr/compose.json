@@ -1,0 +1,79 @@
+{
+  "backToFeed": "← Retour au fil",
+  "composingAs": "Rédaction par {{name}} · {{role}}",
+  "role": {
+    "administrator": "Administrateur",
+    "poster": "Auteur"
+  },
+  "post": {
+    "editTitle": "Modifier la publication",
+    "newTitle": "Nouvelle publication",
+    "loadingExisting": "Chargement de la publication…",
+    "loadFailed": "Échec du chargement de la publication à modifier",
+    "saveFailed": "Échec de l'enregistrement de la publication",
+    "bodyEmpty": "Le contenu de la publication ne peut pas être vide.",
+    "disabledNotice": "Un administrateur a temporairement désactivé la publication. Les publications existantes ne sont pas affectées.",
+    "publishHint": "L'enregistrement publiera immédiatement.",
+    "editHint": "L'enregistrement mettra à jour la publication immédiatement.",
+    "publishCta": "Publier",
+    "saveCta": "Enregistrer les modifications"
+  },
+  "album": {
+    "editTitle": "Modifier l'album",
+    "newTitle": "Nouvel album",
+    "loadFailed": "Échec du chargement de l'album à modifier",
+    "createFailed": "Échec de la création de l'album",
+    "updateFailed": "Échec de la mise à jour de l'album",
+    "captionUpdateFailed": "Échec de la mise à jour de la légende",
+    "uploadMoreFailed": "Échec de l'envoi de nouveaux médias",
+    "removeItemFailed": "Échec du retrait de l'élément",
+    "removeItemConfirm": "Retirer cet élément de l'album ?",
+    "nameRequired": "Le nom est requis.",
+    "nameLabel": "Nom",
+    "namePlaceholder": "Nom de l'album",
+    "descLabel": "Description (facultatif)",
+    "descPlaceholder": "Quelques mots sur cet album.",
+    "createCta": "Créer l'album",
+    "addMore": "Ajouter d'autres éléments",
+    "items": "Éléments",
+    "existingItems_one": "Élément existant ({{count}})",
+    "existingItems_other": "Éléments existants ({{count}})",
+    "captionPlaceholder": "Légende",
+    "disabledShort": "La création d'album est actuellement désactivée.",
+    "publishHint": "L'enregistrement publiera immédiatement.",
+    "editHint": "L'enregistrement mettra à jour l'album immédiatement.",
+    "errorTooMany": "{{max}} éléments maximum par album."
+  },
+  "category": {
+    "label": "Catégorie",
+    "uncategorized": "Sans catégorie",
+    "empty": "Aucune catégorie définie pour l'instant. Les administrateurs peuvent les ajouter dans l'interface d'administration."
+  },
+  "body": {
+    "label": "Contenu (Markdown)",
+    "placeholder": "À quoi pensez-vous ?\n\n**Gras**, *italique*, [liens](https://example.com) et ![images](url) fonctionnent.",
+    "hint": "Markdown est rendu côté serveur. Les images et les liens sont pris en charge nativement. Le HTML est nettoyé.",
+    "previewLabel": "Aperçu",
+    "previewEmpty": "L'aperçu en direct s'affichera ici."
+  },
+  "attachments": {
+    "label": "Pièces jointes",
+    "dropzonePrompt": "Déposez des images ou des vidéos ici, ou cliquez pour parcourir",
+    "dropzoneMeta": "Images (JPEG/PNG/GIF/WebP, 10 Mo chacune) ou vidéos (MP4/WebM, 100 Mo chacune) · jusqu'à {{max}} fichiers",
+    "dropzoneMetaAlbum": "Jusqu'à {{max}} éléments par album · 10 Mo par image / 100 Mo par vidéo",
+    "removeAria": "Retirer {{name}}",
+    "errorTooMany": "{{max}} pièces jointes maximum par publication.",
+    "errorUnsupported": "Type de fichier non pris en charge « {{type}} ». Images (JPEG/PNG/GIF/WebP) ou vidéos (MP4/WebM).",
+    "errorTooLargeVideo": "Le fichier « {{name}} » dépasse la limite de 100 Mo par fichier vidéo.",
+    "errorTooLargeImage": "Le fichier « {{name}} » dépasse la limite de 10 Mo par fichier image.",
+    "errorTooLargeAlbumVideo": "Le fichier « {{name}} » dépasse la limite de 100 Mo par fichier.",
+    "errorTooLargeAlbumImage": "Le fichier « {{name}} » dépasse la limite de 10 Mo par fichier."
+  },
+  "visibility": {
+    "legend": "Visibilité"
+  },
+  "contentLang": {
+    "label": "Langue",
+    "hint": "Sert à tokeniser la publication pour la recherche."
+  }
+}

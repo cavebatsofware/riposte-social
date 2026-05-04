@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import InviteAcceptForm from "../components/InviteAcceptForm";
@@ -19,18 +20,22 @@ export default function InviteAccept() {
   const [invite, setInvite] = useState(null);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { t } = useTranslation("auth");
 
   if (user) {
     return (
       <Layout>
         <div className="invite-accept-card">
-          <h1>You're already signed in</h1>
+          <h1>{t("invite.alreadySignedInTitle")}</h1>
           <p>
-            Signed in as <strong>{user.email}</strong>. If this invite link
-            was meant for someone else, sign out first and reopen it.
+            <Trans
+              i18nKey="auth:invite.alreadySignedInBody"
+              values={{ email: user.email }}
+              components={{ bold: <strong /> }}
+            />
           </p>
           <Link to="/" className="btn-primary">
-            Go to feed
+            {t("invite.goToFeed")}
           </Link>
         </div>
       </Layout>
@@ -47,7 +52,7 @@ export default function InviteAccept() {
         body: JSON.stringify({ code }),
       });
       if (!response.ok) {
-        throw new Error("Could not confirm the invite. Please try again.");
+        throw new Error(t("invite.confirmFailed"));
       }
       const data = await response.json();
       if (data == null) {
@@ -68,28 +73,19 @@ export default function InviteAccept() {
       <div className="invite-accept-card">
         {step === "gate" && (
           <>
-            <h1>You've been invited</h1>
+            <h1>{t("invite.youHaveBeenInvitedTitle")}</h1>
             <p>
-              Welcome to <strong>Riposte Social</strong>. To complete your
-              invite we need to save the code on this device for the duration
-              of sign-in.
+              <Trans
+                i18nKey="auth:invite.welcomeBlurb"
+                components={{ bold: <strong /> }}
+              />
             </p>
 
-            <h2>Are you on a trusted device?</h2>
-            <p className="muted">
-              If this is a shared or public computer (library, kiosk, friend's
-              phone), please open the invite link on your own device instead.
-              The code will stay in the URL bar of this browser; once you
-              navigate away or close the tab, no trace remains.
-            </p>
+            <h2>{t("invite.trustedDeviceTitle")}</h2>
+            <p className="muted">{t("invite.trustedDeviceBody")}</p>
 
-            <h2>Cookie notice</h2>
-            <p className="muted">
-              Riposte Social uses cookies that are strictly necessary for
-              authentication, security (CSRF protection), and for invited
-              users saving your invite state across sign-in. We do not use
-              tracking, analytics, or advertising cookies.
-            </p>
+            <h2>{t("invite.cookieNoticeTitle")}</h2>
+            <p className="muted">{t("invite.cookieNoticeBody")}</p>
 
             {error && <div className="alert alert-error">{error}</div>}
 
@@ -100,7 +96,9 @@ export default function InviteAccept() {
                 onClick={handleConsent}
                 disabled={submitting}
               >
-                {submitting ? "Confirming..." : "Yes, this is my device"}
+                {submitting
+                  ? t("invite.confirming")
+                  : t("invite.trustedYes")}
               </button>
               <button
                 type="button"
@@ -108,7 +106,7 @@ export default function InviteAccept() {
                 onClick={() => setStep("declined")}
                 disabled={submitting}
               >
-                No, public/shared device
+                {t("invite.trustedNo")}
               </button>
             </div>
           </>
@@ -116,13 +114,17 @@ export default function InviteAccept() {
 
         {step === "accepting" && invite && (
           <>
-            <h1>Accept your invite</h1>
+            <h1>{t("invite.acceptTitle")}</h1>
             {invite.email_hint ? (
               <p>
-                This invite is for <strong>{invite.email_hint}</strong>.
+                <Trans
+                  i18nKey="auth:invite.acceptForRecipient"
+                  values={{ email: invite.email_hint }}
+                  components={{ bold: <strong /> }}
+                />
               </p>
             ) : (
-              <p>Sign in to join the conversation.</p>
+              <p>{t("invite.acceptGeneric")}</p>
             )}
             <InviteAcceptForm
               invite={invite}
@@ -135,28 +137,20 @@ export default function InviteAccept() {
 
         {step === "declined" && (
           <>
-            <h1>Open this link on your own device</h1>
-            <p>
-              No invite state has been saved on this browser. To accept,
-              forward the link from your email to a private device and open
-              it there.
-            </p>
+            <h1>{t("invite.declinedTitle")}</h1>
+            <p>{t("invite.declinedBody")}</p>
             <Link to="/" className="btn-secondary">
-              Continue to public feed
+              {t("invite.continueToFeed")}
             </Link>
           </>
         )}
 
         {step === "invalid" && (
           <>
-            <h1>Invite not available</h1>
-            <p>
-              This invite is no longer valid. It may have expired, been
-              revoked, or already been used. Ask the person who invited you
-              to issue a new one.
-            </p>
+            <h1>{t("invite.invalidTitle")}</h1>
+            <p>{t("invite.invalidBody")}</p>
             <Link to="/" className="btn-secondary">
-              Continue to public feed
+              {t("invite.continueToFeed")}
             </Link>
           </>
         )}

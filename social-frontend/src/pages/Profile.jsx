@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import { recordPersonVisit } from "../utils/browseHistory";
 import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
 import SkeletonCard from "../components/SkeletonCard";
@@ -29,6 +31,8 @@ export default function Profile() {
   const [hasMore, setHasMore] = useState(false);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState("");
+  const { t } = useTranslation("browse");
+  const { t: tCommon } = useTranslation("common");
 
   useEffect(() => {
     let cancelled = false;
@@ -42,15 +46,20 @@ export default function Profile() {
         if (response.status === 404 || response.status === 401) {
           if (!cancelled) {
             setProfile(null);
-            setProfileError("Profile not found.");
+            setProfileError(t("profile.notFound"));
           }
           return;
         }
         if (!response.ok) {
-          throw new Error("Failed to load profile");
+          throw new Error(t("profile.loadFailed"));
         }
         const data = await response.json();
-        if (!cancelled) setProfile(data);
+        if (!cancelled) {
+          setProfile(data);
+          if (!viewer || viewer.id !== data.user_id) {
+            recordPersonVisit(data.handle);
+          }
+        }
       } catch (err) {
         if (!cancelled) setProfileError(err.message);
       } finally {
@@ -61,7 +70,7 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [handle]);
+  }, [handle, viewer]);
 
   const authorId = profile?.user_id;
   const loadPostsPage = useCallback(
@@ -75,7 +84,7 @@ export default function Profile() {
         params.set("author", authorId);
         if (nextCursor) params.set("cursor", nextCursor);
         const response = await fetchApi(`/api/feed?${params.toString()}`);
-        if (!response.ok) throw new Error("Failed to load posts");
+        if (!response.ok) throw new Error(t("profile.postsLoadFailed"));
         const data = await response.json();
         setPosts((prev) =>
           nextCursor ? [...prev, ...data.posts] : data.posts,
@@ -114,14 +123,17 @@ export default function Profile() {
         <>
           <ProfileCard profile={profile} isSelf={isSelf} />
 
-          <h2 className="profile-posts-heading">Posts</h2>
+          <h2 className="profile-posts-heading">{t("profile.postsHeading")}</h2>
 
           {postsError && (
             <div className="alert alert-error">{postsError}</div>
           )}
 
           {postsLoading && posts.length === 0 && (
-            <section className="feed-list" aria-label="Loading posts">
+            <section
+              className="feed-list"
+              aria-label={t("profile.loadingPostsAria")}
+            >
               {Array.from({ length: 2 }).map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
@@ -129,7 +141,7 @@ export default function Profile() {
           )}
 
           {!postsLoading && posts.length === 0 && !postsError && (
-            <p className="muted">Nothing to show.</p>
+            <p className="muted">{t("profile.postsEmpty")}</p>
           )}
 
           <section className="feed-list">
@@ -146,7 +158,7 @@ export default function Profile() {
                 disabled={postsLoading}
                 onClick={() => loadPostsPage(cursor)}
               >
-                {postsLoading ? "Loading…" : "Load more"}
+                {postsLoading ? tCommon("loading") : tCommon("loadMore")}
               </button>
             </div>
           )}
@@ -157,6 +169,7 @@ export default function Profile() {
 }
 
 function ProfileCard({ profile, isSelf }) {
+  const { t } = useTranslation("browse");
   const display = profile.display_name || profile.handle;
   return (
     <article className="profile-card">
@@ -179,7 +192,7 @@ function ProfileCard({ profile, isSelf }) {
         {isSelf && (
           <div className="profile-card-actions">
             <Link to="/settings/profile" className="btn-secondary">
-              Edit profile
+              {t("profile.edit")}
             </Link>
           </div>
         )}

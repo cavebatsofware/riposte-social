@@ -9,6 +9,9 @@ import SettingsProfile from "./pages/SettingsProfile";
 import SettingsSecurity from "./pages/SettingsSecurity";
 import Album from "./pages/Album";
 import ComposeAlbum from "./pages/ComposeAlbum";
+import Albums from "./pages/Albums";
+import Categories from "./pages/Categories";
+import People from "./pages/People";
 import CookieBanner from "./components/CookieBanner";
 
 /// The shared `<Layout>` (header + rails + main + ThemePicker) is mounted
@@ -28,6 +31,9 @@ export default function App() {
         <Route path="/settings/profile" element={<SettingsProfile />} />
         <Route path="/settings/security" element={<SettingsSecurity />} />
         <Route path="/album/:id" element={<Album />} />
+        <Route path="/albums" element={<Albums />} />
+        <Route path="/categories" element={<Categories />} />
+        <Route path="/people" element={<People />} />
         <Route path="/compose-album" element={<ComposeAlbum />} />
       </Routes>
       <CookieBanner />

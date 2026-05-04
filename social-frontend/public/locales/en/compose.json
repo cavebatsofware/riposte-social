@@ -1,0 +1,79 @@
+{
+  "backToFeed": "← Back to feed",
+  "composingAs": "Composing as {{name}} · {{role}}",
+  "role": {
+    "administrator": "Administrator",
+    "poster": "Poster"
+  },
+  "post": {
+    "editTitle": "Edit post",
+    "newTitle": "New post",
+    "loadingExisting": "Loading post…",
+    "loadFailed": "Failed to load post for editing",
+    "saveFailed": "Failed to save post",
+    "bodyEmpty": "Post body cannot be empty.",
+    "disabledNotice": "Posting has been temporarily disabled by an administrator. Existing posts are unaffected.",
+    "publishHint": "Saving will publish immediately.",
+    "editHint": "Saving will update the post immediately.",
+    "publishCta": "Publish",
+    "saveCta": "Save changes"
+  },
+  "album": {
+    "editTitle": "Edit album",
+    "newTitle": "New album",
+    "loadFailed": "Failed to load album for editing",
+    "createFailed": "Failed to create album",
+    "updateFailed": "Failed to update album",
+    "captionUpdateFailed": "Failed to update caption",
+    "uploadMoreFailed": "Failed to upload new media",
+    "removeItemFailed": "Failed to remove item",
+    "removeItemConfirm": "Remove this item from the album?",
+    "nameRequired": "Name is required.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Album name",
+    "descLabel": "Description (optional)",
+    "descPlaceholder": "A few words about this album.",
+    "createCta": "Create album",
+    "addMore": "Add more items",
+    "items": "Items",
+    "existingItems_one": "Existing items ({{count}})",
+    "existingItems_other": "Existing items ({{count}})",
+    "captionPlaceholder": "Caption",
+    "disabledShort": "Album creation is currently disabled.",
+    "publishHint": "Saving will publish immediately.",
+    "editHint": "Saving will update the album immediately.",
+    "errorTooMany": "At most {{max}} items per album."
+  },
+  "category": {
+    "label": "Category",
+    "uncategorized": "Uncategorized",
+    "empty": "No categories defined yet. Admins can add them in the admin panel."
+  },
+  "body": {
+    "label": "Body (markdown)",
+    "placeholder": "What's on your mind?\n\n**Bold**, *italic*, [links](https://example.com), and ![images](url) all work.",
+    "hint": "Markdown is rendered server-side. Inline images and links are first-class. HTML is sanitized.",
+    "previewLabel": "Preview",
+    "previewEmpty": "Live preview will appear here."
+  },
+  "attachments": {
+    "label": "Attachments",
+    "dropzonePrompt": "Drop images or videos here, or click to browse",
+    "dropzoneMeta": "Images (JPEG/PNG/GIF/WebP, 10 MB each) or videos (MP4/WebM, 100 MB each) · up to {{max}} files",
+    "dropzoneMetaAlbum": "Up to {{max}} items per album · 10 MB image / 100 MB video each",
+    "removeAria": "Remove {{name}}",
+    "errorTooMany": "At most {{max}} attachments per post.",
+    "errorUnsupported": "Unsupported file type '{{type}}'. Images (JPEG/PNG/GIF/WebP) or videos (MP4/WebM).",
+    "errorTooLargeVideo": "File '{{name}}' exceeds the 100 MB per-file limit for video content.",
+    "errorTooLargeImage": "File '{{name}}' exceeds the 10 MB per-file limit for image content.",
+    "errorTooLargeAlbumVideo": "File '{{name}}' exceeds the 100 MB per-file limit.",
+    "errorTooLargeAlbumImage": "File '{{name}}' exceeds the 10 MB per-file limit."
+  },
+  "visibility": {
+    "legend": "Visibility"
+  },
+  "contentLang": {
+    "label": "Language",
+    "hint": "Used to tokenize the post for search."
+  }
+}

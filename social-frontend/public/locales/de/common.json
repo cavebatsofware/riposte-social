@@ -1,0 +1,64 @@
+{
+  "siteName": "Riposte Social",
+  "skipToContent": "Zum Inhalt springen",
+  "homeAria": "Riposte Social Startseite",
+  "primaryNav": "Hauptnavigation",
+  "openMenu": "Menü öffnen",
+  "closeMenu": "Menü schließen",
+  "menuTitle": "Menü",
+  "loading": "Lädt…",
+  "loadMore": "Mehr laden",
+  "backToFeed": "← Zurück zum Feed",
+  "actions": {
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "saving": "Speichern…",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "deleting": "Löschen…",
+    "remove": "Entfernen"
+  },
+  "nav": {
+    "feed": "Feed",
+    "compose": "Verfassen",
+    "newAlbum": "Neues Album"
+  },
+  "auth": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden"
+  },
+  "userMenu": {
+    "openAria": "Kontomenü öffnen",
+    "viewProfile": "Profil ansehen",
+    "settings": "Einstellungen",
+    "fallbackName": "Konto"
+  },
+  "theme": {
+    "title": "Design",
+    "toggleAria": "Design wählen",
+    "dialogAria": "Design wählen",
+    "colorwayAria": "Farbschema",
+    "modeAria": "Hell oder dunkel",
+    "colorways": {
+      "forest": "Wald und Creme",
+      "warm": "Warmes Editorial",
+      "plum": "Pflaume und Aprikose",
+      "avernus": "Avernus und Wolken",
+      "mineral": "Gestein und Mineralien"
+    },
+    "mode": {
+      "light": "Hell",
+      "dark": "Dunkel"
+    }
+  },
+  "language": {
+    "toggleAria": "Sprache ändern",
+    "title": "Sprache",
+    "menuAria": "Sprache wählen"
+  },
+  "cookieBanner": {
+    "regionLabel": "Cookie-Hinweis",
+    "text": "Riposte Social verwendet Cookies, die ausschließlich für die Anmeldung und Sicherheit erforderlich sind. Wir verwenden keine Tracking-, Analyse- oder Werbe-Cookies.",
+    "ack": "OK"
+  }
+}

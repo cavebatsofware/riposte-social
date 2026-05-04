@@ -76,6 +76,12 @@ pub struct Model {
     /// IdP might supply later); the API renders an `avatar_url` field that
     /// prefers the S3-served route over the external URL.
     pub avatar_s3_key: Option<String>,
+    /// User's saved UI locale (Phase 11e). NULL means no explicit choice
+    /// yet; the social-frontend's i18next browser-language detector
+    /// picks one from `navigator.language`. App-layer validation in
+    /// `crate::profile::locale::SUPPORTED_LOCALES` is the source of truth
+    /// for which codes are accepted.
+    pub locale: Option<String>,
 }
 
 impl Model {

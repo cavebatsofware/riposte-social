@@ -1,0 +1,98 @@
+{
+  "fallbackAuthor": "Mitglied",
+  "post": {
+    "notFound": "Beitrag nicht gefunden.",
+    "loadFailed": "Beitrag konnte nicht geladen werden",
+    "deleteConfirm": "Diesen Beitrag löschen? Das kann nicht rückgängig gemacht werden.",
+    "deleteFailed": "Beitrag konnte nicht gelöscht werden"
+  },
+  "feed": {
+    "loadFailed": "Feed konnte nicht geladen werden",
+    "loadingAria": "Feed wird geladen",
+    "anonInviteOnly": "Diese Seite ist nur per Einladung zugänglich.",
+    "anonInviteOnlyHint": "<sign>Melde dich an</sign>, wenn du eine Einladung hast, oder schau später wieder rein.",
+    "anonNothingShared": "Es wurde noch nichts öffentlich geteilt.",
+    "anonNothingSharedHint": "Schau später wieder rein oder <sign>melde dich an</sign>, wenn du eine Einladung hast.",
+    "composeEmpty": "Noch keine Beiträge.",
+    "composeEmptyHint": "<compose>Verfasse etwas</compose>, um loszulegen.",
+    "noPostsYet": "Noch keine Beiträge zu zeigen. Schau später wieder rein.",
+    "searchPlaceholder": "Beiträge in {{language}} suchen…",
+    "searchSubmitAria": "Suchen",
+    "searchClearAria": "Suche löschen",
+    "noResultsFor": "Keine {{language}}-Beiträge entsprechen „{{query}}\".",
+    "clearSearch": "Suche löschen"
+  },
+  "visibility": {
+    "private": {
+      "name": "Privat",
+      "desc": "Nur du kannst das sehen"
+    },
+    "public": {
+      "name": "Öffentlich",
+      "desc": "Jede Person mit dem Link"
+    },
+    "commenters": {
+      "name": "Kommentatoren",
+      "desc": "Eingeladene Freunde"
+    },
+    "posters": {
+      "name": "Autoren",
+      "desc": "Nur Autoren der Familie"
+    },
+    "menuFailed": "Sichtbarkeit konnte nicht aktualisiert werden"
+  },
+  "postCard": {
+    "actionsAria": "Beitragsaktionen",
+    "recentCommentsAria": "Aktuelle Kommentare",
+    "videoFallback": "Dein Browser unterstützt keine eingebettete Videowiedergabe.",
+    "openMediaAria": "Element {{index}} öffnen",
+    "commentCount_one": "{{count}} Kommentar",
+    "commentCount_other": "{{count}} Kommentare",
+    "viewMore_one": "{{count}} weiteren Kommentar anzeigen",
+    "viewMore_other": "{{count}} weitere Kommentare anzeigen"
+  },
+  "comments": {
+    "title": "Kommentare",
+    "titleWithCount": "Kommentare ({{count}})",
+    "empty": "Noch keine Kommentare.",
+    "loadFailed": "Kommentare konnten nicht geladen werden",
+    "submitFailed": "Kommentar konnte nicht veröffentlicht werden",
+    "deleteConfirm": "Diesen Kommentar löschen? Das kann nicht rückgängig gemacht werden.",
+    "deleteFailed": "Kommentar konnte nicht gelöscht werden",
+    "editFailed": "Bearbeitung konnte nicht gespeichert werden",
+    "signInPrompt": "Melde dich an, um an der Unterhaltung teilzunehmen.",
+    "edited": "(bearbeitet)",
+    "editedTitle": "Bearbeitet {{when}}",
+    "editAria": "Kommentar bearbeiten",
+    "deleteAria": "Kommentar löschen",
+    "compose": {
+      "label": "Kommentar hinzufügen",
+      "placeholder": "Markdown wird unterstützt.",
+      "charCount": "{{current}}/{{max}} Zeichen",
+      "submit": "Kommentar veröffentlichen",
+      "submitting": "Veröffentlichen…"
+    },
+    "editor": {
+      "modeAria": "Editor-Modus",
+      "tabWrite": "Schreiben",
+      "tabPreview": "Vorschau",
+      "previewEmpty": "Noch nichts zur Vorschau."
+    }
+  },
+  "reactions": {
+    "react": "Reagieren",
+    "reactedWith": "Reagiert mit {{kind}}",
+    "pickerAria": "Reaktion auswählen",
+    "reactWithAria": "Mit {{kind}} reagieren",
+    "summaryAria_one": "{{count}} Reaktion",
+    "summaryAria_other": "{{count}} Reaktionen",
+    "kind": {
+      "like": "Gefällt mir",
+      "love": "Liebe",
+      "haha": "Haha",
+      "wow": "Wow",
+      "sad": "Traurig",
+      "angry": "Wütend"
+    }
+  }
+}

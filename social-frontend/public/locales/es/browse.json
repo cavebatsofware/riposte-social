@@ -1,0 +1,61 @@
+{
+  "rail": {
+    "browseAria": "Explorar",
+    "categoriesGroup": "Categorías",
+    "albumsGroup": "Álbumes",
+    "peopleGroup": "Personas",
+    "showAllCategories": "Ver todas las categorías →",
+    "showAllAlbums": "Ver todos los álbumes →",
+    "showAllPeople": "Ver todas las personas →",
+    "searchCategoriesPlaceholder": "Buscar categorías…",
+    "searchAlbumsPlaceholder": "Buscar álbumes…",
+    "searchPeoplePlaceholder": "Buscar personas…",
+    "noCategories": "Aún no hay categorías.",
+    "noAlbums": "Aún no hay álbumes.",
+    "noPeople": "Aún no hay otros miembros.",
+    "allPosts": "Todas las publicaciones"
+  },
+  "categories": {
+    "pageTitle": "Categorías",
+    "loadFailed": "Error al cargar las categorías",
+    "allPosts": "Todas las publicaciones",
+    "uncategorized": "Sin categoría"
+  },
+  "albums": {
+    "pageTitle": "Álbumes",
+    "loadFailed": "Error al cargar los álbumes",
+    "empty": "Aún no hay álbumes.",
+    "itemCount_one": "{{count}} elemento",
+    "itemCount_other": "{{count}} elementos"
+  },
+  "people": {
+    "pageTitle": "Personas",
+    "loadFailed": "Error al cargar las personas",
+    "empty": "Aún no hay otros miembros."
+  },
+  "album": {
+    "notFound": "Álbum no encontrado.",
+    "loadFailed": "Error al cargar el álbum",
+    "deleteConfirm": "¿Eliminar este álbum? Esta acción es irreversible.",
+    "deleteFailed": "Error al eliminar el álbum",
+    "fallbackAuthor": "Miembro",
+    "noItems": "Este álbum aún no tiene elementos.",
+    "edit": "Editar álbum",
+    "itemAria": "Elemento {{index}}"
+  },
+  "profile": {
+    "notFound": "Perfil no encontrado.",
+    "loadFailed": "Error al cargar el perfil",
+    "postsHeading": "Publicaciones",
+    "postsLoadFailed": "Error al cargar las publicaciones",
+    "postsEmpty": "Nada que mostrar.",
+    "loadingPostsAria": "Cargando publicaciones",
+    "edit": "Editar perfil"
+  },
+  "lightbox": {
+    "viewerAria": "Visor de medios",
+    "close": "Cerrar visor",
+    "prev": "Anterior",
+    "next": "Siguiente"
+  }
+}

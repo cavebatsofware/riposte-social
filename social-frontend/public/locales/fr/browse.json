@@ -1,0 +1,61 @@
+{
+  "rail": {
+    "browseAria": "Parcourir",
+    "categoriesGroup": "Catégories",
+    "albumsGroup": "Albums",
+    "peopleGroup": "Personnes",
+    "showAllCategories": "Voir toutes les catégories →",
+    "showAllAlbums": "Voir tous les albums →",
+    "showAllPeople": "Voir toutes les personnes →",
+    "searchCategoriesPlaceholder": "Rechercher des catégories…",
+    "searchAlbumsPlaceholder": "Rechercher des albums…",
+    "searchPeoplePlaceholder": "Rechercher des personnes…",
+    "noCategories": "Aucune catégorie pour l'instant.",
+    "noAlbums": "Aucun album pour l'instant.",
+    "noPeople": "Aucun autre membre pour l'instant.",
+    "allPosts": "Toutes les publications"
+  },
+  "categories": {
+    "pageTitle": "Catégories",
+    "loadFailed": "Échec du chargement des catégories",
+    "allPosts": "Toutes les publications",
+    "uncategorized": "Sans catégorie"
+  },
+  "albums": {
+    "pageTitle": "Albums",
+    "loadFailed": "Échec du chargement des albums",
+    "empty": "Aucun album pour l'instant.",
+    "itemCount_one": "{{count}} élément",
+    "itemCount_other": "{{count}} éléments"
+  },
+  "people": {
+    "pageTitle": "Personnes",
+    "loadFailed": "Échec du chargement des personnes",
+    "empty": "Aucun autre membre pour l'instant."
+  },
+  "album": {
+    "notFound": "Album introuvable.",
+    "loadFailed": "Échec du chargement de l'album",
+    "deleteConfirm": "Supprimer cet album ? Cette action est irréversible.",
+    "deleteFailed": "Échec de la suppression de l'album",
+    "fallbackAuthor": "Membre",
+    "noItems": "Cet album n'a encore aucun élément.",
+    "edit": "Modifier l'album",
+    "itemAria": "Élément {{index}}"
+  },
+  "profile": {
+    "notFound": "Profil introuvable.",
+    "loadFailed": "Échec du chargement du profil",
+    "postsHeading": "Publications",
+    "postsLoadFailed": "Échec du chargement des publications",
+    "postsEmpty": "Rien à afficher.",
+    "loadingPostsAria": "Chargement des publications",
+    "edit": "Modifier le profil"
+  },
+  "lightbox": {
+    "viewerAria": "Visionneuse de médias",
+    "close": "Fermer la visionneuse",
+    "prev": "Précédent",
+    "next": "Suivant"
+  }
+}

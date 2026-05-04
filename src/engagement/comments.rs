@@ -17,15 +17,21 @@
 //!
 //! - `POST   /api/posts/{id}/comments`         authenticated
 //! - `GET    /api/posts/{id}/comments`         public; visibility-filtered
+//! - `PATCH  /api/posts/{id}/comments/{cid}`   author or administrator
 //! - `DELETE /api/posts/{id}/comments/{cid}`   author or administrator
 //!
 //! Bodies are markdown, rendered server-side by the same `pulldown-cmark`
 //! + `ammonia` pipeline used for post bodies. Soft-deleted comments
 //! (`deleted_at IS NOT NULL`) are filtered out of public reads; they survive
-//! in the DB so admin moderation can audit.
+//! in the DB so admin moderation can audit. Edits set `edited_at` to a
+//! timestamp distinct from `updated_at` (which moves on any DB write) so
+//! the UI can show an "(edited)" indicator only for user-driven body
+//! changes.
 
 use crate::admin::UserAuth;
-use crate::engagement::EngagementState;
+use crate::engagement::{
+    comment_reactions::fetch_comment_engagement, CommentEngagement, EngagementState,
+};
 use crate::entities::{comment, post, user, Comment, Post, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
@@ -54,7 +60,7 @@ pub fn comment_write_routes() -> Router<EngagementState> {
         .route("/api/posts/{id}/comments", post(create_comment))
         .route(
             "/api/posts/{id}/comments/{comment_id}",
-            axum::routing::delete(delete_comment),
+            axum::routing::patch(edit_comment).delete(delete_comment),
         )
 }
 
@@ -64,6 +70,11 @@ pub fn comment_read_routes() -> Router<EngagementState> {
 
 #[derive(Deserialize)]
 pub struct CreateCommentRequest {
+    pub body: String,
+}
+
+#[derive(Deserialize)]
+pub struct EditCommentRequest {
     pub body: String,
 }
 
@@ -86,6 +97,17 @@ pub struct CommentResponse {
     pub body_html: String,
     pub created_at: String,
     pub updated_at: String,
+    /// Set when the author has edited the body. Distinct from `updated_at`,
+    /// which moves on any DB write (e.g. soft-delete).
+    pub edited_at: Option<String>,
+    /// Per-kind reaction counts on this comment. Kinds with zero count are
+    /// omitted; an empty map means no reactions yet.
+    #[serde(default)]
+    pub reaction_counts: HashMap<String, i64>,
+    /// Reaction kinds the viewing caller has applied to this comment.
+    /// Empty for anonymous callers and for callers who haven't reacted.
+    #[serde(default)]
+    pub viewer_reaction_kinds: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -93,8 +115,22 @@ pub struct CommentListResponse {
     pub comments: Vec<CommentResponse>,
 }
 
-fn build_comment_response(row: comment::Model, author: Option<&user::Model>) -> CommentResponse {
+pub(crate) fn build_comment_response(
+    row: comment::Model,
+    author: Option<&user::Model>,
+) -> CommentResponse {
+    build_comment_response_with_engagement(row, author, CommentEngagement::default())
+}
+
+pub(crate) fn build_comment_response_with_engagement(
+    row: comment::Model,
+    author: Option<&user::Model>,
+    engagement: CommentEngagement,
+) -> CommentResponse {
     let body_html = markdown::render_to_html(&row.body);
+    let edited_at = row
+        .edited_at
+        .map(|t| t.with_timezone(&Utc).to_rfc3339());
     CommentResponse {
         id: row.id,
         post_id: row.post_id,
@@ -106,6 +142,9 @@ fn build_comment_response(row: comment::Model, author: Option<&user::Model>) -> 
         body_html,
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
+        edited_at,
+        reaction_counts: engagement.reaction_counts,
+        viewer_reaction_kinds: engagement.viewer_reaction_kinds,
     }
 }
 
@@ -138,6 +177,7 @@ async fn create_comment(
         user_id: Set(user.id),
         body: Set(body),
         deleted_at: Set(None),
+        edited_at: Set(None),
         ..Default::default()
     }
     .insert(&state.db)
@@ -209,15 +249,79 @@ async fn list_comments(
     let authors_by_id: HashMap<Uuid, user::Model> =
         authors.into_iter().map(|a| (a.id, a)).collect();
 
+    // Batch-fetch reaction counts and viewer reactions for every comment
+    // in this thread. Anonymous viewers get counts only.
+    let comment_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
+    let mut engagement_by_comment =
+        fetch_comment_engagement(&state.db, &comment_ids, viewer.as_ref().map(|u| u.id)).await?;
+
     let comments = rows
         .into_iter()
         .map(|row| {
             let author = authors_by_id.get(&row.user_id);
-            build_comment_response(row, author)
+            let eng = engagement_by_comment.remove(&row.id).unwrap_or_default();
+            build_comment_response_with_engagement(row, author, eng)
         })
         .collect();
 
     Ok(Json(CommentListResponse { comments }))
+}
+
+/// `PATCH /api/posts/{id}/comments/{comment_id}`. Edit the body of an
+/// existing comment. Allowed for the original author and administrators
+/// (admin edit is a moderation affordance — typically used to redact
+/// rather than rewrite, but the wider permission keeps the surface
+/// uniform with delete). Sets `edited_at` to the current time.
+async fn edit_comment(
+    State(state): State<EngagementState>,
+    Extension(user): Extension<UserAuth>,
+    Path((post_id, comment_id)): Path<(Uuid, Uuid)>,
+    Json(req): Json<EditCommentRequest>,
+) -> AppResult<Json<CommentResponse>> {
+    let body = req.body.trim().to_string();
+    if body.is_empty() {
+        return Err(AppError::ValidationError(
+            "Comment body cannot be empty".to_string(),
+        ));
+    }
+    if body.chars().count() > COMMENT_MAX_LEN {
+        return Err(AppError::ValidationError(format!(
+            "Comment exceeds {}-character limit",
+            COMMENT_MAX_LEN
+        )));
+    }
+
+    let row = Comment::find_by_id(comment_id)
+        .filter(comment::Column::DeletedAt.is_null())
+        .one(&state.db)
+        .await?
+        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+
+    if row.post_id != post_id {
+        // Mirror the delete-side response: don't leak existence of a
+        // comment whose post_id doesn't match the route.
+        return Err(AppError::AuthError("Comment not found".to_string()));
+    }
+
+    let is_author = row.user_id == user.id;
+    let is_admin = user.role == user::ROLE_ADMINISTRATOR;
+    if !is_author && !is_admin {
+        return Err(AppError::AuthError(
+            "Only the comment author or an administrator can edit this comment".to_string(),
+        ));
+    }
+
+    let author_id = row.user_id;
+    let mut active: comment::ActiveModel = row.into();
+    active.body = Set(body);
+    active.edited_at = Set(Some(Utc::now().into()));
+    let updated = active.update(&state.db).await?;
+
+    let author = User::find_by_id(author_id).one(&state.db).await?;
+    crate::metrics::COMMENTS_TOTAL
+        .with_label_values(&["edit"])
+        .inc();
+    Ok(Json(build_comment_response(updated, author.as_ref())))
 }
 
 /// `DELETE /api/posts/{id}/comments/{comment_id}`. Soft delete. Allowed

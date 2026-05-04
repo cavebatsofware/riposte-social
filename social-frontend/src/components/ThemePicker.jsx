@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
 
 /// Theme picker for the social-frontend.
@@ -19,6 +20,7 @@ export default function ThemePicker({ variant = "popover" }) {
   const { theme, setTheme, colorways, mode, setMode } = useTheme();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     if (variant !== "popover" || !open) return undefined;
@@ -45,10 +47,19 @@ export default function ThemePicker({ variant = "popover" }) {
 
   const grid = (
     <div className="theme-picker-grid">
-      <div className="theme-picker-title">Theme</div>
-      <div className="theme-swatches" role="radiogroup" aria-label="Colorway">
+      <div className="theme-picker-title">{t("theme.title")}</div>
+      <div
+        className="theme-swatches"
+        role="radiogroup"
+        aria-label={t("theme.colorwayAria")}
+      >
         {colorways.map((c) => {
           const active = c.id === currentColorway;
+          // Colorway display name comes from the catalog so each language
+          // can localize the marketing-style names ("Forest & Cream" etc.).
+          // Fall back to the array's hardcoded `c.label` if a key is
+          // missing — defense-in-depth against a partial catalog.
+          const label = t(`theme.colorways.${c.id}`, { defaultValue: c.label });
           return (
             <button
               key={c.id}
@@ -66,7 +77,7 @@ export default function ThemePicker({ variant = "popover" }) {
                 style={{ background: c.swatch }}
                 aria-hidden="true"
               />
-              <span className="theme-swatch-label">{c.label}</span>
+              <span className="theme-swatch-label">{label}</span>
               {active && (
                 <span className="theme-swatch-check" aria-hidden="true">
                   ✓
@@ -76,10 +87,14 @@ export default function ThemePicker({ variant = "popover" }) {
           );
         })}
       </div>
-      <div className="theme-mode-row" role="radiogroup" aria-label="Light or dark">
+      <div
+        className="theme-mode-row"
+        role="radiogroup"
+        aria-label={t("theme.modeAria")}
+      >
         {[
-          { id: "light", label: "Light" },
-          { id: "dark", label: "Dark" },
+          { id: "light", label: t("theme.mode.light") },
+          { id: "dark", label: t("theme.mode.dark") },
         ].map((m) => (
           <button
             key={m.id}
@@ -103,14 +118,18 @@ export default function ThemePicker({ variant = "popover" }) {
   return (
     <div className="theme-picker" ref={containerRef}>
       {open && (
-        <div className="theme-picker-popover" role="dialog" aria-label="Choose theme">
+        <div
+          className="theme-picker-popover"
+          role="dialog"
+          aria-label={t("theme.dialogAria")}
+        >
           {grid}
         </div>
       )}
       <button
         type="button"
         className="theme-picker-toggle"
-        aria-label="Choose theme"
+        aria-label={t("theme.toggleAria")}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >

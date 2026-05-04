@@ -38,6 +38,26 @@ pub fn is_valid_visibility(v: &str) -> bool {
     )
 }
 
+/// FTS configuration values stored in `content_lang`. Anything outside
+/// this set falls through the migration's CASE ELSE to `'simple'`.
+pub const CONTENT_LANG_ENGLISH: &str = "english";
+pub const CONTENT_LANG_SPANISH: &str = "spanish";
+pub const CONTENT_LANG_FRENCH: &str = "french";
+pub const CONTENT_LANG_GERMAN: &str = "german";
+pub const CONTENT_LANG_CHINESE: &str = "chinese";
+
+pub const ALLOWED_CONTENT_LANGS: &[&str] = &[
+    CONTENT_LANG_ENGLISH,
+    CONTENT_LANG_SPANISH,
+    CONTENT_LANG_FRENCH,
+    CONTENT_LANG_GERMAN,
+    CONTENT_LANG_CHINESE,
+];
+
+pub fn is_valid_content_lang(v: &str) -> bool {
+    ALLOWED_CONTENT_LANGS.contains(&v)
+}
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "posts")]
 pub struct Model {
@@ -52,6 +72,10 @@ pub struct Model {
     pub deleted_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    /// Phase 9e: nullable category FK. NULL means uncategorized. Deleting
+    /// a category sets this to NULL via `ON DELETE SET NULL`.
+    pub category_id: Option<Uuid>,
+    pub content_lang: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

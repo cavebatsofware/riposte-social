@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { fetchApi } from "../utils/api";
 
-const OPTIONS = [
-  { id: "private", label: "Private" },
-  { id: "public", label: "Public" },
-  { id: "commenters", label: "Commenters" },
-  { id: "posters", label: "Posters" },
-];
+const OPTION_IDS = ["private", "public", "commenters", "posters"];
 
 /// Inline dropdown that lets a post's author or an administrator change
 /// the post's visibility from anywhere it's rendered (feed card, permalink,
@@ -23,6 +19,7 @@ const OPTIONS = [
 /// renders the whole card inside a `<Link>` to the permalink on the feed
 /// variant; without stopPropagation, opening the menu would navigate.
 export default function VisibilityMenu({ post, onChange }) {
+  const { t } = useTranslation("feed");
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -68,7 +65,7 @@ export default function VisibilityMenu({ post, onChange }) {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to update visibility");
+        throw new Error(data.error || t("visibility.menuFailed"));
       }
       setCurrent(id);
       setOpen(false);
@@ -80,14 +77,8 @@ export default function VisibilityMenu({ post, onChange }) {
     }
   }
 
-  const label =
-    current === "private"
-      ? "Private"
-      : current === "commenters"
-        ? "Commenters"
-        : current === "posters"
-          ? "Posters"
-          : "Public";
+  const labelKey = OPTION_IDS.includes(current) ? current : "public";
+  const label = t(`visibility.${labelKey}.name`);
 
   return (
     <span className="visibility-menu" ref={wrapperRef}>
@@ -110,18 +101,18 @@ export default function VisibilityMenu({ post, onChange }) {
       </button>
       {open && (
         <div className="visibility-menu-popover" role="menu">
-          {OPTIONS.map((o) => (
+          {OPTION_IDS.map((id) => (
             <button
-              key={o.id}
+              key={id}
               type="button"
               role="menuitem"
-              className={`visibility-menu-item ${o.id === current ? "active" : ""}`}
+              className={`visibility-menu-item ${id === current ? "active" : ""}`}
               disabled={submitting}
-              onClick={(e) => selectOption(e, o.id)}
+              onClick={(e) => selectOption(e, id)}
             >
-              <span className={`visibility-menu-swatch ${o.id}`} aria-hidden="true" />
-              {o.label}
-              {o.id === current && (
+              <span className={`visibility-menu-swatch ${id}`} aria-hidden="true" />
+              {t(`visibility.${id}.name`)}
+              {id === current && (
                 <span className="visibility-menu-check" aria-hidden="true">
                   ✓
                 </span>

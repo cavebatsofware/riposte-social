@@ -19,11 +19,14 @@
 
 use crate::entities::{comment, reaction, Comment, Reaction};
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter,
+    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter, QueryOrder,
     QuerySelect,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Number of latest live comments to surface on each feed PostCard.
+const TOP_COMMENTS_PER_POST: usize = 3;
 
 /// Engagement counts and viewer state for one post.
 #[derive(Default, Debug, Clone)]
@@ -35,6 +38,11 @@ pub struct PostEngagement {
     pub viewer_reaction_kinds: Vec<String>,
     /// Live (non-soft-deleted) comments on this post.
     pub comment_count: i64,
+    /// The latest live comments on this post (newest-first, up to
+    /// `TOP_COMMENTS_PER_POST`). Used by the feed PostCard to surface
+    /// inline conversation context. Author lookups happen at the call
+    /// site so the response builder can hydrate display name + avatar.
+    pub top_comments: Vec<comment::Model>,
 }
 
 /// Fetch engagement summaries for the given post IDs. The returned map only
@@ -104,6 +112,29 @@ pub async fn fetch_engagement_for_posts(
 
     for row in comment_counts {
         out.entry(row.post_id).or_default().comment_count = row.count;
+    }
+
+    // 4) latest live comments per post. Family-scale traffic: fetching every
+    // live comment for the page of posts and trimming in memory is simpler
+    // than a per-post LATERAL JOIN and the row volume stays well under any
+    // reasonable bound. If the platform grows beyond that, replace with
+    // `ROW_NUMBER() OVER (PARTITION BY post_id ORDER BY created_at DESC)`.
+    let all_live: Vec<comment::Model> = Comment::find()
+        .filter(comment::Column::PostId.is_in(post_ids.to_vec()))
+        .filter(comment::Column::DeletedAt.is_null())
+        .order_by_desc(comment::Column::CreatedAt)
+        .order_by_desc(comment::Column::Id)
+        .all(db)
+        .await?;
+
+    let mut per_post_count: HashMap<Uuid, usize> = HashMap::new();
+    for row in all_live {
+        let n = per_post_count.entry(row.post_id).or_default();
+        if *n >= TOP_COMMENTS_PER_POST {
+            continue;
+        }
+        *n += 1;
+        out.entry(row.post_id).or_default().top_comments.push(row);
     }
 
     Ok(out)

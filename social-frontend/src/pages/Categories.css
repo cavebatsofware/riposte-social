@@ -1,0 +1,42 @@
+.categories-overflow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+}
+
+.categories-overflow-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--color-text);
+}
+.categories-overflow-row:hover {
+  background: var(--color-overlay);
+}
+
+.categories-overflow-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border);
+}
+
+.categories-overflow-name {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.categories-overflow-slug {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  font-family: var(--font-mono, monospace);
+}

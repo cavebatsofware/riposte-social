@@ -1009,6 +1009,8 @@ async fn import_one_post(
             deleted_at: Set(None),
             created_at: Set(now),
             updated_at: Set(now),
+            category_id: Set(None),
+            content_lang: Set(post::CONTENT_LANG_ENGLISH.to_string()),
         }
         .insert(&txn)
         .await?;
@@ -1137,6 +1139,7 @@ async fn import_one_album(
             deleted_at: Set(None),
             created_at: Set(now),
             updated_at: Set(now),
+            category_id: Set(None),
         }
         .insert(&txn)
         .await?;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import "./MediaLightbox.css";
 
 /// Full-screen lightbox / carousel for album media. Renders a single image
@@ -16,6 +17,7 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
   const closeBtnRef = useRef(null);
   const lastFocusRef = useRef(null);
   const touchStartRef = useRef(null);
+  const { t } = useTranslation("browse");
 
   const total = items.length;
   const item = items[index];
@@ -87,7 +89,7 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
       className="media-lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label="Media viewer"
+      aria-label={t("lightbox.viewerAria")}
       onClick={onOverlayClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -96,7 +98,7 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
         ref={closeBtnRef}
         type="button"
         className="media-lightbox-close"
-        aria-label="Close viewer"
+        aria-label={t("lightbox.close")}
         onClick={onClose}
       >
         ×
@@ -107,7 +109,7 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
           <button
             type="button"
             className="media-lightbox-nav prev"
-            aria-label="Previous"
+            aria-label={t("lightbox.prev")}
             onClick={goPrev}
           >
             ‹
@@ -115,7 +117,7 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
           <button
             type="button"
             className="media-lightbox-nav next"
-            aria-label="Next"
+            aria-label={t("lightbox.next")}
             onClick={goNext}
           >
             ›

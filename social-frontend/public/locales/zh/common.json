@@ -1,0 +1,64 @@
+{
+  "siteName": "Riposte Social",
+  "skipToContent": "跳到内容",
+  "homeAria": "Riposte Social 首页",
+  "primaryNav": "主导航",
+  "openMenu": "打开菜单",
+  "closeMenu": "关闭菜单",
+  "menuTitle": "菜单",
+  "loading": "加载中…",
+  "loadMore": "加载更多",
+  "backToFeed": "← 返回动态",
+  "actions": {
+    "cancel": "取消",
+    "save": "保存",
+    "saving": "保存中…",
+    "edit": "编辑",
+    "delete": "删除",
+    "deleting": "删除中…",
+    "remove": "移除"
+  },
+  "nav": {
+    "feed": "动态",
+    "compose": "发布",
+    "newAlbum": "新建相册"
+  },
+  "auth": {
+    "signIn": "登录",
+    "signOut": "登出"
+  },
+  "userMenu": {
+    "openAria": "打开账户菜单",
+    "viewProfile": "查看个人资料",
+    "settings": "设置",
+    "fallbackName": "账户"
+  },
+  "theme": {
+    "title": "主题",
+    "toggleAria": "选择主题",
+    "dialogAria": "选择主题",
+    "colorwayAria": "配色",
+    "modeAria": "浅色或深色",
+    "colorways": {
+      "forest": "森林与奶油",
+      "warm": "暖色调",
+      "plum": "梅子与杏",
+      "avernus": "阿维努斯与云",
+      "mineral": "岩石与矿物"
+    },
+    "mode": {
+      "light": "浅色",
+      "dark": "深色"
+    }
+  },
+  "language": {
+    "toggleAria": "更改语言",
+    "title": "语言",
+    "menuAria": "选择语言"
+  },
+  "cookieBanner": {
+    "regionLabel": "Cookie 提示",
+    "text": "Riposte Social 仅使用登录和安全所必需的 Cookie。我们不使用跟踪、分析或广告 Cookie。",
+    "ack": "确定"
+  }
+}

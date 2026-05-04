@@ -1,0 +1,61 @@
+{
+  "rail": {
+    "browseAria": "浏览",
+    "categoriesGroup": "类别",
+    "albumsGroup": "相册",
+    "peopleGroup": "成员",
+    "showAllCategories": "查看所有类别 →",
+    "showAllAlbums": "查看所有相册 →",
+    "showAllPeople": "查看所有成员 →",
+    "searchCategoriesPlaceholder": "搜索类别…",
+    "searchAlbumsPlaceholder": "搜索相册…",
+    "searchPeoplePlaceholder": "搜索成员…",
+    "noCategories": "暂时没有类别。",
+    "noAlbums": "暂时没有相册。",
+    "noPeople": "暂时没有其他成员。",
+    "allPosts": "全部帖子"
+  },
+  "categories": {
+    "pageTitle": "类别",
+    "loadFailed": "加载类别失败",
+    "allPosts": "全部帖子",
+    "uncategorized": "未分类"
+  },
+  "albums": {
+    "pageTitle": "相册",
+    "loadFailed": "加载相册失败",
+    "empty": "暂时没有相册。",
+    "itemCount_one": "{{count}} 项",
+    "itemCount_other": "{{count}} 项"
+  },
+  "people": {
+    "pageTitle": "成员",
+    "loadFailed": "加载成员失败",
+    "empty": "暂时没有其他成员。"
+  },
+  "album": {
+    "notFound": "找不到该相册。",
+    "loadFailed": "加载相册失败",
+    "deleteConfirm": "删除这个相册吗?此操作无法撤销。",
+    "deleteFailed": "删除相册失败",
+    "fallbackAuthor": "成员",
+    "noItems": "此相册还没有任何项目。",
+    "edit": "编辑相册",
+    "itemAria": "项目 {{index}}"
+  },
+  "profile": {
+    "notFound": "找不到该资料。",
+    "loadFailed": "加载资料失败",
+    "postsHeading": "帖子",
+    "postsLoadFailed": "加载帖子失败",
+    "postsEmpty": "暂时没有内容。",
+    "loadingPostsAria": "正在加载帖子",
+    "edit": "编辑资料"
+  },
+  "lightbox": {
+    "viewerAria": "媒体查看器",
+    "close": "关闭查看器",
+    "prev": "上一项",
+    "next": "下一项"
+  }
+}

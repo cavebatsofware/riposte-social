@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import Layout from "../components/Layout";
 
@@ -16,6 +17,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { t } = useTranslation("auth");
+  const { t: tCommon } = useTranslation("common");
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -38,21 +41,21 @@ export default function Login() {
   return (
     <Layout>
       <div className="auth-card">
-        <h1>Sign in</h1>
+        <h1>{t("login.title")}</h1>
 
         {authLoading ? (
-          <p>Loading...</p>
+          <p>{tCommon("loading")}</p>
         ) : authConfig.oidcEnabled ? (
           <>
-            <p>Sign in with your Single Sign-On account to continue.</p>
+            <p>{t("login.ssoDesc")}</p>
             <a className="btn-primary auth-cta" href="/api/auth/oidc/login">
-              Continue to SSO
+              {t("login.ssoCta")}
             </a>
           </>
         ) : (
           <form onSubmit={handleSubmit} className="auth-form">
             {error && <div className="alert alert-error">{error}</div>}
-            <label htmlFor="login-email">Email</label>
+            <label htmlFor="login-email">{t("login.emailLabel")}</label>
             <input
               id="login-email"
               type="email"
@@ -61,7 +64,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               autoFocus
             />
-            <label htmlFor="login-password">Password</label>
+            <label htmlFor="login-password">{t("login.passwordLabel")}</label>
             <input
               id="login-password"
               type="password"
@@ -74,15 +77,15 @@ export default function Login() {
               className="btn-primary"
               disabled={submitting}
             >
-              {submitting ? "Signing in..." : "Sign in"}
+              {submitting ? t("login.submitting") : t("login.submit")}
             </button>
           </form>
         )}
 
         <div className="auth-invite-notice">
           <p>
-            <strong>Riposte Social is invite-only.</strong> If you don't have
-            an account yet, ask the administrator for an invite link.
+            <strong>{t("login.inviteOnlyLead")}</strong>{" "}
+            {t("login.inviteOnlyDetail")}
           </p>
         </div>
       </div>

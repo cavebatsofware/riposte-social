@@ -25,7 +25,7 @@
 //! - `PATCH  /api/albums/{id}/media/{media_id}` edit caption / ordinal
 //! - `DELETE /api/albums/{id}/media/{media_id}` remove one item
 
-use crate::entities::{album, album_media, post, user, Album, AlbumMedia, User};
+use crate::entities::{album, album_media, category, post, user, Album, AlbumMedia, Category, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::{can_read_post, FeedTier};
@@ -94,6 +94,12 @@ pub struct UpdateAlbumRequest {
     pub visibility: Option<String>,
     #[serde(default)]
     pub cover_media_id: Option<Uuid>,
+    /// Phase 9e: assign / reassign a category. Pair with `clear_category=true`
+    /// to clear an existing category. Same convention as posts' update.
+    #[serde(default)]
+    pub category_id: Option<Uuid>,
+    #[serde(default)]
+    pub clear_category: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -155,6 +161,10 @@ pub struct AlbumResponse {
     pub updated_at: String,
     pub media: Vec<AlbumMediaResponse>,
     pub photo_count: i64,
+    /// Phase 9e: nullable category id. The album's category metadata
+    /// (name/slug/color) isn't included here in v1; the rail and admin
+    /// page use the categories list directly.
+    pub category_id: Option<Uuid>,
 }
 
 fn build_album_response(
@@ -181,6 +191,7 @@ fn build_album_response(
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
         media: media_responses,
         photo_count,
+        category_id: row.category_id,
     }
 }
 
@@ -214,6 +225,7 @@ async fn create_album(
     let mut published_at: Option<DateTime<Utc>> = None;
     let mut media: Vec<PendingMedia> = Vec::new();
     let mut captions_by_index: HashMap<usize, String> = HashMap::new();
+    let mut category_id: Option<Uuid> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
@@ -234,6 +246,17 @@ async fn create_album(
                 visibility = field.text().await.map_err(|e| {
                     AppError::ValidationError(format!("Failed to read visibility: {}", e))
                 })?;
+            }
+            "category_id" => {
+                let text = field.text().await.map_err(|e| {
+                    AppError::ValidationError(format!("Failed to read category_id: {}", e))
+                })?;
+                let trimmed = text.trim();
+                if !trimmed.is_empty() {
+                    category_id = Some(Uuid::parse_str(trimmed).map_err(|e| {
+                        AppError::ValidationError(format!("category_id must be a UUID: {}", e))
+                    })?);
+                }
             }
             "published_at" => {
                 let text = field.text().await.map_err(|e| {
@@ -317,6 +340,14 @@ async fn create_album(
             m.caption = Some(caption);
         }
     }
+    if let Some(cid) = category_id {
+        let exists = Category::find_by_id(cid).one(&state.db).await?;
+        if exists.is_none() {
+            return Err(AppError::ValidationError(
+                "Category not found".to_string(),
+            ));
+        }
+    }
 
     let album_id = Uuid::new_v4();
     let now = Utc::now();
@@ -364,6 +395,7 @@ async fn create_album(
             import_source: Set(None),
             import_external_id: Set(None),
             deleted_at: Set(None),
+            category_id: Set(category_id),
             ..Default::default()
         }
         .insert(&txn)
@@ -418,6 +450,10 @@ pub struct ListAlbumsQuery {
     pub limit: Option<u64>,
     #[serde(default)]
     pub author: Option<Uuid>,
+    /// Optional category filter, by slug. `uncategorized` matches albums
+    /// with `category_id IS NULL`.
+    #[serde(default)]
+    pub category: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -477,6 +513,26 @@ async fn list_albums(
 
     if let Some(author_id) = query.author {
         q = q.filter(album::Column::AuthorId.eq(author_id));
+    }
+    if let Some(slug) = query.category.as_deref() {
+        let slug = slug.trim();
+        if slug == "uncategorized" {
+            q = q.filter(album::Column::CategoryId.is_null());
+        } else {
+            let cat = Category::find()
+                .filter(category::Column::Slug.eq(slug))
+                .one(&state.db)
+                .await?;
+            match cat {
+                Some(c) => q = q.filter(album::Column::CategoryId.eq(c.id)),
+                None => {
+                    return Ok(Json(ListAlbumsResponse {
+                        albums: vec![],
+                        next_cursor: None,
+                    }));
+                }
+            }
+        }
     }
     if let Some(cursor) = query.cursor.as_deref().and_then(parse_cursor) {
         let (cursor_at, cursor_id) = cursor;
@@ -646,6 +702,17 @@ async fn update_album(
     }
     if let Some(cover_id) = req.cover_media_id {
         active.cover_media_id = Set(Some(cover_id));
+    }
+    if req.clear_category {
+        active.category_id = Set(None);
+    } else if let Some(cid) = req.category_id {
+        let exists = Category::find_by_id(cid).one(&state.db).await?;
+        if exists.is_none() {
+            return Err(AppError::ValidationError(
+                "Category not found".to_string(),
+            ));
+        }
+        active.category_id = Set(Some(cid));
     }
     let updated = active.update(&state.db).await?;
 

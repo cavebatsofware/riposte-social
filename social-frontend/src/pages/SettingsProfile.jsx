@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import Layout from "../components/Layout";
@@ -22,6 +23,8 @@ export default function SettingsProfile() {
   const { user, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  const { t } = useTranslation("settings");
+  const { t: tCommon } = useTranslation("common");
 
   const [profile, setProfile] = useState(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -49,7 +52,7 @@ export default function SettingsProfile() {
       setError("");
       try {
         const response = await fetchApi("/api/me/profile");
-        if (!response.ok) throw new Error("Failed to load profile");
+        if (!response.ok) throw new Error(t("profile.loadFailed"));
         const data = await response.json();
         if (cancelled) return;
         setProfile(data);
@@ -83,7 +86,7 @@ export default function SettingsProfile() {
       if (pronouns !== (profile.pronouns || "")) body.pronouns = pronouns;
 
       if (Object.keys(body).length === 0) {
-        setSuccess("No changes to save.");
+        setSuccess(t("profile.noChanges"));
         setSavingProfile(false);
         return;
       }
@@ -95,7 +98,7 @@ export default function SettingsProfile() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to save profile");
+        throw new Error(data.error || t("profile.saveFailed"));
       }
       const updated = await response.json();
       setProfile(updated);
@@ -103,7 +106,7 @@ export default function SettingsProfile() {
       setDisplayName(updated.display_name || "");
       setBio(updated.bio || "");
       setPronouns(updated.pronouns || "");
-      setSuccess("Profile saved.");
+      setSuccess(t("profile.savedSuccess"));
       if (refreshUser) await refreshUser();
     } catch (err) {
       setError(err.message);
@@ -127,11 +130,11 @@ export default function SettingsProfile() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to upload avatar");
+        throw new Error(data.error || t("profile.uploadFailed"));
       }
       const data = await response.json();
       setProfile((prev) => prev && { ...prev, avatar_url: data.avatar_url });
-      setSuccess("Avatar updated.");
+      setSuccess(t("profile.uploadedSuccess"));
       if (refreshUser) await refreshUser();
     } catch (err) {
       setError(err.message);
@@ -142,7 +145,7 @@ export default function SettingsProfile() {
   }
 
   async function handleAvatarRemove() {
-    if (!window.confirm("Remove your avatar?")) return;
+    if (!window.confirm(t("profile.removeConfirm"))) return;
     setUploadingAvatar(true);
     setError("");
     setSuccess("");
@@ -150,10 +153,10 @@ export default function SettingsProfile() {
       const response = await fetchApi("/api/me/avatar", { method: "DELETE" });
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to remove avatar");
+        throw new Error(data.error || t("profile.removeFailed"));
       }
       setProfile((prev) => prev && { ...prev, avatar_url: null });
-      setSuccess("Avatar removed.");
+      setSuccess(t("profile.removedSuccess"));
       if (refreshUser) await refreshUser();
     } catch (err) {
       setError(err.message);
@@ -165,7 +168,7 @@ export default function SettingsProfile() {
   if (authLoading || loadingProfile || !profile) {
     return (
       <Layout>
-        <p className="muted">Loading…</p>
+        <p className="muted">{tCommon("loading")}</p>
       </Layout>
     );
   }
@@ -173,13 +176,13 @@ export default function SettingsProfile() {
   return (
     <Layout>
       <header className="settings-header">
-        <h1>Profile settings</h1>
-        <nav className="settings-tabs" aria-label="Settings sections">
+        <h1>{t("profile.title")}</h1>
+        <nav className="settings-tabs" aria-label={t("tabsAria")}>
           <Link to="/settings/profile" className="settings-tab active">
-            Profile
+            {t("tabProfile")}
           </Link>
           <Link to="/settings/security" className="settings-tab">
-            Security
+            {t("tabSecurity")}
           </Link>
         </nav>
       </header>
@@ -188,11 +191,11 @@ export default function SettingsProfile() {
       {success && <div className="alert alert-success">{success}</div>}
 
       <section className="settings-section">
-        <h2>Avatar</h2>
+        <h2>{t("profile.avatarHeading")}</h2>
         <div className="settings-avatar-row">
           <div className="settings-avatar-preview">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="Your avatar" />
+              <img src={profile.avatar_url} alt={t("profile.avatarAlt")} />
             ) : (
               <span aria-hidden="true">
                 {(profile.display_name || profile.handle || "??")
@@ -216,19 +219,17 @@ export default function SettingsProfile() {
                 onClick={handleAvatarRemove}
                 disabled={uploadingAvatar}
               >
-                Remove avatar
+                {t("profile.removeAvatar")}
               </button>
             )}
-            <p className="form-hint">
-              JPEG, PNG, or WebP up to 5 MB. We'll center-crop to a square.
-            </p>
+            <p className="form-hint">{t("profile.avatarHint")}</p>
           </div>
         </div>
       </section>
 
       <form className="settings-form" onSubmit={handleSubmit}>
-        <h2>Profile fields</h2>
-        <label htmlFor="settings-handle">Handle</label>
+        <h2>{t("profile.fieldsHeading")}</h2>
+        <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
         <input
           id="settings-handle"
           type="text"
@@ -240,11 +241,11 @@ export default function SettingsProfile() {
           autoComplete="off"
           required
         />
-        <p className="form-hint">
-          3–30 characters. Lowercase letters, digits, underscore, hyphen.
-        </p>
+        <p className="form-hint">{t("profile.handleHint")}</p>
 
-        <label htmlFor="settings-display-name">Display name</label>
+        <label htmlFor="settings-display-name">
+          {t("profile.displayNameLabel")}
+        </label>
         <input
           id="settings-display-name"
           type="text"
@@ -253,7 +254,7 @@ export default function SettingsProfile() {
           maxLength={100}
         />
 
-        <label htmlFor="settings-pronouns">Pronouns</label>
+        <label htmlFor="settings-pronouns">{t("profile.pronounsLabel")}</label>
         <input
           id="settings-pronouns"
           type="text"
@@ -262,7 +263,7 @@ export default function SettingsProfile() {
           maxLength={PRONOUNS_MAX}
         />
 
-        <label htmlFor="settings-bio">Bio</label>
+        <label htmlFor="settings-bio">{t("profile.bioLabel")}</label>
         <textarea
           id="settings-bio"
           value={bio}
@@ -271,7 +272,7 @@ export default function SettingsProfile() {
           maxLength={BIO_MAX}
         />
         <p className="form-hint">
-          {bio.length}/{BIO_MAX} characters
+          {t("profile.bioCount", { current: bio.length, max: BIO_MAX })}
         </p>
 
         <div className="settings-form-actions">
@@ -280,11 +281,13 @@ export default function SettingsProfile() {
             className="btn-primary"
             disabled={savingProfile}
           >
-            {savingProfile ? "Saving…" : "Save changes"}
+            {savingProfile
+              ? tCommon("actions.saving")
+              : t("profile.saveChanges")}
           </button>
           {profile.handle && (
             <Link to={`/u/${profile.handle}`} className="btn-secondary">
-              View profile
+              {t("profile.viewProfile")}
             </Link>
           )}
         </div>

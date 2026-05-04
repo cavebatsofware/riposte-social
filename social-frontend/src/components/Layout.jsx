@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
+import BrowseRail from "./BrowseRail";
+import LanguagePicker from "./LanguagePicker";
 import MobileDrawer from "./MobileDrawer";
 import ThemePicker from "./ThemePicker";
 import UserMenu from "./UserMenu";
@@ -34,6 +37,12 @@ export default function Layout({ leftRail, rightRail, children }) {
   const { config: site } = useSiteConfig();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { t } = useTranslation("common");
+
+  // Auto-mount the BrowseRail (Phase 9e) when the caller didn't pass an
+  // explicit leftRail. Anonymous viewers also get the rail — categories
+  // are public and albums respect server-side visibility.
+  const effectiveLeftRail = leftRail !== undefined ? leftRail : <BrowseRail />;
 
   // Posters can be muted by an admin via `poster_posting_enabled`;
   // admins always retain access. Treat anything other than explicit true
@@ -47,22 +56,22 @@ export default function Layout({ leftRail, rightRail, children }) {
         site.poster_posting_enabled === true));
 
   const navLinks = [
-    { to: "/", label: "Feed" },
-    canCompose ? { to: "/compose", label: "Compose" } : null,
-    canCompose ? { to: "/compose-album", label: "New album" } : null,
+    { to: "/", label: t("nav.feed") },
+    canCompose ? { to: "/compose", label: t("nav.compose") } : null,
+    canCompose ? { to: "/compose-album", label: t("nav.newAlbum") } : null,
   ].filter(Boolean);
 
   return (
     <div className="layout">
       <a className="layout-skip-link" href="#main-content">
-        Skip to content
+        {t("skipToContent")}
       </a>
       <header className="layout-header">
         <div className="layout-header-inner">
-          <Link to="/" className="layout-logo" aria-label="Riposte Social home">
-            Riposte Social
+          <Link to="/" className="layout-logo" aria-label={t("homeAria")}>
+            {t("siteName")}
           </Link>
-          <nav className="layout-nav" aria-label="Primary">
+          <nav className="layout-nav" aria-label={t("primaryNav")}>
             {navLinks.map((l) => (
               <Link
                 key={l.to}
@@ -74,19 +83,20 @@ export default function Layout({ leftRail, rightRail, children }) {
             ))}
           </nav>
           <div className="layout-header-actions">
+            <LanguagePicker />
             <ThemePicker />
             {!authLoading &&
               (user ? (
                 <UserMenu user={user} onSignOut={logout} />
               ) : (
                 <Link to="/login" className="btn-primary layout-auth-btn">
-                  Sign in
+                  {t("auth.signIn")}
                 </Link>
               ))}
             <button
               type="button"
               className="layout-hamburger"
-              aria-label="Open menu"
+              aria-label={t("openMenu")}
               aria-expanded={drawerOpen}
               onClick={() => setDrawerOpen(true)}
             >
@@ -109,8 +119,10 @@ export default function Layout({ leftRail, rightRail, children }) {
         </div>
       </header>
 
-      <div className={`layout-grid ${leftRail ? "has-left" : ""} ${rightRail ? "has-right" : ""}`}>
-        {leftRail && <aside className="layout-rail layout-rail-left">{leftRail}</aside>}
+      <div className={`layout-grid ${effectiveLeftRail ? "has-left" : ""} ${rightRail ? "has-right" : ""}`}>
+        {effectiveLeftRail && (
+          <aside className="layout-rail layout-rail-left">{effectiveLeftRail}</aside>
+        )}
         <main id="main-content" className="layout-main">
           {children}
         </main>

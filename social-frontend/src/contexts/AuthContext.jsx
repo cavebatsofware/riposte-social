@@ -1,5 +1,7 @@
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import i18n from "i18next";
 import { fetchApi, clearCsrfToken } from "../utils/api";
+import { SUPPORTED_LOCALES } from "../i18n";
 
 const AuthContext = createContext(null);
 
@@ -19,11 +21,33 @@ export function AuthProvider({ children }) {
     loginUrl: null,
     accountUrl: null,
   });
+  // Server-driven locale sync runs at most once per page-load. After the
+  // first user resolution flips i18n.changeLanguage to the saved value,
+  // any subsequent re-fetch (e.g. after a profile save) shouldn't override
+  // a language the user picked manually since via the LanguagePicker.
+  const localeSyncedRef = useRef(false);
 
   useEffect(() => {
     checkAuth();
     fetchAuthConfig();
   }, []);
+
+  // When a logged-in user has a saved server-side locale that differs from
+  // the active one, switch once and write the value to localStorage so the
+  // detector picks it up on subsequent visits. Anonymous viewers hit the
+  // early-return; the language detector handles them.
+  useEffect(() => {
+    if (localeSyncedRef.current) return;
+    if (!user || !user.locale) return;
+    if (!SUPPORTED_LOCALES.includes(user.locale)) return;
+    const active = (i18n.resolvedLanguage || i18n.language || "en").split(
+      "-",
+    )[0];
+    if (user.locale !== active) {
+      i18n.changeLanguage(user.locale);
+    }
+    localeSyncedRef.current = true;
+  }, [user]);
 
   async function fetchAuthConfig() {
     try {

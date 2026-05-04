@@ -1,0 +1,79 @@
+{
+  "backToFeed": "← Zurück zum Feed",
+  "composingAs": "Verfassen als {{name}} · {{role}}",
+  "role": {
+    "administrator": "Administrator",
+    "poster": "Autor"
+  },
+  "post": {
+    "editTitle": "Beitrag bearbeiten",
+    "newTitle": "Neuer Beitrag",
+    "loadingExisting": "Beitrag wird geladen…",
+    "loadFailed": "Beitrag konnte nicht zur Bearbeitung geladen werden",
+    "saveFailed": "Beitrag konnte nicht gespeichert werden",
+    "bodyEmpty": "Der Beitragstext darf nicht leer sein.",
+    "disabledNotice": "Ein Administrator hat das Veröffentlichen vorübergehend deaktiviert. Vorhandene Beiträge sind nicht betroffen.",
+    "publishHint": "Beim Speichern wird sofort veröffentlicht.",
+    "editHint": "Beim Speichern wird der Beitrag sofort aktualisiert.",
+    "publishCta": "Veröffentlichen",
+    "saveCta": "Änderungen speichern"
+  },
+  "album": {
+    "editTitle": "Album bearbeiten",
+    "newTitle": "Neues Album",
+    "loadFailed": "Album konnte nicht zur Bearbeitung geladen werden",
+    "createFailed": "Album konnte nicht erstellt werden",
+    "updateFailed": "Album konnte nicht aktualisiert werden",
+    "captionUpdateFailed": "Bildunterschrift konnte nicht aktualisiert werden",
+    "uploadMoreFailed": "Hochladen weiterer Medien fehlgeschlagen",
+    "removeItemFailed": "Element konnte nicht entfernt werden",
+    "removeItemConfirm": "Dieses Element aus dem Album entfernen?",
+    "nameRequired": "Name ist erforderlich.",
+    "nameLabel": "Name",
+    "namePlaceholder": "Albumname",
+    "descLabel": "Beschreibung (optional)",
+    "descPlaceholder": "Ein paar Worte zu diesem Album.",
+    "createCta": "Album erstellen",
+    "addMore": "Weitere Elemente hinzufügen",
+    "items": "Elemente",
+    "existingItems_one": "Vorhandenes Element ({{count}})",
+    "existingItems_other": "Vorhandene Elemente ({{count}})",
+    "captionPlaceholder": "Bildunterschrift",
+    "disabledShort": "Albumerstellung ist derzeit deaktiviert.",
+    "publishHint": "Beim Speichern wird sofort veröffentlicht.",
+    "editHint": "Beim Speichern wird das Album sofort aktualisiert.",
+    "errorTooMany": "Höchstens {{max}} Elemente pro Album."
+  },
+  "category": {
+    "label": "Kategorie",
+    "uncategorized": "Ohne Kategorie",
+    "empty": "Noch keine Kategorien definiert. Administratoren können sie im Adminbereich hinzufügen."
+  },
+  "body": {
+    "label": "Text (Markdown)",
+    "placeholder": "Was beschäftigt dich?\n\n**Fett**, *kursiv*, [Links](https://example.com) und ![Bilder](url) funktionieren.",
+    "hint": "Markdown wird serverseitig gerendert. Eingebettete Bilder und Links sind erstklassige Inhalte. HTML wird bereinigt.",
+    "previewLabel": "Vorschau",
+    "previewEmpty": "Hier erscheint die Live-Vorschau."
+  },
+  "attachments": {
+    "label": "Anhänge",
+    "dropzonePrompt": "Bilder oder Videos hierher ziehen oder klicken zum Auswählen",
+    "dropzoneMeta": "Bilder (JPEG/PNG/GIF/WebP, je 10 MB) oder Videos (MP4/WebM, je 100 MB) · bis zu {{max}} Dateien",
+    "dropzoneMetaAlbum": "Bis zu {{max}} Elemente pro Album · 10 MB pro Bild / 100 MB pro Video",
+    "removeAria": "{{name}} entfernen",
+    "errorTooMany": "Höchstens {{max}} Anhänge pro Beitrag.",
+    "errorUnsupported": "Nicht unterstützter Dateityp „{{type}}“. Bilder (JPEG/PNG/GIF/WebP) oder Videos (MP4/WebM).",
+    "errorTooLargeVideo": "Datei „{{name}}“ überschreitet das Limit von 100 MB pro Videodatei.",
+    "errorTooLargeImage": "Datei „{{name}}“ überschreitet das Limit von 10 MB pro Bilddatei.",
+    "errorTooLargeAlbumVideo": "Datei „{{name}}“ überschreitet das Limit von 100 MB pro Datei.",
+    "errorTooLargeAlbumImage": "Datei „{{name}}“ überschreitet das Limit von 10 MB pro Datei."
+  },
+  "visibility": {
+    "legend": "Sichtbarkeit"
+  },
+  "contentLang": {
+    "label": "Sprache",
+    "hint": "Wird zum Tokenisieren des Beitrags für die Suche verwendet."
+  }
+}

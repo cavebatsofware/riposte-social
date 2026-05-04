@@ -98,3 +98,15 @@ pub fn can_read_post(tier: FeedTier, visibility: &str, author_id: Uuid, viewer_i
     }
     false
 }
+
+/// Map a locale code (en/es/fr/zh/de) to the Postgres FTS configuration
+/// name. Unknown locales fall through to `english`.
+pub fn fts_config_for_locale(locale: Option<&str>) -> &'static str {
+    match locale {
+        Some("es") => post::CONTENT_LANG_SPANISH,
+        Some("fr") => post::CONTENT_LANG_FRENCH,
+        Some("de") => post::CONTENT_LANG_GERMAN,
+        Some("zh") => post::CONTENT_LANG_CHINESE,
+        _ => post::CONTENT_LANG_ENGLISH,
+    }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 const STORAGE_KEY = "rs_cookie_ack_v1";
 
@@ -14,6 +15,7 @@ const STORAGE_KEY = "rs_cookie_ack_v1";
 /// (none yet) would need an opt-in here.
 export default function CookieBanner() {
   const [acknowledged, setAcknowledged] = useState(true);
+  const { t } = useTranslation("common");
 
   useEffect(() => {
     try {
@@ -38,14 +40,10 @@ export default function CookieBanner() {
   }
 
   return (
-    <div className="cookie-banner" role="region" aria-label="Cookie notice">
-      <p>
-        Riposte Social uses cookies that are strictly necessary for sign-in
-        and security. We do not use tracking, analytics, or advertising
-        cookies.
-      </p>
+    <div className="cookie-banner" role="region" aria-label={t("cookieBanner.regionLabel")}>
+      <p>{t("cookieBanner.text")}</p>
       <button type="button" className="btn-primary" onClick={handleAck}>
-        OK
+        {t("cookieBanner.ack")}
       </button>
     </div>
   );

@@ -52,6 +52,115 @@ fn synth_png(side: u32) -> Vec<u8> {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_patch_locale_accepts_supported_code(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let email = test_email("locale-ok");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .patch("/api/me/locale")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({ "locale": "fr" }))
+        .await;
+    assert_eq!(response.status_code(), StatusCode::OK);
+    let body: serde_json::Value = response.json();
+    assert_eq!(body["locale"].as_str().unwrap(), "fr");
+
+    let row = User::find()
+        .filter(user::Column::Email.eq(&email))
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.locale.as_deref(), Some("fr"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_patch_locale_rejects_unsupported_code(pool: sqlx::PgPool) {
+    let (server, backend, _db) = build_test_server(pool).await;
+    let email = test_email("locale-bad");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    for bad in ["pt", "EN", "en-US", "klingon", ""] {
+        let response = server
+            .patch("/api/me/locale")
+            .add_header("x-csrf-token", &csrf)
+            .json(&serde_json::json!({ "locale": bad }))
+            .await;
+        assert_eq!(
+            response.status_code(),
+            StatusCode::BAD_REQUEST,
+            "expected reject for '{}'",
+            bad
+        );
+    }
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_patch_locale_requires_auth(pool: sqlx::PgPool) {
+    let (server, _backend, _db) = build_test_server(pool).await;
+    let response = server
+        .patch("/api/me/locale")
+        .json(&serde_json::json!({ "locale": "es" }))
+        .await;
+    let status = response.status_code();
+    assert!(
+        status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN,
+        "expected 401/403 got {}",
+        status
+    );
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_patch_locale_idempotent(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let email = test_email("locale-idem");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    for _ in 0..3 {
+        let response = server
+            .patch("/api/me/locale")
+            .add_header("x-csrf-token", &csrf)
+            .json(&serde_json::json!({ "locale": "de" }))
+            .await;
+        assert_eq!(response.status_code(), StatusCode::OK);
+    }
+    let row = User::find()
+        .filter(user::Column::Email.eq(&email))
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(row.locale.as_deref(), Some("de"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_me_includes_locale_after_save(pool: sqlx::PgPool) {
+    let (server, backend, _db) = build_test_server(pool).await;
+    let email = test_email("locale-me");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    server
+        .patch("/api/me/locale")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({ "locale": "zh" }))
+        .await;
+
+    let response = server.get("/api/me").await;
+    assert_eq!(response.status_code(), StatusCode::OK);
+    let body: serde_json::Value = response.json();
+    assert_eq!(body["locale"].as_str().unwrap(), "zh");
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_get_me_profile_returns_handle(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("profile-me");

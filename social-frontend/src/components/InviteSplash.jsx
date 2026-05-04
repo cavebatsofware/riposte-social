@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import InviteAcceptForm from "./InviteAcceptForm";
@@ -16,6 +17,7 @@ export default function InviteSplash() {
   const [invite, setInvite] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState(false);
+  const { t } = useTranslation("auth");
 
   useEffect(() => {
     fetchInvite();
@@ -51,14 +53,17 @@ export default function InviteSplash() {
   return (
     <div className="invite-splash-overlay" role="dialog" aria-modal="true">
       <div className="invite-splash-card">
-        <h2>You've been invited</h2>
+        <h2>{t("invite.splash.title")}</h2>
         {invite.email_hint ? (
           <p>
-            This invite is for <strong>{invite.email_hint}</strong>. Sign in
-            to accept and start participating.
+            <Trans
+              i18nKey="auth:invite.splash.forRecipient"
+              values={{ email: invite.email_hint }}
+              components={{ bold: <strong /> }}
+            />
           </p>
         ) : (
-          <p>Sign in to accept your invite and join the conversation.</p>
+          <p>{t("invite.splash.generic")}</p>
         )}
 
         <InviteAcceptForm
@@ -74,7 +79,7 @@ export default function InviteSplash() {
           className="invite-splash-decline"
           onClick={handleDecline}
         >
-          Maybe later
+          {t("invite.splash.decline")}
         </button>
       </div>
     </div>
