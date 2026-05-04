@@ -39,7 +39,11 @@ use uuid::Uuid;
 // ==================== helpers ====================
 
 async fn set_role(db: &sea_orm::DatabaseConnection, user_id: Uuid, role: &str) {
-    let row = User::find_by_id(user_id).one(db).await.unwrap().expect("user");
+    let row = User::find_by_id(user_id)
+        .one(db)
+        .await
+        .unwrap()
+        .expect("user");
     let mut active: user::ActiveModel = row.into();
     active.role = Set(role.to_string());
     active.update(db).await.unwrap();
@@ -141,7 +145,14 @@ async fn test_feed_categorized_post_user_list_visible_to_member(pool: sqlx::PgPo
     // Post lives in user_list category. Row's own visibility is `private`
     // — that should be IGNORED when categorized; the category's
     // `user_list` rules apply.
-    let post = insert_post_in_category(&db, admin.id, "secret", post::VISIBILITY_PRIVATE, Some(cat.id)).await;
+    let post = insert_post_in_category(
+        &db,
+        admin.id,
+        "secret",
+        post::VISIBILITY_PRIVATE,
+        Some(cat.id),
+    )
+    .await;
 
     login_as(&server, &member_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -159,8 +170,16 @@ async fn test_feed_categorized_post_user_list_invisible_to_non_member(pool: sqlx
     let outsider_email = test_email("vis-outsider");
     make_user(&backend, &db, &outsider_email, user::ROLE_COMMENTER).await;
 
-    let cat = insert_category(&db, "Inner2", "inner2", VISIBILITY_USER_LIST, Some(admin.id)).await;
-    let post = insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Inner2",
+        "inner2",
+        VISIBILITY_USER_LIST,
+        Some(admin.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &outsider_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -175,12 +194,16 @@ async fn test_feed_uncategorized_post_respects_post_visibility(pool: sqlx::PgPoo
     let admin_email = test_email("vis-admin3");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
     // Uncategorized public post — anonymous viewer must see it.
-    let post = insert_post_in_category(&db, admin.id, "public", post::VISIBILITY_PUBLIC, None).await;
+    let post =
+        insert_post_in_category(&db, admin.id, "public", post::VISIBILITY_PUBLIC, None).await;
 
     let response = server.get("/api/feed").await;
     let json: serde_json::Value = response.json();
     let ids = feed_post_ids(&json);
-    assert!(ids.contains(&post.id), "anon should see uncategorized public post");
+    assert!(
+        ids.contains(&post.id),
+        "anon should see uncategorized public post"
+    );
 }
 
 #[sqlx::test(migrations = false)]
@@ -190,7 +213,8 @@ async fn test_feed_categorized_public_visible_to_anon(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
     let cat = insert_category(&db, "Open", "open", post::VISIBILITY_PUBLIC, Some(admin.id)).await;
     // Row visibility is `private` but category overrides: anon sees it.
-    let post = insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PRIVATE, Some(cat.id)).await;
+    let post =
+        insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PRIVATE, Some(cat.id)).await;
 
     let response = server.get("/api/feed").await;
     let json: serde_json::Value = response.json();
@@ -212,8 +236,16 @@ async fn test_feed_admin_sees_user_list_category_for_moderation(pool: sqlx::PgPo
     let other_admin_email = test_email("vis-other-admin");
     create_verified_admin(&backend, &other_admin_email, TEST_PASSWORD).await;
 
-    let cat = insert_category(&db, "Closed", "closed", VISIBILITY_USER_LIST, Some(owner.id)).await;
-    let post = insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Closed",
+        "closed",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &other_admin_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -235,8 +267,16 @@ async fn test_get_post_404_for_non_member(pool: sqlx::PgPool) {
     let outsider_email = test_email("vis-getoutsider");
     make_user(&backend, &db, &outsider_email, user::ROLE_COMMENTER).await;
 
-    let cat = insert_category(&db, "Closed2", "closed2", VISIBILITY_USER_LIST, Some(admin.id)).await;
-    let post = insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Closed2",
+        "closed2",
+        VISIBILITY_USER_LIST,
+        Some(admin.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &outsider_email, TEST_PASSWORD).await;
     let response = server.get(&format!("/api/posts/{}", post.id)).await;
@@ -248,10 +288,18 @@ async fn test_post_response_effective_visibility_matches_category(pool: sqlx::Pg
     let (server, backend, db) = build_test_server(pool).await;
     let admin_email = test_email("vis-eff");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
-    let cat = insert_category(&db, "Open2", "open2", post::VISIBILITY_COMMENTERS, Some(admin.id)).await;
+    let cat = insert_category(
+        &db,
+        "Open2",
+        "open2",
+        post::VISIBILITY_COMMENTERS,
+        Some(admin.id),
+    )
+    .await;
     // Row visibility = public; category visibility = commenters.
     // effective_visibility must be commenters.
-    let post = insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let post =
+        insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &admin_email, TEST_PASSWORD).await;
     let response = server.get(&format!("/api/posts/{}", post.id)).await;
@@ -287,7 +335,14 @@ async fn test_compose_post_into_user_list_category_rejected_when_author_not_memb
     let poster_email = test_email("vis-poster-out");
     make_user(&backend, &db, &poster_email, user::ROLE_POSTER).await;
 
-    let cat = insert_category(&db, "Locked", "locked", VISIBILITY_USER_LIST, Some(owner.id)).await;
+    let cat = insert_category(
+        &db,
+        "Locked",
+        "locked",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
 
     login_as(&server, &poster_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -312,7 +367,14 @@ async fn test_compose_post_into_user_list_category_succeeds_for_member(pool: sql
     let poster_email = test_email("vis-poster-in");
     let poster = make_user(&backend, &db, &poster_email, user::ROLE_POSTER).await;
 
-    let cat = insert_category(&db, "Locked2", "locked2", VISIBILITY_USER_LIST, Some(owner.id)).await;
+    let cat = insert_category(
+        &db,
+        "Locked2",
+        "locked2",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
     add_member(&db, cat.id, poster.id).await;
 
     login_as(&server, &poster_email, TEST_PASSWORD).await;
@@ -345,7 +407,14 @@ async fn test_compose_post_into_user_list_category_succeeds_for_admin_non_member
     let other_admin_email = test_email("vis-other-admin2");
     create_verified_admin(&backend, &other_admin_email, TEST_PASSWORD).await;
 
-    let cat = insert_category(&db, "Locked3", "locked3", VISIBILITY_USER_LIST, Some(owner.id)).await;
+    let cat = insert_category(
+        &db,
+        "Locked3",
+        "locked3",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
 
     login_as(&server, &other_admin_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -365,17 +434,23 @@ async fn test_compose_post_into_user_list_category_succeeds_for_admin_non_member
 // ==================== engagement gates ====================
 
 #[sqlx::test(migrations = false)]
-async fn test_engagement_react_blocked_when_category_user_list_excludes_viewer(
-    pool: sqlx::PgPool,
-) {
+async fn test_engagement_react_blocked_when_category_user_list_excludes_viewer(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let owner_email = test_email("vis-react-owner");
     let owner = create_verified_admin(&backend, &owner_email, TEST_PASSWORD).await;
     let outsider_email = test_email("vis-react-outsider");
     make_user(&backend, &db, &outsider_email, user::ROLE_COMMENTER).await;
 
-    let cat = insert_category(&db, "Sealed", "sealed", VISIBILITY_USER_LIST, Some(owner.id)).await;
-    let post = insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Sealed",
+        "sealed",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &outsider_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -397,8 +472,16 @@ async fn test_engagement_comment_blocked_when_category_user_list_excludes_viewer
     let outsider_email = test_email("vis-comm-outsider");
     make_user(&backend, &db, &outsider_email, user::ROLE_COMMENTER).await;
 
-    let cat = insert_category(&db, "Sealed2", "sealed2", VISIBILITY_USER_LIST, Some(owner.id)).await;
-    let post = insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Sealed2",
+        "sealed2",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &outsider_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -418,9 +501,17 @@ async fn test_engagement_react_succeeds_for_member(pool: sqlx::PgPool) {
     let member_email = test_email("vis-react-ok-member");
     let member = make_user(&backend, &db, &member_email, user::ROLE_COMMENTER).await;
 
-    let cat = insert_category(&db, "Sealed3", "sealed3", VISIBILITY_USER_LIST, Some(owner.id)).await;
+    let cat = insert_category(
+        &db,
+        "Sealed3",
+        "sealed3",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
     add_member(&db, cat.id, member.id).await;
-    let post = insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let post =
+        insert_post_in_category(&db, owner.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &member_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -444,8 +535,16 @@ async fn test_feed_anon_does_not_see_user_list_categories(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin_email = test_email("vis-anonadmin");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
-    let cat = insert_category(&db, "Closed3", "closed3", VISIBILITY_USER_LIST, Some(admin.id)).await;
-    let post = insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Closed3",
+        "closed3",
+        VISIBILITY_USER_LIST,
+        Some(admin.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, admin.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     let response = server.get("/api/feed").await;
     let json: serde_json::Value = response.json();
@@ -460,7 +559,14 @@ async fn test_creator_sees_own_private_category_in_list(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let poster_email = test_email("13d-priv-poster");
     let poster = make_user(&backend, &db, &poster_email, user::ROLE_POSTER).await;
-    let cat = insert_category(&db, "Drafts", "drafts", post::VISIBILITY_PRIVATE, Some(poster.id)).await;
+    let cat = insert_category(
+        &db,
+        "Drafts",
+        "drafts",
+        post::VISIBILITY_PRIVATE,
+        Some(poster.id),
+    )
+    .await;
 
     login_as(&server, &poster_email, TEST_PASSWORD).await;
     let response = server.get("/api/categories").await;
@@ -481,8 +587,22 @@ async fn test_creator_can_read_post_in_own_private_category(pool: sqlx::PgPool) 
     let (server, backend, db) = build_test_server(pool).await;
     let poster_email = test_email("13d-priv-read");
     let poster = make_user(&backend, &db, &poster_email, user::ROLE_POSTER).await;
-    let cat = insert_category(&db, "Drafts2", "drafts2", post::VISIBILITY_PRIVATE, Some(poster.id)).await;
-    let post = insert_post_in_category(&db, poster.id, "secret", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "Drafts2",
+        "drafts2",
+        post::VISIBILITY_PRIVATE,
+        Some(poster.id),
+    )
+    .await;
+    let post = insert_post_in_category(
+        &db,
+        poster.id,
+        "secret",
+        post::VISIBILITY_PUBLIC,
+        Some(cat.id),
+    )
+    .await;
 
     login_as(&server, &poster_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -563,7 +683,14 @@ async fn test_admin_sees_other_users_private_category_in_list(pool: sqlx::PgPool
     let admin_email = test_email("13d-adm-admin");
     create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 
-    let cat = insert_category(&db, "PrivP", "privp", post::VISIBILITY_PRIVATE, Some(poster.id)).await;
+    let cat = insert_category(
+        &db,
+        "PrivP",
+        "privp",
+        post::VISIBILITY_PRIVATE,
+        Some(poster.id),
+    )
+    .await;
 
     login_as(&server, &admin_email, TEST_PASSWORD).await;
     let response = server.get("/api/categories").await;
@@ -588,8 +715,16 @@ async fn test_admin_sees_post_in_other_users_private_category(pool: sqlx::PgPool
     let admin_email = test_email("13d-mod-admin");
     create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 
-    let cat = insert_category(&db, "PrivQ", "privq", post::VISIBILITY_PRIVATE, Some(poster.id)).await;
-    let post = insert_post_in_category(&db, poster.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let cat = insert_category(
+        &db,
+        "PrivQ",
+        "privq",
+        post::VISIBILITY_PRIVATE,
+        Some(poster.id),
+    )
+    .await;
+    let post =
+        insert_post_in_category(&db, poster.id, "x", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
 
     login_as(&server, &admin_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -612,7 +747,14 @@ async fn test_admin_uncategorized_private_post_still_invisible(pool: sqlx::PgPoo
     let admin_email = test_email("13d-unp-admin");
     create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 
-    let post = insert_post_in_category(&db, poster.id, "private draft", post::VISIBILITY_PRIVATE, None).await;
+    let post = insert_post_in_category(
+        &db,
+        poster.id,
+        "private draft",
+        post::VISIBILITY_PRIVATE,
+        None,
+    )
+    .await;
 
     login_as(&server, &admin_email, TEST_PASSWORD).await;
     let response = server.get("/api/feed").await;
@@ -648,10 +790,7 @@ async fn test_user_list_creator_cannot_be_removed_via_delete(pool: sqlx::PgPool)
 
     // Try to remove the creator — should be rejected.
     let remove = server
-        .delete(&format!(
-            "/api/categories/{}/members/{}",
-            cat_id, admin.id
-        ))
+        .delete(&format!("/api/categories/{}/members/{}", cat_id, admin.id))
         .add_header("x-csrf-token", &csrf)
         .await;
     assert_eq!(remove.status_code(), StatusCode::BAD_REQUEST);
@@ -695,7 +834,14 @@ async fn test_visibility_change_to_user_list_adds_creator_when_missing(pool: sql
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 
     // Start as public — no auto-add fires on create.
-    let cat = insert_category(&db, "Transition", "trans-13d", post::VISIBILITY_PUBLIC, Some(admin.id)).await;
+    let cat = insert_category(
+        &db,
+        "Transition",
+        "trans-13d",
+        post::VISIBILITY_PUBLIC,
+        Some(admin.id),
+    )
+    .await;
 
     // Patch to user_list — auto-add must fire.
     login_as(&server, &admin_email, TEST_PASSWORD).await;
@@ -751,11 +897,25 @@ async fn test_author_sees_own_post_in_user_list_category_after_revocation(pool: 
     let poster_email = test_email("13d-rev-poster");
     let poster = make_user(&backend, &db, &poster_email, user::ROLE_POSTER).await;
 
-    let cat = insert_category(&db, "Revoke", "revoke-13d", VISIBILITY_USER_LIST, Some(owner.id)).await;
+    let cat = insert_category(
+        &db,
+        "Revoke",
+        "revoke-13d",
+        VISIBILITY_USER_LIST,
+        Some(owner.id),
+    )
+    .await;
     add_member(&db, cat.id, poster.id).await;
 
     // Poster (a member) composes a post.
-    let post = insert_post_in_category(&db, poster.id, "before revoke", post::VISIBILITY_PUBLIC, Some(cat.id)).await;
+    let post = insert_post_in_category(
+        &db,
+        poster.id,
+        "before revoke",
+        post::VISIBILITY_PUBLIC,
+        Some(cat.id),
+    )
+    .await;
 
     // Owner removes the poster from membership.
     login_as(&server, &owner_email, TEST_PASSWORD).await;

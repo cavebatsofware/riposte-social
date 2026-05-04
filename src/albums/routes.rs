@@ -25,7 +25,9 @@
 //! - `PATCH  /api/albums/{id}/media/{media_id}` edit caption / ordinal
 //! - `DELETE /api/albums/{id}/media/{media_id}` remove one item
 
-use crate::entities::{album, album_media, category, post, user, Album, AlbumMedia, Category, User};
+use crate::entities::{
+    album, album_media, category, post, user, Album, AlbumMedia, Category, User,
+};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::FeedTier;
@@ -181,7 +183,10 @@ fn build_album_response(
 ) -> AlbumResponse {
     let cover_url = row.cover_media_id.map(|id| format!("/album-media/{}", id));
     let photo_count = media.len() as i64;
-    let media_responses = media.into_iter().map(AlbumMediaResponse::from_model).collect();
+    let media_responses = media
+        .into_iter()
+        .map(AlbumMediaResponse::from_model)
+        .collect();
     let effective_visibility = category
         .map(|c| c.visibility.clone())
         .unwrap_or_else(|| row.visibility.clone());
@@ -238,9 +243,11 @@ async fn create_album(
     let mut captions_by_index: HashMap<usize, String> = HashMap::new();
     let mut category_id: Option<Uuid> = None;
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("Failed to parse multipart form: {}", e)))?
+    {
         let field_name = field.name().unwrap_or("").to_string();
         match field_name.as_str() {
             "name" => {
@@ -293,14 +300,9 @@ async fn create_album(
                         MEDIA_FILES_MAX
                     )));
                 }
-                let mime = field
-                    .content_type()
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| {
-                        AppError::ValidationError(
-                            "Media field must include a Content-Type".to_string(),
-                        )
-                    })?;
+                let mime = field.content_type().map(|s| s.to_string()).ok_or_else(|| {
+                    AppError::ValidationError("Media field must include a Content-Type".to_string())
+                })?;
                 if !crate::posts::routes::is_allowed_media_mime(&mime) {
                     return Err(AppError::ValidationError(format!(
                         "Unsupported media type '{}'",
@@ -352,9 +354,10 @@ async fn create_album(
         }
     }
     if let Some(cid) = category_id {
-        let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
-            AppError::ValidationError("Category not found".to_string())
-        })?;
+        let cat = Category::find_by_id(cid)
+            .one(&state.db)
+            .await?
+            .ok_or_else(|| AppError::ValidationError("Category not found".to_string()))?;
         crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
@@ -438,13 +441,14 @@ async fn create_album(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!("Failed to create album: {}", e)));
+            return Err(AppError::AuthError(format!(
+                "Failed to create album: {}",
+                e
+            )));
         }
     };
 
-    let author = User::find_by_id(album_row.author_id)
-        .one(&state.db)
-        .await?;
+    let author = User::find_by_id(album_row.author_id).one(&state.db).await?;
     let cat = load_album_category(&state.db, &album_row).await?;
     Ok((
         StatusCode::CREATED,
@@ -634,7 +638,10 @@ async fn list_albums(
         })
         .collect();
 
-    Ok(Json(ListAlbumsResponse { albums, next_cursor }))
+    Ok(Json(ListAlbumsResponse {
+        albums,
+        next_cursor,
+    }))
 }
 
 async fn get_album(
@@ -738,9 +745,10 @@ async fn update_album(
     if req.clear_category {
         active.category_id = Set(None);
     } else if let Some(cid) = req.category_id {
-        let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
-            AppError::ValidationError("Category not found".to_string())
-        })?;
+        let cat = Category::find_by_id(cid)
+            .one(&state.db)
+            .await?
+            .ok_or_else(|| AppError::ValidationError("Category not found".to_string()))?;
         crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
         active.category_id = Set(Some(cid));
     }
@@ -809,17 +817,16 @@ async fn append_album_media(
 
     let mut media: Vec<PendingMedia> = Vec::new();
     let mut captions_by_index: HashMap<usize, String> = HashMap::new();
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("Failed to parse multipart form: {}", e)))?
+    {
         let n = field.name().unwrap_or("").to_string();
         if n == "media" {
-            let mime = field
-                .content_type()
-                .map(|s| s.to_string())
-                .ok_or_else(|| {
-                    AppError::ValidationError("Media field must include a Content-Type".to_string())
-                })?;
+            let mime = field.content_type().map(|s| s.to_string()).ok_or_else(|| {
+                AppError::ValidationError("Media field must include a Content-Type".to_string())
+            })?;
             if !crate::posts::routes::is_allowed_media_mime(&mime) {
                 return Err(AppError::ValidationError(format!(
                     "Unsupported media type '{}'",

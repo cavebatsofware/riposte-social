@@ -15,10 +15,10 @@
  */
 mod common;
 
-use riposte_social::entities::{access_code, user};
 use common::{
     build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
+use riposte_social::entities::{access_code, user};
 
 use axum::http::StatusCode;
 use chrono::Utc;
@@ -154,10 +154,7 @@ async fn test_delete_access_code_unauthenticated_returns_csrf_or_401(pool: sqlx:
 
     // DELETE without auth or CSRF — hits CSRF middleware first
     let response = server
-        .delete(&format!(
-            "/api/admin/access-codes/{}",
-            Uuid::new_v4()
-        ))
+        .delete(&format!("/api/admin/access-codes/{}", Uuid::new_v4()))
         .await;
 
     // CSRF rejects before auth check

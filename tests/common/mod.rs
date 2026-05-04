@@ -22,10 +22,10 @@ pub mod ses_mock;
 pub use riposte_social::tests::{test_db_from_pool, test_email};
 
 use riposte_social::admin::UserAuthBackend;
-use riposte_social::app::{AppState, RouterDeps, build_router};
-use riposte_social::middleware::access_log_middleware;
+use riposte_social::app::{build_router, AppState, RouterDeps};
 use riposte_social::email::EmailService;
 use riposte_social::entities::user;
+use riposte_social::middleware::access_log_middleware;
 use riposte_social::oidc::{OidcConfig, OidcService};
 use riposte_social::s3::S3Service;
 use riposte_social::security_callbacks::AppRateLimitCallbacks;
@@ -36,8 +36,8 @@ use axum::http::StatusCode;
 use axum::middleware::from_fn_with_state;
 use axum_test::TestServer;
 use basic_axum_rate_limit::{
-    IpExtractionStrategy, RateLimitConfig, RateLimiter, SecurityContextConfig,
-    security_context_middleware_with_config,
+    security_context_middleware_with_config, IpExtractionStrategy, RateLimitConfig, RateLimiter,
+    SecurityContextConfig,
 };
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -224,9 +224,7 @@ pub fn generate_totp_code(secret: &str, email: &str) -> String {
         6,
         1,
         30,
-        Secret::Encoded(secret.to_string())
-            .to_bytes()
-            .unwrap(),
+        Secret::Encoded(secret.to_string()).to_bytes().unwrap(),
         None,
         email.to_string(),
     )
@@ -234,7 +232,12 @@ pub fn generate_totp_code(secret: &str, email: &str) -> String {
     totp.generate_current().unwrap()
 }
 
-pub async fn login_as_with_mfa(server: &TestServer, email: &str, password: &str, totp_secret: &str) {
+pub async fn login_as_with_mfa(
+    server: &TestServer,
+    email: &str,
+    password: &str,
+    totp_secret: &str,
+) {
     login_as(server, email, password).await;
     let code = generate_totp_code(totp_secret, email);
     let csrf = get_csrf_token(server).await;

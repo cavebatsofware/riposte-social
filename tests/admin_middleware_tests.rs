@@ -15,11 +15,11 @@
  */
 mod common;
 
-use riposte_social::entities::user;
 use common::{
     build_test_server, create_verified_admin, generate_totp_code, get_csrf_token, login_as,
     test_email, TEST_PASSWORD, TEST_TOTP_SECRET,
 };
+use riposte_social::entities::user;
 
 use axum::http::StatusCode;
 use sea_orm::{ActiveModelTrait, Set};

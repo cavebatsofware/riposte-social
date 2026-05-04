@@ -34,8 +34,10 @@ impl MigrationTrait for Migration {
         // stamp activated_at = updated_at to grandfather them in. The bootstrap
         // admin and any pre-existing rows continue working without re-binding.
         let db = manager.get_connection();
-        db.execute_unprepared("UPDATE users SET activated_at = updated_at WHERE activated_at IS NULL")
-            .await?;
+        db.execute_unprepared(
+            "UPDATE users SET activated_at = updated_at WHERE activated_at IS NULL",
+        )
+        .await?;
 
         // Index on activated_at supports the inert-row check at login time.
         manager

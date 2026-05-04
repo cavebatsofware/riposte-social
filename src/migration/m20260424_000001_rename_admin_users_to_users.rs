@@ -35,7 +35,11 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(AdminUsers::Table)
-                    .add_column(string(AdminUsers::UserType).default("admin_user").not_null())
+                    .add_column(
+                        string(AdminUsers::UserType)
+                            .default("admin_user")
+                            .not_null(),
+                    )
                     .add_column(string_null(AdminUsers::OidcSub))
                     .add_column(string_null(AdminUsers::DisplayName))
                     .add_column(string_null(AdminUsers::AvatarUrl))

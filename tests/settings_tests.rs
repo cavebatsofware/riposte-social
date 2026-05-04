@@ -15,11 +15,11 @@
  */
 mod common;
 
-use riposte_social::entities::user;
-use riposte_social::settings::SettingsService;
 use common::{
     build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
+use riposte_social::entities::user;
+use riposte_social::settings::SettingsService;
 
 use axum::http::StatusCode;
 use sea_orm::{ActiveModelTrait, Set};
@@ -69,10 +69,7 @@ async fn test_get_settings_returns_seeded_defaults(pool: sqlx::PgPool) {
     let arr = json.as_array().unwrap();
 
     // Migrations seed: admin_registration_enabled, site_name, contact_email, from_email
-    let keys: Vec<&str> = arr
-        .iter()
-        .map(|s| s["key"].as_str().unwrap())
-        .collect();
+    let keys: Vec<&str> = arr.iter().map(|s| s["key"].as_str().unwrap()).collect();
     assert!(keys.contains(&"admin_registration_enabled"));
     assert!(keys.contains(&"site_name"));
     assert!(keys.contains(&"contact_email"));
@@ -195,6 +192,10 @@ async fn test_update_setting_upserts_existing(pool: sqlx::PgPool) {
         .iter()
         .filter(|s| s["key"].as_str() == Some("upsert_unique_key"))
         .collect();
-    assert_eq!(matches.len(), 1, "should be exactly one entry for upsert_unique_key");
+    assert_eq!(
+        matches.len(),
+        1,
+        "should be exactly one entry for upsert_unique_key"
+    );
     assert_eq!(matches[0]["value"].as_str().unwrap(), "second_value");
 }

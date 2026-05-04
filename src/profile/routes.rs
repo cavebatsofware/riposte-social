@@ -82,7 +82,10 @@ pub struct ProfileState {
 /// Self-service routes (gated by `require_authenticated` at app.rs).
 pub fn me_profile_routes() -> Router<ProfileState> {
     Router::new()
-        .route("/api/me/profile", get(get_me_profile).patch(patch_me_profile))
+        .route(
+            "/api/me/profile",
+            get(get_me_profile).patch(patch_me_profile),
+        )
         .route("/api/me/locale", axum::routing::patch(patch_me_locale))
         .route(
             "/api/me/avatar",
@@ -406,21 +409,18 @@ async fn post_me_avatar(
     // Read the single `file` field.
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut file_mime: Option<String> = None;
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("Failed to parse multipart form: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
         if name != "file" {
             continue;
         }
-        let mime = field
-            .content_type()
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                AppError::ValidationError(
-                    "Avatar field must include a Content-Type".to_string(),
-                )
-            })?;
+        let mime = field.content_type().map(|s| s.to_string()).ok_or_else(|| {
+            AppError::ValidationError("Avatar field must include a Content-Type".to_string())
+        })?;
         if !AVATAR_ALLOWED_MIMES.contains(&mime.as_str()) {
             return Err(AppError::ValidationError(format!(
                 "Unsupported avatar type '{}'. Allowed: {:?}",
@@ -440,9 +440,8 @@ async fn post_me_avatar(
         file_mime = Some(mime);
         break;
     }
-    let bytes = file_bytes.ok_or_else(|| {
-        AppError::ValidationError("Missing required field: file".to_string())
-    })?;
+    let bytes = file_bytes
+        .ok_or_else(|| AppError::ValidationError("Missing required field: file".to_string()))?;
     let _ = file_mime; // mime check already enforced above
 
     // CPU-bound: decode + crop + resize + encode happens on a blocking
@@ -458,9 +457,7 @@ async fn post_me_avatar(
         .s3
         .put_object_at(&new_key, normalized, "image/webp")
         .await
-        .map_err(|e| {
-            AppError::InternalError(format!("Failed to upload avatar: {:#}", e))
-        })?;
+        .map_err(|e| AppError::InternalError(format!("Failed to upload avatar: {:#}", e)))?;
 
     // Swap the row's avatar_s3_key. Best-effort delete the previous object
     // after the row update commits (a stale object is harmless storage; a
@@ -480,10 +477,7 @@ async fn post_me_avatar(
     if let Some(prev) = prev_key {
         if prev != new_key {
             if let Err(e) = state.s3.delete_object_at(&prev).await {
-                tracing::warn!(
-                    "Failed to delete previous avatar object {}: {:#}",
-                    prev, e
-                );
+                tracing::warn!("Failed to delete previous avatar object {}: {:#}", prev, e);
             }
         }
     }
@@ -515,7 +509,9 @@ async fn delete_me_avatar(
         if let Err(e) = state.s3.delete_object_at(&prev_key).await {
             tracing::warn!(
                 "Failed to delete avatar object {} for user {}: {:#}",
-                prev_key, user_auth.id, e
+                prev_key,
+                user_auth.id,
+                e
             );
         }
     }
@@ -540,9 +536,11 @@ async fn serve_avatar(
         .avatar_s3_key
         .ok_or_else(|| AppError::AuthError("Avatar not found".to_string()))?;
 
-    let (bytes, _stored_type) = state.s3.get_object_at(&key).await.map_err(|e| {
-        AppError::InternalError(format!("Failed to load avatar: {:#}", e))
-    })?;
+    let (bytes, _stored_type) = state
+        .s3
+        .get_object_at(&key)
+        .await
+        .map_err(|e| AppError::InternalError(format!("Failed to load avatar: {:#}", e)))?;
 
     Ok((
         StatusCode::OK,
@@ -552,10 +550,7 @@ async fn serve_avatar(
             // changes whenever the user replaces it. Short cache + we
             // re-key the S3 object on each upload so a stale cached body
             // isn't load-bearing.
-            (
-                header::CACHE_CONTROL,
-                "public, max-age=300".to_string(),
-            ),
+            (header::CACHE_CONTROL, "public, max-age=300".to_string()),
         ],
         Body::from(bytes),
     )
@@ -575,9 +570,10 @@ async fn enforce_public_profile_gate(
     if auth_session.user().await.is_some() {
         return Ok(());
     }
-    let enabled = settings.get_public_feed_enabled().await.map_err(|e| {
-        AppError::InternalError(format!("settings read failed: {:#}", e))
-    })?;
+    let enabled = settings
+        .get_public_feed_enabled()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if enabled {
         return Ok(());
     }

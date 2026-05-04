@@ -74,15 +74,21 @@ fn extract_email(input: &SendEmailInput) -> CapturedEmail {
         .unwrap_or_default();
 
     let (subject, html_body, text_body) = match input.content() {
-        Some(EmailContent { simple: Some(msg), .. }) => {
+        Some(EmailContent {
+            simple: Some(msg), ..
+        }) => {
             let subject = msg
                 .subject()
                 .map(|c| c.data().to_string())
                 .unwrap_or_default();
             let (html, text) = if let Some(body) = msg.body() {
                 (
-                    body.html().map(|c| c.data().to_string()).unwrap_or_default(),
-                    body.text().map(|c| c.data().to_string()).unwrap_or_default(),
+                    body.html()
+                        .map(|c| c.data().to_string())
+                        .unwrap_or_default(),
+                    body.text()
+                        .map(|c| c.data().to_string())
+                        .unwrap_or_default(),
                 )
             } else {
                 (String::new(), String::new())
@@ -106,11 +112,12 @@ fn extract_email(input: &SendEmailInput) -> CapturedEmail {
 /// tests that send exactly one email.
 pub fn mock_ses_ok(spy: &EmailSpy) -> SesClient {
     let spy_clone = spy.clone();
-    let rule = mock!(SesClient::send_email)
-        .then_compute_output(move |input: &SendEmailInput| {
-            spy_clone.push(extract_email(input));
-            SendEmailOutput::builder().message_id("mock-message-id").build()
-        });
+    let rule = mock!(SesClient::send_email).then_compute_output(move |input: &SendEmailInput| {
+        spy_clone.push(extract_email(input));
+        SendEmailOutput::builder()
+            .message_id("mock-message-id")
+            .build()
+    });
 
     mock_client!(aws_sdk_sesv2, RuleMode::Sequential, [&rule])
 }
@@ -120,11 +127,12 @@ pub fn mock_ses_ok(spy: &EmailSpy) -> SesClient {
 /// emails (e.g. registration + password reset).
 pub fn mock_ses_ok_any(spy: &EmailSpy) -> SesClient {
     let spy_clone = spy.clone();
-    let rule = mock!(SesClient::send_email)
-        .then_compute_output(move |input: &SendEmailInput| {
-            spy_clone.push(extract_email(input));
-            SendEmailOutput::builder().message_id("mock-message-id").build()
-        });
+    let rule = mock!(SesClient::send_email).then_compute_output(move |input: &SendEmailInput| {
+        spy_clone.push(extract_email(input));
+        SendEmailOutput::builder()
+            .message_id("mock-message-id")
+            .build()
+    });
 
     mock_client!(aws_sdk_sesv2, RuleMode::MatchAny, [&rule])
 }
@@ -147,11 +155,7 @@ pub fn mock_ses_err() -> SesClient {
     use aws_sdk_sesv2::types::error::MessageRejected;
 
     let rule = mock!(SesClient::send_email).then_error(|| {
-        SendEmailError::MessageRejected(
-            MessageRejected::builder()
-                .message("mock rejected")
-                .build(),
-        )
+        SendEmailError::MessageRejected(MessageRejected::builder().message("mock rejected").build())
     });
 
     mock_client!(aws_sdk_sesv2, RuleMode::Sequential, [&rule])

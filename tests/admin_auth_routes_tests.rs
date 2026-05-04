@@ -15,12 +15,12 @@
  */
 mod common;
 
-use riposte_social::settings::SettingsService;
 use common::ses_mock::{build_test_email_service_any, EmailSpy};
 use common::{
     build_test_server, build_test_server_with, create_verified_admin, get_csrf_token, login_as,
     test_email, TestServices, TEST_PASSWORD, TEST_TOTP_SECRET,
 };
+use riposte_social::settings::SettingsService;
 
 use axum::http::StatusCode;
 
@@ -87,7 +87,10 @@ async fn test_register_success(pool: sqlx::PgPool) {
         response.text()
     );
     let json: serde_json::Value = response.json();
-    assert!(json["message"].as_str().unwrap().contains("Registration successful"));
+    assert!(json["message"]
+        .as_str()
+        .unwrap()
+        .contains("Registration successful"));
     assert_eq!(json["email"].as_str().unwrap(), test_email("reg-success"));
 
     // Verification email should have been sent
@@ -119,7 +122,11 @@ async fn test_register_disabled_returns_error(pool: sqlx::PgPool) {
         .await;
 
     assert_ne!(response.status_code(), StatusCode::OK);
-    assert_eq!(spy.len(), 0, "No email should be sent when registration is disabled");
+    assert_eq!(
+        spy.len(),
+        0,
+        "No email should be sent when registration is disabled"
+    );
 }
 
 #[sqlx::test(migrations = false)]

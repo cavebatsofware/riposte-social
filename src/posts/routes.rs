@@ -77,20 +77,12 @@ const MEDIA_FILES_MAX: usize = 8;
 /// else is rejected so uploaded files cannot become a vector for malicious
 /// content disguised as media (`text/html` payloads, SVG with embedded
 /// scripts, etc.).
-const ALLOWED_IMAGE_MIME_TYPES: &[&str] = &[
-    "image/jpeg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-];
+const ALLOWED_IMAGE_MIME_TYPES: &[&str] = &["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 /// Allowlisted video mime types. Constrained to formats every modern
 /// browser plays inline with `<video controls>` — no flash, no hls, no
 /// formats requiring transcoding on the server side.
-const ALLOWED_VIDEO_MIME_TYPES: &[&str] = &[
-    "video/mp4",
-    "video/webm",
-];
+const ALLOWED_VIDEO_MIME_TYPES: &[&str] = &["video/mp4", "video/webm"];
 
 /// Returns true when `mime` is on either the image or the video allowlist.
 /// Re-exported (pub) so the albums module can reuse the same allowlist
@@ -303,7 +295,10 @@ fn build_post_response(
         published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
-        media: media.into_iter().map(PostMediaResponse::from_model).collect(),
+        media: media
+            .into_iter()
+            .map(PostMediaResponse::from_model)
+            .collect(),
         reaction_counts: engagement.reaction_counts,
         viewer_reaction_kinds: engagement.viewer_reaction_kinds,
         comment_count: engagement.comment_count,
@@ -354,9 +349,7 @@ async fn create_post(
             .settings
             .get_poster_posting_enabled()
             .await
-            .map_err(|e| {
-                AppError::InternalError(format!("settings read failed: {:#}", e))
-            })?;
+            .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !enabled {
             return Err(AppError::AuthError(
                 "Posting is currently disabled by an administrator".to_string(),
@@ -375,9 +368,11 @@ async fn create_post(
     let mut category_id: Option<Uuid> = None;
     let mut content_lang: String = post::CONTENT_LANG_ENGLISH.to_string();
 
-    while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::ValidationError(format!("Failed to parse multipart form: {}", e))
-    })? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("Failed to parse multipart form: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "body" => {
@@ -434,14 +429,9 @@ async fn create_post(
                         MEDIA_FILES_MAX
                     )));
                 }
-                let mime = field
-                    .content_type()
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| {
-                        AppError::ValidationError(
-                            "Media field must include a Content-Type".to_string(),
-                        )
-                    })?;
+                let mime = field.content_type().map(|s| s.to_string()).ok_or_else(|| {
+                    AppError::ValidationError("Media field must include a Content-Type".to_string())
+                })?;
                 if !is_allowed_media_mime(&mime) {
                     return Err(AppError::ValidationError(format!(
                         "Unsupported media type '{}'. Allowed: images {:?} or videos {:?}",
@@ -457,7 +447,11 @@ async fn create_post(
                         "Media file ({}) exceeds {} byte limit for {} content",
                         bytes.len(),
                         cap,
-                        if is_video_mime(&mime) { "video" } else { "image" }
+                        if is_video_mime(&mime) {
+                            "video"
+                        } else {
+                            "image"
+                        }
                     )));
                 }
                 media.push(PendingMedia {
@@ -472,9 +466,8 @@ async fn create_post(
         }
     }
 
-    let body = body.ok_or_else(|| {
-        AppError::ValidationError("Missing required field: body".to_string())
-    })?;
+    let body =
+        body.ok_or_else(|| AppError::ValidationError("Missing required field: body".to_string()))?;
     if body.trim().is_empty() {
         return Err(AppError::ValidationError(
             "Body cannot be empty".to_string(),
@@ -495,9 +488,7 @@ async fn create_post(
 
     if let Some(cid) = category_id {
         let cat = Category::find_by_id(cid).one(&state.db).await?;
-        let cat = cat.ok_or_else(|| {
-            AppError::ValidationError("Category not found".to_string())
-        })?;
+        let cat = cat.ok_or_else(|| AppError::ValidationError("Category not found".to_string()))?;
         crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
@@ -587,10 +578,7 @@ async fn create_post(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
-                "Failed to create post: {}",
-                e
-            )));
+            return Err(AppError::AuthError(format!("Failed to create post: {}", e)));
         }
     };
 
@@ -723,8 +711,7 @@ async fn get_post(
         .await?;
 
     let author = User::find_by_id(row.author_id).one(&state.db).await?;
-    let mut engagement_map =
-        fetch_engagement_for_posts(&state.db, &[row.id], viewer_id).await?;
+    let mut engagement_map = fetch_engagement_for_posts(&state.db, &[row.id], viewer_id).await?;
     let engagement = engagement_map.remove(&row.id).unwrap_or_default();
     let comment_authors = load_top_comment_authors(&state.db, std::iter::once(&engagement)).await?;
     Ok(Json(build_post_response(
@@ -774,9 +761,7 @@ async fn update_post(
     if let Some(cid) = req.category_id {
         let exists = Category::find_by_id(cid).one(&state.db).await?;
         if exists.is_none() {
-            return Err(AppError::ValidationError(
-                "Category not found".to_string(),
-            ));
+            return Err(AppError::ValidationError("Category not found".to_string()));
         }
     }
     if let Some(ref lang) = req.content_lang {
@@ -792,9 +777,10 @@ async fn update_post(
     // confirm the author may compose there. Admins always pass.
     if !req.clear_category {
         if let Some(cid) = req.category_id {
-            let cat = Category::find_by_id(cid).one(&state.db).await?.ok_or_else(|| {
-                AppError::ValidationError("Category not found".to_string())
-            })?;
+            let cat = Category::find_by_id(cid)
+                .one(&state.db)
+                .await?
+                .ok_or_else(|| AppError::ValidationError("Category not found".to_string()))?;
             crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
         }
     }
@@ -994,10 +980,7 @@ async fn feed(
     }
 
     // Fetch limit+1 to detect whether more pages exist without a count query.
-    let rows = q
-        .limit(limit + 1)
-        .all(&state.db)
-        .await?;
+    let rows = q.limit(limit + 1).all(&state.db).await?;
 
     let has_more = rows.len() as u64 > limit;
     let page: Vec<post::Model> = rows.into_iter().take(limit as usize).collect();
@@ -1113,9 +1096,7 @@ where
     Ok(rows.into_iter().map(|u| (u.id, u)).collect())
 }
 
-async fn caller_tier(
-    auth_session: &AuthSession<crate::admin::UserAuthBackend>,
-) -> FeedTier {
+async fn caller_tier(auth_session: &AuthSession<crate::admin::UserAuthBackend>) -> FeedTier {
     let user = auth_session.user().await;
     FeedTier::from_role(user.as_ref().map(|u| u.role.as_str()))
 }

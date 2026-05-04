@@ -21,8 +21,8 @@ use axum::{
     extract::{Query, State},
     response::{IntoResponse, Redirect, Response},
 };
-use axum_login::AuthSession;
 use axum_extra::extract::CookieJar;
+use axum_login::AuthSession;
 use openidconnect::{Nonce, PkceCodeVerifier};
 use sea_orm::DatabaseConnection;
 use serde::Deserialize;
@@ -148,9 +148,7 @@ pub async fn oidc_callback(
             .settings
             .get_commenter_invites_enabled()
             .await
-            .map_err(|e| {
-                AppError::InternalError(format!("settings read failed: {:#}", e))
-            })?;
+            .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !invites_enabled {
             return Err(AppError::AuthError(
                 "Invite acceptance is currently disabled by an administrator".to_string(),

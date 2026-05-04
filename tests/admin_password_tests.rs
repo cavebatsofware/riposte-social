@@ -15,12 +15,12 @@
  */
 mod common;
 
-use riposte_social::settings::SettingsService;
 use common::ses_mock::{build_test_email_service_any, EmailSpy};
 use common::{
     build_test_server, build_test_server_with, create_verified_admin, generate_totp_code,
     get_csrf_token, login_as, test_email, TestServices, TEST_PASSWORD, TEST_TOTP_SECRET,
 };
+use riposte_social::settings::SettingsService;
 
 use axum::http::StatusCode;
 

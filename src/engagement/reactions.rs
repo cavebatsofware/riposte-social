@@ -37,10 +37,7 @@ use uuid::Uuid;
 pub fn reaction_write_routes() -> Router<EngagementState> {
     Router::new()
         .route("/api/posts/{id}/reactions", post(create_reaction))
-        .route(
-            "/api/posts/{id}/reactions/{kind}",
-            delete(delete_reaction),
-        )
+        .route("/api/posts/{id}/reactions/{kind}", delete(delete_reaction))
 }
 
 #[derive(Deserialize)]

@@ -24,8 +24,8 @@
 
 mod common;
 
-use riposte_social::entities::{invite_code, user, User};
 use common::{build_test_server, get_csrf_token, test_email, TEST_PASSWORD};
+use riposte_social::entities::{invite_code, user, User};
 
 use axum::http::StatusCode;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
@@ -42,13 +42,9 @@ async fn issue_invite(
     creator: Uuid,
     email_hint: Option<&str>,
 ) -> (invite_code::Model, String) {
-    riposte_social::invites::issue_invite_for_user(
-        db,
-        creator,
-        email_hint.map(String::from),
-    )
-    .await
-    .unwrap()
+    riposte_social::invites::issue_invite_for_user(db, creator, email_hint.map(String::from))
+        .await
+        .unwrap()
 }
 
 async fn insert_inert_row(
@@ -98,13 +94,7 @@ async fn insert_inert_row(
 async fn test_password_invite_binds_pre_provisioned_admin(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;
     let admin_email = test_email("c1-admin");
-    let creator_id = insert_inert_row(
-        &db,
-        &test_email("c1-creator"),
-        "administrator",
-        None,
-    )
-    .await;
+    let creator_id = insert_inert_row(&db, &test_email("c1-creator"), "administrator", None).await;
     // Mirror production: issue the invite first, then create the user with
     // its invite_code_id pre-stamped so the bind lookup can find it.
     let (invite, plaintext) = issue_invite(&db, creator_id, Some(&admin_email)).await;
@@ -136,7 +126,10 @@ async fn test_password_invite_binds_pre_provisioned_admin(pool: sqlx::PgPool) {
         .unwrap()
         .expect("admin row");
     assert!(row.activated_at.is_some(), "row should be activated");
-    assert!(row.oidc_sub.is_none(), "password-mode bind doesn't set oidc_sub");
+    assert!(
+        row.oidc_sub.is_none(),
+        "password-mode bind doesn't set oidc_sub"
+    );
     assert_eq!(row.role, "administrator");
     assert_eq!(row.invite_code_id, Some(invite.id));
     assert!(row.email_verified);
@@ -153,13 +146,7 @@ async fn test_password_invite_binds_pre_provisioned_admin(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_invite_creates_commenter(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;
-    let creator_id = insert_inert_row(
-        &db,
-        &test_email("c2-creator"),
-        "administrator",
-        None,
-    )
-    .await;
+    let creator_id = insert_inert_row(&db, &test_email("c2-creator"), "administrator", None).await;
     // Invite without email_hint, commenter onboarding flow.
     let (invite, plaintext) = issue_invite(&db, creator_id, None).await;
 
@@ -199,13 +186,8 @@ async fn test_password_invite_creates_commenter(pool: sqlx::PgPool) {
 async fn test_password_invite_rejects_email_hint_mismatch(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;
     let admin_email = test_email("c1-mismatch");
-    let creator_id = insert_inert_row(
-        &db,
-        &test_email("c1-mc-creator"),
-        "administrator",
-        None,
-    )
-    .await;
+    let creator_id =
+        insert_inert_row(&db, &test_email("c1-mc-creator"), "administrator", None).await;
     // Invite issued for admin_email and stamped onto the admin row at creation.
     let (invite, plaintext) = issue_invite(&db, creator_id, Some(&admin_email)).await;
     insert_inert_row(&db, &admin_email, "administrator", Some(invite.id)).await;
@@ -263,13 +245,8 @@ async fn test_password_invite_rejects_email_hint_mismatch(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_invite_weak_password_rejected(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;
-    let creator_id = insert_inert_row(
-        &db,
-        &test_email("c-weak-creator"),
-        "administrator",
-        None,
-    )
-    .await;
+    let creator_id =
+        insert_inert_row(&db, &test_email("c-weak-creator"), "administrator", None).await;
     let (invite, plaintext) = issue_invite(&db, creator_id, None).await;
 
     let csrf = get_csrf_token(&server).await;

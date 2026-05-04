@@ -15,15 +15,13 @@
  */
 mod common;
 
-use riposte_social::entities::{user, subscriber, Subscriber};
-use riposte_social::settings::SettingsService;
-use common::ses_mock::{
-    build_test_email_service, build_test_email_service_err, EmailSpy,
-};
+use common::ses_mock::{build_test_email_service, build_test_email_service_err, EmailSpy};
 use common::{
     build_test_server_with, create_verified_admin, get_csrf_token, login_as, test_email,
     TestServices, TEST_PASSWORD,
 };
+use riposte_social::entities::{subscriber, user, Subscriber};
+use riposte_social::settings::SettingsService;
 
 use axum::http::StatusCode;
 use chrono::Utc;

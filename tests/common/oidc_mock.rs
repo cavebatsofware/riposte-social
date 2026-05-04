@@ -27,7 +27,6 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use base64::Engine as _;
-use riposte_social::oidc::{KeycloakClaims, OidcConfig, OidcService};
 use chrono::{Duration, Utc};
 use openidconnect::core::{
     CoreGenderClaim, CoreJweContentEncryptionAlgorithm, CoreJwsSigningAlgorithm,
@@ -37,6 +36,7 @@ use openidconnect::{
     Audience, EndUserEmail, IdToken, IdTokenClaims, IssuerUrl, JsonWebKeyId, Nonce, StandardClaims,
     SubjectIdentifier,
 };
+use riposte_social::oidc::{KeycloakClaims, OidcConfig, OidcService};
 use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::traits::PublicKeyParts;
 use rsa::{RsaPrivateKey, RsaPublicKey};
@@ -168,7 +168,11 @@ impl OidcMockServer {
             client_id: client_id.to_string(),
             client_secret: "test-secret".to_string(),
             redirect_uri: "http://localhost:3000/api/auth/oidc/callback".to_string(),
-            scopes: vec!["openid".to_string(), "profile".to_string(), "email".to_string()],
+            scopes: vec![
+                "openid".to_string(),
+                "profile".to_string(),
+                "email".to_string(),
+            ],
             role_claim: role_claim.to_string(),
             admin_role: "admin".to_string(),
             poster_role: "poster".to_string(),
@@ -203,10 +207,10 @@ impl OidcMockServer {
 
     async fn mount_jwks(server: &MockServer) {
         let (_, public, _) = shared_key();
-        let n_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .encode(public.n().to_bytes_be());
-        let e_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD
-            .encode(public.e().to_bytes_be());
+        let n_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public.n().to_bytes_be());
+        let e_b64 =
+            base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(public.e().to_bytes_be());
 
         let body = json!({
             "keys": [{
@@ -263,8 +267,7 @@ impl Respond for TokenResponder {
     fn respond(&self, _request: &Request) -> ResponseTemplate {
         let staged = self.staged.lock().unwrap().take();
         let Some(staged) = staged else {
-            return ResponseTemplate::new(400)
-                .set_body_json(json!({"error": "no_staged_token"}));
+            return ResponseTemplate::new(400).set_body_json(json!({"error": "no_staged_token"}));
         };
 
         let id_token_str = sign_id_token(&self.issuer, &staged);
@@ -282,11 +285,9 @@ impl Respond for TokenResponder {
 fn sign_id_token(issuer: &str, staged: &StagedToken) -> String {
     let (_, _, pem) = shared_key();
 
-    let signing_key = CoreRsaPrivateSigningKey::from_pem(
-        pem,
-        Some(JsonWebKeyId::new(TEST_KEY_ID.to_string())),
-    )
-    .expect("CoreRsaPrivateSigningKey::from_pem");
+    let signing_key =
+        CoreRsaPrivateSigningKey::from_pem(pem, Some(JsonWebKeyId::new(TEST_KEY_ID.to_string())))
+            .expect("CoreRsaPrivateSigningKey::from_pem");
 
     let now = Utc::now();
     let expiration = now + Duration::hours(1);
@@ -368,7 +369,9 @@ fn insert_at_path(obj: &mut serde_json::Map<String, Value>, path: &str, value: V
 
     let first = parts[0].to_string();
     let rest: String = parts[1..].join(".");
-    let entry = obj.entry(first).or_insert_with(|| Value::Object(Default::default()));
+    let entry = obj
+        .entry(first)
+        .or_insert_with(|| Value::Object(Default::default()));
     if let Value::Object(nested) = entry {
         insert_at_path(nested, &rest, value);
     }

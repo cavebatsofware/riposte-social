@@ -173,9 +173,11 @@ async fn create_facebook_import(
     // Stream each multipart field. The `archive` file is written to a
     // tempfile chunk-by-chunk so we never hold the whole archive in
     // memory. Other fields are short text values read inline.
-    while let Some(mut field) = multipart.next_field().await.map_err(|e| {
-        AppError::ValidationError(format!("multipart parse failed: {}", e))
-    })? {
+    while let Some(mut field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("multipart parse failed: {}", e)))?
+    {
         let name = field.name().unwrap_or("").to_string();
         match name.as_str() {
             "archive" => {
@@ -211,9 +213,8 @@ async fn create_facebook_import(
         }
     }
 
-    let staged = staged_archive.ok_or_else(|| {
-        AppError::ValidationError("Missing required field: archive".to_string())
-    })?;
+    let staged = staged_archive
+        .ok_or_else(|| AppError::ValidationError("Missing required field: archive".to_string()))?;
     if !post::is_valid_visibility(&visibility) {
         return Err(AppError::ValidationError(format!(
             "Invalid visibility '{}'",
@@ -242,9 +243,8 @@ async fn create_facebook_import(
         original_filename,
         size_bytes,
     };
-    let params_value = serde_json::to_value(&params).map_err(|e| {
-        AppError::InternalError(format!("Failed to serialize params: {}", e))
-    })?;
+    let params_value = serde_json::to_value(&params)
+        .map_err(|e| AppError::InternalError(format!("Failed to serialize params: {}", e)))?;
 
     // Insert the row with the pre-allocated id so the response carries the
     // same id the spawned worker will read.
@@ -290,13 +290,8 @@ async fn create_facebook_import(
                 crate::metrics::IMPORTS_TOTAL
                     .with_label_values(&["succeeded"])
                     .inc();
-                let _ = imports::finish(
-                    &db_clone,
-                    job_id,
-                    import_job::STATUS_SUCCEEDED,
-                    None,
-                )
-                .await;
+                let _ =
+                    imports::finish(&db_clone, job_id, import_job::STATUS_SUCCEEDED, None).await;
             }
             Err(e) => {
                 tracing::error!("facebook import {} failed: {:#}", job_id, e);

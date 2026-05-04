@@ -15,10 +15,10 @@
  */
 mod common;
 
-use riposte_social::entities::user;
 use common::{
     build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
+use riposte_social::entities::user;
 
 use axum::http::StatusCode;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
@@ -86,9 +86,7 @@ async fn test_list_users_pagination_params(pool: sqlx::PgPool) {
     create_verified_admin(&backend, &email3, TEST_PASSWORD).await;
     login_as(&server, &email1, TEST_PASSWORD).await;
 
-    let response = server
-        .get("/api/admin/users?page=1&per_page=2")
-        .await;
+    let response = server.get("/api/admin/users?page=1&per_page=2").await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
@@ -107,9 +105,7 @@ async fn test_get_user_returns_response(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
     login_as(&server, &email, TEST_PASSWORD).await;
 
-    let response = server
-        .get(&format!("/api/admin/users/{}", admin.id))
-        .await;
+    let response = server.get(&format!("/api/admin/users/{}", admin.id)).await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
@@ -134,9 +130,7 @@ async fn test_get_user_not_found_returns_401(pool: sqlx::PgPool) {
     login_as(&server, &email, TEST_PASSWORD).await;
 
     let fake_id = Uuid::new_v4();
-    let response = server
-        .get(&format!("/api/admin/users/{}", fake_id))
-        .await;
+    let response = server.get(&format!("/api/admin/users/{}", fake_id)).await;
 
     assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
     let json: serde_json::Value = response.json();
@@ -377,10 +371,7 @@ async fn test_create_user_returns_user_and_invite(pool: sqlx::PgPool) {
     // Invite shape: tied to user's email via email_hint, status=active, code present.
     let invite_code = json["invite"]["code"].as_str().expect("invite.code");
     assert!(!invite_code.is_empty());
-    assert_eq!(
-        json["invite"]["email_hint"].as_str().unwrap(),
-        target_email
-    );
+    assert_eq!(json["invite"]["email_hint"].as_str().unwrap(), target_email);
     assert_eq!(json["invite"]["status"].as_str().unwrap(), "active");
 
     // DB row is inert.
@@ -390,7 +381,10 @@ async fn test_create_user_returns_user_and_invite(pool: sqlx::PgPool) {
         .await
         .unwrap()
         .expect("user row");
-    assert!(row.activated_at.is_none(), "row should be inert until invite-bound");
+    assert!(
+        row.activated_at.is_none(),
+        "row should be inert until invite-bound"
+    );
     assert!(row.oidc_sub.is_none());
 }
 

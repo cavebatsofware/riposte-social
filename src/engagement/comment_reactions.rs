@@ -20,8 +20,8 @@
 
 use crate::admin::UserAuth;
 use crate::engagement::EngagementState;
-use crate::entities::{comment, comment_reaction, post, Comment, CommentReaction, Post};
 use crate::entities::reaction;
+use crate::entities::{comment, comment_reaction, post, Comment, CommentReaction, Post};
 use crate::errors::{AppError, AppResult};
 use axum::{
     extract::{Path, State},
@@ -104,7 +104,9 @@ async fn create_comment_reaction(
         Err(e) => return Err(e.into()),
     }
 
-    Ok(Json(comment_reaction_state(&state.db, parent.id, user.id).await?))
+    Ok(Json(
+        comment_reaction_state(&state.db, parent.id, user.id).await?,
+    ))
 }
 
 async fn delete_comment_reaction(
@@ -133,7 +135,9 @@ async fn delete_comment_reaction(
             .inc();
     }
 
-    Ok(Json(comment_reaction_state(&state.db, parent.id, user.id).await?))
+    Ok(Json(
+        comment_reaction_state(&state.db, parent.id, user.id).await?,
+    ))
 }
 
 /// Look up the comment, confirm it belongs to the path's post, and verify

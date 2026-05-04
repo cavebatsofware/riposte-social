@@ -32,9 +32,7 @@ pub mod comments;
 pub mod reactions;
 
 pub use aggregate::{fetch_engagement_for_posts, PostEngagement};
-pub use comment_reactions::{
-    fetch_comment_engagement, CommentEngagement,
-};
+pub use comment_reactions::{fetch_comment_engagement, CommentEngagement};
 
 use axum::Router;
 use sea_orm::DatabaseConnection;

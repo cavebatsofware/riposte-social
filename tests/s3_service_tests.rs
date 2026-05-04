@@ -15,7 +15,6 @@
  */
 mod common;
 
-use riposte_social::entities::{access_code, AccessCode};
 use common::s3_mock::{
     build_test_s3_service, mock_s3_get_not_found, mock_s3_get_ok, mock_s3_get_ok_put_ok,
     mock_s3_put_err, mock_s3_put_ok, S3Spy,
@@ -24,6 +23,7 @@ use common::{
     build_test_server_with, create_verified_admin, get_csrf_token, login_as, test_email,
     TestServices, TEST_PASSWORD,
 };
+use riposte_social::entities::{access_code, AccessCode};
 
 use axum::http::StatusCode;
 use axum_test::multipart::{MultipartForm, Part};
@@ -81,7 +81,10 @@ async fn test_serve_access_reads_html_from_s3(pool: sqlx::PgPool) {
     let response = server.get("/access/ABC123").await;
 
     assert_eq!(response.status_code(), StatusCode::OK);
-    assert_eq!(response.text(), "<html><body>Hello mock world</body></html>");
+    assert_eq!(
+        response.text(),
+        "<html><body>Hello mock world</body></html>"
+    );
 
     // Spy confirms the handler actually hit S3 for the right key.
     let gets = spy.downloads();
@@ -272,8 +275,7 @@ async fn test_admin_create_access_code_uploads_both_files_to_s3(pool: sqlx::PgPo
 
     // If we get 403/401, surface the response body for debugging.
     assert!(
-        response.status_code() == StatusCode::CREATED
-            || response.status_code() == StatusCode::OK,
+        response.status_code() == StatusCode::CREATED || response.status_code() == StatusCode::OK,
         "expected CREATED or OK, got {} — body: {}",
         response.status_code(),
         response.text()

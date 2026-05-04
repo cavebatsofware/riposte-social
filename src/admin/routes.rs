@@ -16,7 +16,7 @@
 use super::auth::verify_password;
 use super::password::PasswordValidator;
 use super::totp;
-use super::{UserAuthBackend, Credentials};
+use super::{Credentials, UserAuthBackend};
 use crate::email::EmailService;
 use crate::errors::{AppError, AppResult};
 use crate::security_callbacks::AppRateLimitCallbacks;
@@ -180,13 +180,24 @@ async fn login(
     let mfa_required = user.totp_enabled && !user.mfa_verified;
 
     let features = FeatureFlags {
-        access_codes_enabled: state.settings.get_access_codes_enabled().await.unwrap_or(true),
-        contact_form_enabled: state.settings.get_contact_form_enabled().await.unwrap_or(true),
-        subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
+        access_codes_enabled: state
+            .settings
+            .get_access_codes_enabled()
+            .await
+            .unwrap_or(true),
+        contact_form_enabled: state
+            .settings
+            .get_contact_form_enabled()
+            .await
+            .unwrap_or(true),
+        subscriptions_enabled: state
+            .settings
+            .get_subscriptions_enabled()
+            .await
+            .unwrap_or(true),
     };
 
-    let (handle, avatar_url, locale) =
-        lookup_handle_avatar_locale(&state, user.id).await;
+    let (handle, avatar_url, locale) = lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -292,13 +303,24 @@ async fn me(
     let mfa_required = user.totp_enabled && !mfa_verified;
 
     let features = FeatureFlags {
-        access_codes_enabled: state.settings.get_access_codes_enabled().await.unwrap_or(true),
-        contact_form_enabled: state.settings.get_contact_form_enabled().await.unwrap_or(true),
-        subscriptions_enabled: state.settings.get_subscriptions_enabled().await.unwrap_or(true),
+        access_codes_enabled: state
+            .settings
+            .get_access_codes_enabled()
+            .await
+            .unwrap_or(true),
+        contact_form_enabled: state
+            .settings
+            .get_contact_form_enabled()
+            .await
+            .unwrap_or(true),
+        subscriptions_enabled: state
+            .settings
+            .get_subscriptions_enabled()
+            .await
+            .unwrap_or(true),
     };
 
-    let (handle, avatar_url, locale) =
-        lookup_handle_avatar_locale(&state, user.id).await;
+    let (handle, avatar_url, locale) = lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -394,8 +416,7 @@ async fn site_config(
     let is_admin = role == Some(crate::entities::user::ROLE_ADMINISTRATOR);
     let is_poster_or_admin = matches!(
         role,
-        Some(crate::entities::user::ROLE_ADMINISTRATOR)
-            | Some(crate::entities::user::ROLE_POSTER)
+        Some(crate::entities::user::ROLE_ADMINISTRATOR) | Some(crate::entities::user::ROLE_POSTER)
     );
 
     // Settings reads bubble up as 500s rather than silently defaulting.
@@ -601,17 +622,6 @@ async fn mfa_verify(
 
     // Check if account is locked out
 
-
-
-
-
-
-
-
-
-
-
-
     // Check if already verified in this session
     let already_verified = session
         .get::<bool>(MFA_VERIFIED_KEY)
@@ -630,7 +640,6 @@ async fn mfa_verify(
         .await
         .map_err(|e| AppError::AuthError(e.to_string()))?
         .ok_or_else(|| AppError::AuthError("TOTP secret not configured".to_string()))?;
-
 
     // Verify the code first (before checking lockout status)
     let is_valid = totp::verify_code(&totp_secret, &req.code, &user.email)
@@ -657,7 +666,6 @@ async fn mfa_verify(
 
         return Err(AppError::AuthError("Invalid verification code".to_string()));
     }
-
 
     // Code is valid - reset any failed attempts and mark as verified
     state
@@ -1025,4 +1033,3 @@ async fn reset_password(
             .to_string(),
     }))
 }
-

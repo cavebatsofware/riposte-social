@@ -159,9 +159,7 @@ async fn list_comments_for_moderation(
                 body_html,
                 created_at: row.created_at.with_timezone(&utc).to_rfc3339(),
                 updated_at: row.updated_at.with_timezone(&utc).to_rfc3339(),
-                deleted_at: row
-                    .deleted_at
-                    .map(|d| d.with_timezone(&utc).to_rfc3339()),
+                deleted_at: row.deleted_at.map(|d| d.with_timezone(&utc).to_rfc3339()),
             }
         })
         .collect();

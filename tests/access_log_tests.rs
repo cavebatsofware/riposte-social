@@ -15,11 +15,11 @@
  */
 mod common;
 
-use riposte_social::entities::{access_code, access_log, user};
 use common::{
     build_test_server, build_test_server_with, create_verified_admin, get_csrf_token, login_as,
     test_email, TestServices, TEST_PASSWORD,
 };
+use riposte_social::entities::{access_code, access_log, user};
 
 use axum::http::StatusCode;
 use chrono::Utc;
@@ -205,8 +205,22 @@ async fn test_dashboard_metrics_returns_structure(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
 
     // Insert successful access logs (only success=true is counted in hourly metrics)
-    insert_access_log(&db, "test-code", "GET:/access/test-code", true, "203.0.113.50").await;
-    insert_access_log(&db, "test-code", "GET:/access/test-code", true, "198.51.100.60").await;
+    insert_access_log(
+        &db,
+        "test-code",
+        "GET:/access/test-code",
+        true,
+        "203.0.113.50",
+    )
+    .await;
+    insert_access_log(
+        &db,
+        "test-code",
+        "GET:/access/test-code",
+        true,
+        "198.51.100.60",
+    )
+    .await;
 
     // Insert an access code with recent usage
     insert_access_code_with_usage(&db, "test-code", "Test Code", admin.id, 5).await;

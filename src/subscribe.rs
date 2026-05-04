@@ -89,7 +89,12 @@ async fn subscribe(
     Json(payload): Json<SubscribeRequest>,
 ) -> AppResult<impl IntoResponse> {
     // Check if subscriptions feature is enabled
-    if !state.settings.get_subscriptions_enabled().await.unwrap_or(true) {
+    if !state
+        .settings
+        .get_subscriptions_enabled()
+        .await
+        .unwrap_or(true)
+    {
         return Ok((
             StatusCode::NOT_FOUND,
             Json(SubscribeResponse {

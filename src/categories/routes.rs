@@ -388,7 +388,9 @@ async fn update_category(
     // Determine the new visibility (post-patch) up-front so we can
     // run any membership-side housekeeping in the same transaction.
     let new_visibility: Option<String> = req.visibility.as_ref().map(|v| v.trim().to_string());
-    let resulting_visibility = new_visibility.clone().unwrap_or_else(|| row.visibility.clone());
+    let resulting_visibility = new_visibility
+        .clone()
+        .unwrap_or_else(|| row.visibility.clone());
 
     // Determine the new owner for legacy rows (created_by IS NULL):
     // when an admin first patches such a row to a non-public tier,
@@ -624,9 +626,7 @@ async fn add_member(
             .await?
             .is_some();
         if !user_exists {
-            return Err(AppError::ValidationError(
-                "User not found".to_string(),
-            ));
+            return Err(AppError::ValidationError("User not found".to_string()));
         }
         category_member::ActiveModel {
             category_id: Set(id),

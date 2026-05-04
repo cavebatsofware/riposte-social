@@ -56,7 +56,12 @@ async fn submit_contact_form(
     Json(payload): Json<ContactFormRequest>,
 ) -> AppResult<impl IntoResponse> {
     // Check if contact form feature is enabled
-    if !state.settings.get_contact_form_enabled().await.unwrap_or(true) {
+    if !state
+        .settings
+        .get_contact_form_enabled()
+        .await
+        .unwrap_or(true)
+    {
         return Ok((
             StatusCode::NOT_FOUND,
             Json(ContactFormResponse {

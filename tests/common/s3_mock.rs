@@ -78,11 +78,7 @@ fn extract_put(input: &PutObjectInput) -> CapturedUpload {
     // `ByteStream::bytes()` returns `Some(&[u8])` when the body is already
     // in memory, which is always the case in production (`data.into()` from
     // `Vec<u8>` in `src/s3.rs::upload_file`).
-    let body = input
-        .body()
-        .bytes()
-        .map(|b| b.to_vec())
-        .unwrap_or_default();
+    let body = input.body().bytes().map(|b| b.to_vec()).unwrap_or_default();
     CapturedUpload {
         bucket,
         key,
@@ -103,18 +99,20 @@ fn extract_get(input: &GetObjectInput) -> CapturedDownload {
 /// test exercises both the download and upload paths.
 pub fn mock_s3_get_ok_put_ok(body: Vec<u8>, spy: &S3Spy) -> S3Client {
     let spy_get = spy.clone();
-    let get_rule = mock!(S3Client::get_object).then_compute_output(move |input: &GetObjectInput| {
-        spy_get.push_download(extract_get(input));
-        GetObjectOutput::builder()
-            .body(ByteStream::from(body.clone()))
-            .build()
-    });
+    let get_rule =
+        mock!(S3Client::get_object).then_compute_output(move |input: &GetObjectInput| {
+            spy_get.push_download(extract_get(input));
+            GetObjectOutput::builder()
+                .body(ByteStream::from(body.clone()))
+                .build()
+        });
 
     let spy_put = spy.clone();
-    let put_rule = mock!(S3Client::put_object).then_compute_output(move |input: &PutObjectInput| {
-        spy_put.push_upload(extract_put(input));
-        PutObjectOutput::builder().build()
-    });
+    let put_rule =
+        mock!(S3Client::put_object).then_compute_output(move |input: &PutObjectInput| {
+            spy_put.push_upload(extract_put(input));
+            PutObjectOutput::builder().build()
+        });
 
     mock_client!(aws_sdk_s3, RuleMode::MatchAny, [&get_rule, &put_rule])
 }
@@ -179,10 +177,11 @@ pub fn mock_s3_default(spy: &S3Spy) -> S3Client {
     use aws_sdk_s3::operation::delete_object::{DeleteObjectInput, DeleteObjectOutput};
 
     let spy_put = spy.clone();
-    let put_rule = mock!(S3Client::put_object).then_compute_output(move |input: &PutObjectInput| {
-        spy_put.push_upload(extract_put(input));
-        PutObjectOutput::builder().build()
-    });
+    let put_rule =
+        mock!(S3Client::put_object).then_compute_output(move |input: &PutObjectInput| {
+            spy_put.push_upload(extract_put(input));
+            PutObjectOutput::builder().build()
+        });
 
     let delete_rule =
         mock!(S3Client::delete_object).then_compute_output(move |_input: &DeleteObjectInput| {

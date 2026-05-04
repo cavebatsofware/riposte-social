@@ -32,7 +32,8 @@ use riposte_social::entities::{post, user, Post, User};
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
-const PNG_BYTES: &[u8] = b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89";
+const PNG_BYTES: &[u8] =
+    b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89";
 
 // ==================== Helpers ====================
 
@@ -236,7 +237,13 @@ async fn test_get_commenter_post_404_for_anon(pool: sqlx::PgPool) {
 async fn test_get_commenter_post_visible_to_commenter(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("po-a3"), TEST_PASSWORD).await;
-    let p = insert_post(&db, admin.id, "commenter visible", post::VISIBILITY_COMMENTERS).await;
+    let p = insert_post(
+        &db,
+        admin.id,
+        "commenter visible",
+        post::VISIBILITY_COMMENTERS,
+    )
+    .await;
 
     let commenter_email = test_email("po-comm");
     make_user(&backend, &db, &commenter_email, user::ROLE_COMMENTER).await;
@@ -278,9 +285,7 @@ async fn test_get_poster_post_visible_to_poster(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_get_post_404_for_missing(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
-    let response = server
-        .get(&format!("/api/posts/{}", Uuid::new_v4()))
-        .await;
+    let response = server.get(&format!("/api/posts/{}", Uuid::new_v4())).await;
     assert_ne!(response.status_code(), StatusCode::OK);
 }
 
@@ -523,7 +528,10 @@ async fn test_feed_cursor_pagination(pool: sqlx::PgPool) {
 
     // Page 2 with that cursor.
     let response = server
-        .get(&format!("/api/feed?limit=3&cursor={}", urlencoding::encode(cursor)))
+        .get(&format!(
+            "/api/feed?limit=3&cursor={}",
+            urlencoding::encode(cursor)
+        ))
         .await;
     let json2: serde_json::Value = response.json();
     assert_eq!(json2["posts"].as_array().unwrap().len(), 2);
@@ -648,10 +656,8 @@ async fn test_serve_media_public_visible_to_anon(pool: sqlx::PgPool) {
     // Mock S3 returns the same body for every GET; both upload and download
     // captured by the spy.
     let spy = s3_mock::S3Spy::new();
-    let s3 = s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(
-        PNG_BYTES.to_vec(),
-        &spy,
-    ));
+    let s3 =
+        s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(PNG_BYTES.to_vec(), &spy));
     let (server, backend, _db) = build_test_server_with(
         pool,
         TestServices {
@@ -701,10 +707,8 @@ async fn test_serve_media_public_visible_to_anon(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_serve_media_commenter_post_blocked_for_anon(pool: sqlx::PgPool) {
     let spy = s3_mock::S3Spy::new();
-    let s3 = s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(
-        PNG_BYTES.to_vec(),
-        &spy,
-    ));
+    let s3 =
+        s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(PNG_BYTES.to_vec(), &spy));
     let (server, backend, _db) = build_test_server_with(
         pool,
         TestServices {
@@ -747,9 +751,7 @@ async fn test_serve_media_commenter_post_blocked_for_anon(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_serve_media_404_for_missing(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
-    let response = server
-        .get(&format!("/media/{}", Uuid::new_v4()))
-        .await;
+    let response = server.get(&format!("/media/{}", Uuid::new_v4())).await;
     assert_ne!(response.status_code(), StatusCode::OK);
 }
 
@@ -786,8 +788,20 @@ async fn insert_post_with_lang(
 async fn test_feed_search_finds_matching_post(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("search-hit"), TEST_PASSWORD).await;
-    insert_post(&db, admin.id, "vacation photos from cape cod", post::VISIBILITY_PUBLIC).await;
-    insert_post(&db, admin.id, "groceries for the week", post::VISIBILITY_PUBLIC).await;
+    insert_post(
+        &db,
+        admin.id,
+        "vacation photos from cape cod",
+        post::VISIBILITY_PUBLIC,
+    )
+    .await;
+    insert_post(
+        &db,
+        admin.id,
+        "groceries for the week",
+        post::VISIBILITY_PUBLIC,
+    )
+    .await;
 
     let response = server.get("/api/feed?q=vacation").await;
     assert_eq!(response.status_code(), StatusCode::OK);
@@ -815,7 +829,13 @@ async fn test_feed_search_respects_visibility_for_anon(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &test_email("search-vis"), TEST_PASSWORD).await;
     // Private post containing the search term — anonymous viewer must not
     // find it via search even though the term appears in the body.
-    insert_post(&db, admin.id, "secret pineapple plans", post::VISIBILITY_PRIVATE).await;
+    insert_post(
+        &db,
+        admin.id,
+        "secret pineapple plans",
+        post::VISIBILITY_PRIVATE,
+    )
+    .await;
 
     let response = server.get("/api/feed?q=pineapple").await;
     assert_eq!(response.status_code(), StatusCode::OK);
@@ -831,7 +851,13 @@ async fn test_feed_search_respects_visibility_for_author(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let email = test_email("search-author");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
-    insert_post(&db, admin.id, "secret pineapple plans", post::VISIBILITY_PRIVATE).await;
+    insert_post(
+        &db,
+        admin.id,
+        "secret pineapple plans",
+        post::VISIBILITY_PRIVATE,
+    )
+    .await;
 
     login_as(&server, &email, TEST_PASSWORD).await;
     let response = server.get("/api/feed?q=pineapple").await;
@@ -866,8 +892,14 @@ async fn test_feed_search_english_stemming(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("search-en"), TEST_PASSWORD).await;
     // English stemmer collapses 'cars' and 'car' to the same stem.
-    insert_post_with_lang(&db, admin.id, "the cars are nice", post::VISIBILITY_PUBLIC, "english")
-        .await;
+    insert_post_with_lang(
+        &db,
+        admin.id,
+        "the cars are nice",
+        post::VISIBILITY_PUBLIC,
+        "english",
+    )
+    .await;
 
     let response = server.get("/api/feed?q=car&lang=en").await;
     assert_eq!(response.status_code(), StatusCode::OK);

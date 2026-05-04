@@ -75,15 +75,11 @@ async fn insert_public_post(db: &DatabaseConnection, author_id: Uuid) -> post::M
 #[sqlx::test(migrations = false)]
 async fn test_public_feed_gate_blocks_anon_when_disabled(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
-    let admin =
-        create_verified_admin(&backend, &test_email("fg-pf-a"), TEST_PASSWORD).await;
+    let admin = create_verified_admin(&backend, &test_email("fg-pf-a"), TEST_PASSWORD).await;
     let p = insert_public_post(&db, admin.id).await;
 
     // Default: anon read is allowed.
-    assert_eq!(
-        server.get("/api/feed").await.status_code(),
-        StatusCode::OK
-    );
+    assert_eq!(server.get("/api/feed").await.status_code(), StatusCode::OK);
 
     let settings = SettingsService::new(db.clone());
     settings
@@ -112,10 +108,7 @@ async fn test_public_feed_gate_lets_authed_through(pool: sqlx::PgPool) {
         .unwrap();
 
     login_as(&server, &admin_email, TEST_PASSWORD).await;
-    assert_eq!(
-        server.get("/api/feed").await.status_code(),
-        StatusCode::OK
-    );
+    assert_eq!(server.get("/api/feed").await.status_code(), StatusCode::OK);
 }
 
 // ===== poster_posting_enabled =====
@@ -182,12 +175,7 @@ async fn test_commenter_invites_gate_blocks_when_disabled(pool: sqlx::PgPool) {
 
     let settings = SettingsService::new(db.clone());
     settings
-        .set(
-            "commenter_invites_enabled",
-            "false",
-            Some("features"),
-            None,
-        )
+        .set("commenter_invites_enabled", "false", Some("features"), None)
         .await
         .unwrap();
 
@@ -213,13 +201,10 @@ async fn test_commenter_invites_gate_blocks_password_acceptance(pool: sqlx::PgPo
     let creator =
         create_verified_admin(&backend, &test_email("fg-ci-creator"), TEST_PASSWORD).await;
     let target_email = test_email("fg-ci-target");
-    let (invite, plaintext) = riposte_social::invites::issue_invite_for_user(
-        &db,
-        creator.id,
-        Some(target_email.clone()),
-    )
-    .await
-    .unwrap();
+    let (invite, plaintext) =
+        riposte_social::invites::issue_invite_for_user(&db, creator.id, Some(target_email.clone()))
+            .await
+            .unwrap();
     let inert_id = Uuid::new_v4();
     user::ActiveModel {
         id: Set(inert_id),
@@ -239,12 +224,7 @@ async fn test_commenter_invites_gate_blocks_password_acceptance(pool: sqlx::PgPo
 
     let settings = SettingsService::new(db.clone());
     settings
-        .set(
-            "commenter_invites_enabled",
-            "false",
-            Some("features"),
-            None,
-        )
+        .set("commenter_invites_enabled", "false", Some("features"), None)
         .await
         .unwrap();
 
@@ -291,12 +271,7 @@ async fn test_commenter_invites_gate_blocks_confirm_cookie(pool: sqlx::PgPool) {
 
     let settings = SettingsService::new(db.clone());
     settings
-        .set(
-            "commenter_invites_enabled",
-            "false",
-            Some("features"),
-            None,
-        )
+        .set("commenter_invites_enabled", "false", Some("features"), None)
         .await
         .unwrap();
 

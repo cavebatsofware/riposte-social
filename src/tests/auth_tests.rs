@@ -537,11 +537,7 @@ async fn test_reset_mfa_failures(pool: sqlx::PgPool) {
 
     backend.reset_mfa_failures(admin.id).await.unwrap();
 
-    let updated = User::find_by_id(admin.id)
-        .one(&db)
-        .await
-        .unwrap()
-        .unwrap();
+    let updated = User::find_by_id(admin.id).one(&db).await.unwrap().unwrap();
     assert_eq!(updated.mfa_failed_attempts, Some(0));
     assert!(updated.mfa_locked_until.is_none());
 }

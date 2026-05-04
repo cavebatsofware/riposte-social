@@ -81,8 +81,8 @@ impl S3Service {
         }
 
         let client = Client::from_conf(s3_config.build());
-        let bucket_name = env::var("S3_BUCKET_NAME")
-            .unwrap_or_else(|_| "riposte-social-documents".to_string());
+        let bucket_name =
+            env::var("S3_BUCKET_NAME").unwrap_or_else(|_| "riposte-social-documents".to_string());
 
         Ok(Self::with_client(client, bucket_name))
     }
@@ -92,12 +92,7 @@ impl S3Service {
     /// media keys are `posts/{post_id}/{media_id}` with no extension), or
     /// when the mime type is known from the source's Content-Type header
     /// rather than the filename.
-    pub async fn put_object_at(
-        &self,
-        key: &str,
-        data: Vec<u8>,
-        content_type: &str,
-    ) -> Result<()> {
+    pub async fn put_object_at(&self, key: &str, data: Vec<u8>, content_type: &str) -> Result<()> {
         tracing::info!(
             "Uploading to S3: bucket={}, key={}, size={} bytes, type={}",
             self.bucket_name,
@@ -147,7 +142,11 @@ impl S3Service {
         let body = aws_sdk_s3::primitives::ByteStream::from_path(path)
             .await
             .map_err(|e| {
-                anyhow::anyhow!("failed to open archive {} for upload: {}", path.display(), e)
+                anyhow::anyhow!(
+                    "failed to open archive {} for upload: {}",
+                    path.display(),
+                    e
+                )
             })?;
 
         self.client
@@ -274,11 +273,7 @@ impl S3Service {
     pub async fn delete_file(&self, code: &str, filename: &str) -> Result<()> {
         let key = format!("{}/{}", code, filename);
 
-        tracing::info!(
-            "Deleting from S3: bucket={}, key={}",
-            self.bucket_name,
-            key
-        );
+        tracing::info!("Deleting from S3: bucket={}, key={}", self.bucket_name, key);
 
         self.client
             .delete_object()

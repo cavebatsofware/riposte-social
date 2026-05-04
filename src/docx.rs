@@ -25,8 +25,9 @@ use zip::{write::SimpleFileOptions, ZipArchive, ZipWriter};
 pub fn process_docx_template(docx_bytes: &[u8], access_code: &str) -> Result<Vec<u8>, AppError> {
     // Open the DOCX as a ZIP archive
     let cursor = Cursor::new(docx_bytes);
-    let mut archive = ZipArchive::new(cursor)
-        .map_err(|e| AppError::InternalError(format!("Failed to open DOCX as ZIP archive: {}", e)))?;
+    let mut archive = ZipArchive::new(cursor).map_err(|e| {
+        AppError::InternalError(format!("Failed to open DOCX as ZIP archive: {}", e))
+    })?;
 
     // Create a new ZIP archive for the output
     let output_cursor = Cursor::new(Vec::new());
@@ -53,7 +54,10 @@ pub fn process_docx_template(docx_bytes: &[u8], access_code: &str) -> Result<Vec
         // If this is the relationships file, perform substitution
         let processed_contents = if is_target_file {
             let xml_string = String::from_utf8(contents.clone()).map_err(|e| {
-                AppError::InternalError(format!("Invalid UTF-8 in DOCX file '{}': {}", file_name, e))
+                AppError::InternalError(format!(
+                    "Invalid UTF-8 in DOCX file '{}': {}",
+                    file_name, e
+                ))
             })?;
 
             let processed_xml = xml_string.replace("", access_code);

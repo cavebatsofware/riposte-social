@@ -53,11 +53,7 @@ pub fn can_create_category(user: &UserAuth, gate_enabled: bool) -> bool {
 /// given category. Admin can manage any. Poster can manage rows they
 /// created when the gate is on. Legacy rows (`created_by IS NULL`) are
 /// admin-only.
-pub fn can_manage_category(
-    user: &UserAuth,
-    cat: &category::Model,
-    gate_enabled: bool,
-) -> bool {
+pub fn can_manage_category(user: &UserAuth, cat: &category::Model, gate_enabled: bool) -> bool {
     if user.role == ROLE_ADMINISTRATOR {
         return true;
     }

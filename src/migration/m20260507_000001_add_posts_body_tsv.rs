@@ -63,10 +63,8 @@ impl MigrationTrait for Migration {
         )
         .await?;
 
-        db.execute_unprepared(
-            "CREATE INDEX idx_posts_body_tsv ON posts USING GIN (body_tsv)",
-        )
-        .await?;
+        db.execute_unprepared("CREATE INDEX idx_posts_body_tsv ON posts USING GIN (body_tsv)")
+            .await?;
 
         Ok(())
     }

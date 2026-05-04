@@ -36,9 +36,7 @@ use crate::entities::{category, category_member, post, user, Category, CategoryM
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
 use anyhow::Result;
-use sea_orm::{
-    ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelect,
-};
+use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelect};
 use uuid::Uuid;
 
 /// Fifth visibility tier used only on categories. The `category_member`
@@ -260,14 +258,16 @@ impl ViewerCtx {
         // If neither branch added a condition (anonymous viewer, empty
         // accessible set), fall back to an always-false predicate so the
         // OR doesn't widen by accident.
-        let categorized_inner = if self.viewer_id.is_none()
-            && self.accessible_category_ids.is_empty()
-        {
-            sea_orm::Condition::all()
-                .add(category_col.eq(Uuid::nil()).and(category_col.ne(Uuid::nil())))
-        } else {
-            categorized_inner
-        };
+        let categorized_inner =
+            if self.viewer_id.is_none() && self.accessible_category_ids.is_empty() {
+                sea_orm::Condition::all().add(
+                    category_col
+                        .eq(Uuid::nil())
+                        .and(category_col.ne(Uuid::nil())),
+                )
+            } else {
+                categorized_inner
+            };
         let categorized_branch = sea_orm::Condition::all()
             .add(category_col.is_not_null())
             .add(categorized_inner);
@@ -284,11 +284,7 @@ impl ViewerCtx {
     ///
     /// Author-id check fires first: it's a cheap `Option<Uuid>` equality
     /// and the post-author's own posts should always be readable.
-    pub fn can_view_post(
-        &self,
-        post: &post::Model,
-        category: Option<&category::Model>,
-    ) -> bool {
+    pub fn can_view_post(&self, post: &post::Model, category: Option<&category::Model>) -> bool {
         if let Some(cat) = category {
             if self.viewer_id == Some(post.author_id) {
                 return true;
@@ -489,12 +485,11 @@ where
         None
     };
 
-    let ctx = ViewerCtx::from_user_auth_async(db, user).await.map_err(|e| {
-        AppError::InternalError(format!("viewer ctx: {:#}", e))
-    })?;
+    let ctx = ViewerCtx::from_user_auth_async(db, user)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_post(&parent, cat.as_ref()) {
         return Err(AppError::AuthError("Post not found".to_string()));
     }
     Ok(parent)
 }
-

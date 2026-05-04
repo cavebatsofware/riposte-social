@@ -21,8 +21,8 @@ use argon2::{
     Argon2,
 };
 use axum_login::{AuthUser, AuthnBackend, UserId};
-use rand::RngExt;
 use chrono::Utc;
+use rand::RngExt;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
     Set,
@@ -72,7 +72,11 @@ impl AuthUser for UserAuth {
 /// Changes to password, email, or TOTP secret will invalidate existing sessions.
 /// This is roughly equal or better than SHA256 and faster, but more importantly,
 /// already pulled in by argon2 which is the primary password hashing method
-pub(crate) fn compute_session_hash(password_hash: &str, email: &str, totp_secret: Option<&str>) -> Vec<u8> {
+pub(crate) fn compute_session_hash(
+    password_hash: &str,
+    email: &str,
+    totp_secret: Option<&str>,
+) -> Vec<u8> {
     use blake2::{Blake2b512, Digest};
     let mut hasher = Blake2b512::new();
     hasher.update(password_hash.as_bytes());
@@ -160,7 +164,11 @@ impl UserAuthBackend {
             avatar_url: Set(None),
             last_login_at: Set(None),
             invite_code_id: Set(None),
-            activated_at: Set(if activated { Some(Utc::now().into()) } else { None }),
+            activated_at: Set(if activated {
+                Some(Utc::now().into())
+            } else {
+                None
+            }),
             handle: Set(handle),
             bio: Set(None),
             pronouns: Set(None),
@@ -175,13 +183,10 @@ impl UserAuthBackend {
 
     /// Convenience wrapper around `create_user` for the bootstrap admin
     /// registration flow. Always creates an `administrator`.
-    pub async fn create_admin(
-        &self,
-        email: &str,
-        password: &str,
-    ) -> Result<(user::Model, String)> {
+    pub async fn create_admin(&self, email: &str, password: &str) -> Result<(user::Model, String)> {
         // Bootstrap admin owns the password they just typed; activate immediately.
-        self.create_user(email, password, user::ROLE_ADMINISTRATOR, true).await
+        self.create_user(email, password, user::ROLE_ADMINISTRATOR, true)
+            .await
     }
 
     pub async fn get_admin_by_id(&self, id: Uuid) -> Result<Option<user::Model>> {
@@ -630,7 +635,9 @@ impl UserAuthBackend {
             )));
         }
 
-        Ok(Some(self.user_auth_from_model(user_row, /* oidc_login */ false)))
+        Ok(Some(self.user_auth_from_model(
+            user_row, /* oidc_login */ false,
+        )))
     }
 
     /// OIDC authentication. Dispatches between three structurally distinct
@@ -699,7 +706,15 @@ impl UserAuthBackend {
             .map_err(AuthError::from)?
         {
             let user_row = self
-                .oidc_bind_existing(row, sub, email, email_verified, idp_tier, display_name, &invite_row)
+                .oidc_bind_existing(
+                    row,
+                    sub,
+                    email,
+                    email_verified,
+                    idp_tier,
+                    display_name,
+                    &invite_row,
+                )
                 .await
                 .map_err(AuthError::from)?;
             return Ok(Some(self.user_auth_from_model(user_row, true)));
@@ -715,7 +730,14 @@ impl UserAuthBackend {
             )));
         }
         let user_row = self
-            .oidc_create_commenter(sub, email, email_verified, idp_tier, display_name, &invite_row)
+            .oidc_create_commenter(
+                sub,
+                email,
+                email_verified,
+                idp_tier,
+                display_name,
+                &invite_row,
+            )
             .await
             .map_err(AuthError::from)?;
         Ok(Some(self.user_auth_from_model(user_row, true)))
@@ -772,9 +794,10 @@ impl UserAuthBackend {
         // specific email. Without a matching hint, this invite cannot bind to
         // an existing row, it would let a stolen commenter invite hijack a
         // pre-provisioned admin/poster account whose email happens to match.
-        let hint = invite.email_hint.as_deref().ok_or_else(|| {
-            anyhow::anyhow!("Invite is not for this account")
-        })?;
+        let hint = invite
+            .email_hint
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Invite is not for this account"))?;
         if hint != idp_email {
             anyhow::bail!("Invite is not for this account");
         }
@@ -798,13 +821,16 @@ impl UserAuthBackend {
         if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
             tracing::warn!(
                 "Failed to mark invite {} used by bound user {}: {}",
-                invite.id, row_id, e
+                invite.id,
+                row_id,
+                e
             );
         }
 
         tracing::info!(
             "OIDC bind for pre-provisioned user: {} role={}",
-            updated.email, updated.role
+            updated.email,
+            updated.role
         );
         Ok(updated)
     }
@@ -864,13 +890,16 @@ impl UserAuthBackend {
         if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
             tracing::warn!(
                 "Failed to mark invite {} used by password-bound user {}: {}",
-                invite.id, row_id, e
+                invite.id,
+                row_id,
+                e
             );
         }
 
         tracing::info!(
             "Password-mode invite bind for pre-provisioned user: {} role={}",
-            updated.email, updated.role
+            updated.email,
+            updated.role
         );
         Ok(updated)
     }
@@ -933,7 +962,9 @@ impl UserAuthBackend {
         if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
             tracing::warn!(
                 "Failed to mark invite {} used by new password commenter {}: {}",
-                invite.id, new_user_id, e
+                invite.id,
+                new_user_id,
+                e
             );
         }
 
@@ -1012,7 +1043,9 @@ impl UserAuthBackend {
         if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
             tracing::warn!(
                 "Failed to mark invite {} used by new commenter {}: {}",
-                invite.id, new_user_id, e
+                invite.id,
+                new_user_id,
+                e
             );
         }
 
@@ -1020,14 +1053,16 @@ impl UserAuthBackend {
         Ok(result)
     }
 
-
     /// Build a `UserAuth` session principal from a user row. `oidc_login=true`
     /// marks the principal as MFA-verified up front because Keycloak owns MFA
     /// at the IdP for SSO logins.
     fn user_auth_from_model(&self, model: user::Model, oidc_login: bool) -> UserAuth {
         let totp_enabled = model.totp_enabled.unwrap_or(false);
-        let session_hash =
-            compute_session_hash(&model.password_hash, &model.email, model.totp_secret.as_deref());
+        let session_hash = compute_session_hash(
+            &model.password_hash,
+            &model.email,
+            model.totp_secret.as_deref(),
+        );
         UserAuth {
             id: model.id,
             email: model.email,
@@ -1061,7 +1096,8 @@ fn ensure_role_match(idp_tier: &str, db_role: &str) -> Result<()> {
     if idp_tier != db_role {
         anyhow::bail!(
             "OIDC role does not match account role (idp={}, db={})",
-            idp_tier, db_role
+            idp_tier,
+            db_role
         );
     }
     Ok(())

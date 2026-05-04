@@ -15,8 +15,8 @@
  */
 mod common;
 
-use riposte_social::entities::subscriber;
 use common::{build_test_server, get_csrf_token};
+use riposte_social::entities::subscriber;
 
 use axum::http::StatusCode;
 use chrono::{Duration, Utc};

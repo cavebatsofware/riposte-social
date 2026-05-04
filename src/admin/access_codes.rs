@@ -150,7 +150,10 @@ async fn create_code_multipart(
             }
             "download_filename" => {
                 let text = field.text().await.map_err(|e| {
-                    AppError::ValidationError(format!("Failed to read download_filename field: {}", e))
+                    AppError::ValidationError(format!(
+                        "Failed to read download_filename field: {}",
+                        e
+                    ))
                 })?;
                 download_filename_value = if text.is_empty() { None } else { Some(text) };
             }
@@ -196,13 +199,14 @@ async fn create_code_multipart(
         .all(|c| c.is_ascii_alphanumeric() || c == '-')
     {
         return Err(AppError::ValidationError(
-            "Access code must contain only alphanumeric characters or hyphens"
-                .to_string(),
+            "Access code must contain only alphanumeric characters or hyphens".to_string(),
         ));
     }
 
     if name_value.trim().is_empty() {
-        return Err(AppError::ValidationError("Name cannot be empty".to_string()));
+        return Err(AppError::ValidationError(
+            "Name cannot be empty".to_string(),
+        ));
     }
 
     // Validate download filename format if provided
@@ -242,14 +246,16 @@ async fn create_code_multipart(
         // Try to parse as date only (YYYY-MM-DD format from HTML date input)
         if let Ok(naive_date) = NaiveDate::parse_from_str(&exp_str, "%Y-%m-%d") {
             // Set time to end of day (23:59:59) in UTC
-            let naive_datetime = naive_date
-                .and_hms_opt(23, 59, 59)
-                .ok_or_else(|| AppError::ValidationError("Invalid date - cannot set time".to_string()))?;
+            let naive_datetime = naive_date.and_hms_opt(23, 59, 59).ok_or_else(|| {
+                AppError::ValidationError("Invalid date - cannot set time".to_string())
+            })?;
             Some(Utc.from_utc_datetime(&naive_datetime).into())
         } else {
             // Fallback: try RFC3339 format for backward compatibility
             Some(chrono::DateTime::parse_from_rfc3339(&exp_str).map_err(|_| {
-                AppError::ValidationError("Invalid expiration date format. Use YYYY-MM-DD".to_string())
+                AppError::ValidationError(
+                    "Invalid expiration date format. Use YYYY-MM-DD".to_string(),
+                )
             })?)
         }
     } else {
@@ -260,8 +266,8 @@ async fn create_code_multipart(
     tracing::info!("Processing templates for access code: {}", code_value);
 
     // ensure both files are Some
-    let index_html_data =
-        index_html.ok_or_else(|| AppError::ValidationError("index.html file is required".to_string()))?;
+    let index_html_data = index_html
+        .ok_or_else(|| AppError::ValidationError("index.html file is required".to_string()))?;
     let document_docx_data = document_docx
         .ok_or_else(|| AppError::ValidationError("Document.docx file is required".to_string()))?;
 
@@ -278,13 +284,17 @@ async fn create_code_multipart(
         .s3
         .upload_file(&code_value, "index.html", processed_index_html)
         .await
-        .map_err(|e| AppError::InternalError(format!("Failed to upload index.html to S3: {}", e)))?;
+        .map_err(|e| {
+            AppError::InternalError(format!("Failed to upload index.html to S3: {}", e))
+        })?;
 
     state
         .s3
         .upload_file(&code_value, "Document.docx", processed_document_docx)
         .await
-        .map_err(|e| AppError::InternalError(format!("Failed to upload Document.docx to S3: {}", e)))?;
+        .map_err(|e| {
+            AppError::InternalError(format!("Failed to upload Document.docx to S3: {}", e))
+        })?;
 
     // Create database entry after successful uploads
     let new_code = access_code::ActiveModel {
@@ -336,10 +346,18 @@ async fn delete_code(
 
     // Clean up S3 objects (best-effort — don't fail the delete if S3 cleanup fails)
     if let Err(e) = state.s3.delete_file(&code_value, "index.html").await {
-        tracing::warn!("Failed to delete index.html from S3 for code {}: {}", code_value, e);
+        tracing::warn!(
+            "Failed to delete index.html from S3 for code {}: {}",
+            code_value,
+            e
+        );
     }
     if let Err(e) = state.s3.delete_file(&code_value, "Document.docx").await {
-        tracing::warn!("Failed to delete Document.docx from S3 for code {}: {}", code_value, e);
+        tracing::warn!(
+            "Failed to delete Document.docx from S3 for code {}: {}",
+            code_value,
+            e
+        );
     }
 
     Ok(StatusCode::NO_CONTENT)

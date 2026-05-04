@@ -178,7 +178,6 @@ async fn test_reaction_fb6_kinds_all_accepted(pool: sqlx::PgPool) {
     }
 }
 
-
 #[sqlx::test(migrations = false)]
 async fn test_reaction_commenter_can_like_public(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
@@ -240,8 +239,10 @@ async fn test_reaction_delete_round_trip(pool: sqlx::PgPool) {
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
     // After remove the kind drops out of the counts map.
-    assert!(json["reaction_counts"].get("like").is_none()
-        || json["reaction_counts"]["like"].as_i64().unwrap() == 0);
+    assert!(
+        json["reaction_counts"].get("like").is_none()
+            || json["reaction_counts"]["like"].as_i64().unwrap() == 0
+    );
     assert!(json["viewer_reaction_kinds"].as_array().unwrap().is_empty());
 }
 
@@ -377,18 +378,10 @@ async fn test_list_comments_public_for_anon(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("cl-pub-a"), TEST_PASSWORD).await;
     let p = insert_post(&db, admin.id, "p", post::VISIBILITY_PUBLIC).await;
-    let commenter = make_user(
-        &backend,
-        &db,
-        &test_email("cl-pub-c"),
-        user::ROLE_COMMENTER,
-    )
-    .await;
+    let commenter = make_user(&backend, &db, &test_email("cl-pub-c"), user::ROLE_COMMENTER).await;
     insert_comment(&db, p.id, commenter.id, "hello").await;
 
-    let response = server
-        .get(&format!("/api/posts/{}/comments", p.id))
-        .await;
+    let response = server.get(&format!("/api/posts/{}/comments", p.id)).await;
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
     assert_eq!(json["comments"].as_array().unwrap().len(), 1);
@@ -418,9 +411,7 @@ async fn test_list_comments_excludes_soft_deleted(pool: sqlx::PgPool) {
     active.deleted_at = Set(Some(chrono::Utc::now().into()));
     active.update(&db).await.unwrap();
 
-    let response = server
-        .get(&format!("/api/posts/{}/comments", p.id))
-        .await;
+    let response = server.get(&format!("/api/posts/{}/comments", p.id)).await;
     assert_eq!(response.status_code(), StatusCode::OK);
     let json: serde_json::Value = response.json();
     let bodies: Vec<&str> = json["comments"]
@@ -442,9 +433,7 @@ async fn test_list_comments_visibility_filter(pool: sqlx::PgPool) {
     let p = insert_post(&db, admin.id, "p", post::VISIBILITY_COMMENTERS).await;
 
     // Anonymous caller: parent post not visible, list returns 401/404.
-    let response = server
-        .get(&format!("/api/posts/{}/comments", p.id))
-        .await;
+    let response = server.get(&format!("/api/posts/{}/comments", p.id)).await;
     let status = response.status_code();
     assert!(status == StatusCode::UNAUTHORIZED || status == StatusCode::NOT_FOUND);
 }
@@ -760,15 +749,13 @@ async fn test_edit_comment_author_can(pool: sqlx::PgPool) {
     let author_email = test_email("ce-author");
     let author = make_user(&backend, &db, &author_email, user::ROLE_COMMENTER).await;
     let c = insert_comment(&db, p.id, author.id, "original").await;
-    assert!(
-        Comment::find_by_id(c.id)
-            .one(&db)
-            .await
-            .unwrap()
-            .unwrap()
-            .edited_at
-            .is_none()
-    );
+    assert!(Comment::find_by_id(c.id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap()
+        .edited_at
+        .is_none());
 
     login_as(&server, &author_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
@@ -973,13 +960,7 @@ async fn test_post_payload_comment_count_excludes_deleted(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("pl-cc-a"), TEST_PASSWORD).await;
     let p = insert_post(&db, admin.id, "p", post::VISIBILITY_PUBLIC).await;
-    let commenter = make_user(
-        &backend,
-        &db,
-        &test_email("pl-cc-c"),
-        user::ROLE_COMMENTER,
-    )
-    .await;
+    let commenter = make_user(&backend, &db, &test_email("pl-cc-c"), user::ROLE_COMMENTER).await;
     insert_comment(&db, p.id, commenter.id, "live").await;
     let dead = insert_comment(&db, p.id, commenter.id, "dead").await;
 
@@ -999,13 +980,7 @@ async fn test_feed_payload_includes_engagement(pool: sqlx::PgPool) {
     let admin = create_verified_admin(&backend, &test_email("fd-eng-a"), TEST_PASSWORD).await;
     let p = insert_post(&db, admin.id, "p", post::VISIBILITY_PUBLIC).await;
 
-    let commenter = make_user(
-        &backend,
-        &db,
-        &test_email("fd-eng-c"),
-        user::ROLE_COMMENTER,
-    )
-    .await;
+    let commenter = make_user(&backend, &db, &test_email("fd-eng-c"), user::ROLE_COMMENTER).await;
     insert_comment(&db, p.id, commenter.id, "hi").await;
     reaction::ActiveModel {
         id: Set(Uuid::new_v4()),

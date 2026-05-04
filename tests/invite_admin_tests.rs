@@ -21,8 +21,7 @@
 mod common;
 
 use common::{
-    build_test_server, create_verified_admin, get_csrf_token, login_as, test_email,
-    TEST_PASSWORD,
+    build_test_server, create_verified_admin, get_csrf_token, login_as, test_email, TEST_PASSWORD,
 };
 use riposte_social::entities::{invite_code, InviteCode};
 
@@ -79,7 +78,10 @@ async fn test_create_invite_returns_plaintext_once(pool: sqlx::PgPool) {
         .await
         .unwrap()
         .expect("invite row");
-    assert_ne!(row.code, plaintext, "DB column must hold hash, not plaintext");
+    assert_ne!(
+        row.code, plaintext,
+        "DB column must hold hash, not plaintext"
+    );
     assert!(
         row.code.len() > 32,
         "Blake2b hex digest should be longer than the plaintext"
@@ -211,10 +213,7 @@ async fn test_revoke_invite_nonexistent_returns_error(pool: sqlx::PgPool) {
 
     let csrf = get_csrf_token(&server).await;
     let response = server
-        .delete(&format!(
-            "/api/admin/invite-codes/{}",
-            uuid::Uuid::new_v4()
-        ))
+        .delete(&format!("/api/admin/invite-codes/{}", uuid::Uuid::new_v4()))
         .add_header("x-csrf-token", &csrf)
         .await;
     assert_ne!(response.status_code(), StatusCode::OK);
@@ -222,16 +221,13 @@ async fn test_revoke_invite_nonexistent_returns_error(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = false)]
 async fn test_revoked_invite_cannot_validate(pool: sqlx::PgPool) {
-    let (_server, backend, db) =
-        build_test_server(pool).await;
+    let (_server, backend, db) = build_test_server(pool).await;
     let admin =
-        create_verified_admin(&backend, &test_email("ic-revoke-validate"), TEST_PASSWORD)
-            .await;
+        create_verified_admin(&backend, &test_email("ic-revoke-validate"), TEST_PASSWORD).await;
 
-    let (invite, plaintext) =
-        riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
-            .await
-            .unwrap();
+    let (invite, plaintext) = riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
+        .await
+        .unwrap();
 
     // Mark as revoked directly in DB (skipping the HTTP layer for this slice).
     use sea_orm::{ActiveModelTrait, Set};

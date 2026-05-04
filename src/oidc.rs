@@ -228,11 +228,7 @@ impl OidcService {
         let display_name = claims
             .name()
             .and_then(|localized| localized.get(None).map(|s| s.as_str().to_string()))
-            .or_else(|| {
-                claims
-                    .preferred_username()
-                    .map(|s| s.as_str().to_string())
-            });
+            .or_else(|| claims.preferred_username().map(|s| s.as_str().to_string()));
 
         // Try extracting roles from ID token first
         let additional = &claims.additional_claims().0;

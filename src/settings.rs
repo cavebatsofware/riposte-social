@@ -206,11 +206,7 @@ impl SettingsService {
     /// see no Manage controls in the social-frontend Categories page and
     /// every poster-side write endpoint returns 403.
     pub async fn get_poster_category_management_enabled(&self) -> Result<bool> {
-        self.get_bool(
-            "poster_category_management_enabled",
-            Some("features"),
-            None,
-        )
-        .await
+        self.get_bool("poster_category_management_enabled", Some("features"), None)
+            .await
     }
 }

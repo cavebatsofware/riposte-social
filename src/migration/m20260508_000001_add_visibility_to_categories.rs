@@ -36,11 +36,7 @@ impl MigrationTrait for Migration {
             .alter_table(
                 Table::alter()
                     .table(Categories::Table)
-                    .add_column(
-                        string(Categories::Visibility)
-                            .default("public")
-                            .not_null(),
-                    )
+                    .add_column(string(Categories::Visibility).default("public").not_null())
                     .to_owned(),
             )
             .await?;

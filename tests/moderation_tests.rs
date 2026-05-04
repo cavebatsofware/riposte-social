@@ -52,11 +52,7 @@ async fn make_user(
     User::find_by_id(row.id).one(db).await.unwrap().unwrap()
 }
 
-async fn insert_post(
-    db: &DatabaseConnection,
-    author_id: Uuid,
-    body: &str,
-) -> post::Model {
+async fn insert_post(db: &DatabaseConnection, author_id: Uuid, body: &str) -> post::Model {
     post::ActiveModel {
         id: Set(Uuid::new_v4()),
         author_id: Set(author_id),
@@ -156,8 +152,7 @@ async fn test_moderation_list_includes_post_excerpt_and_author(pool: sqlx::PgPoo
     let (server, backend, db) = build_test_server(pool).await;
     let admin_email = test_email("mod-ctx-a");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
-    let body =
-        "This is a fairly long post body that should get truncated for the moderation view";
+    let body = "This is a fairly long post body that should get truncated for the moderation view";
     let p = insert_post(&db, admin.id, body).await;
     let author_email = test_email("mod-ctx-author");
     let author = make_user(&backend, &db, &author_email, user::ROLE_COMMENTER).await;
@@ -173,7 +168,10 @@ async fn test_moderation_list_includes_post_excerpt_and_author(pool: sqlx::PgPoo
         .iter()
         .find(|c| c["body"].as_str().unwrap() == "comment text")
         .expect("inserted comment should appear in list");
-    assert!(row["post_excerpt"].as_str().unwrap().contains("fairly long"));
+    assert!(row["post_excerpt"]
+        .as_str()
+        .unwrap()
+        .contains("fairly long"));
     assert_eq!(row["author_email"].as_str().unwrap(), author_email.as_str());
 }
 
@@ -247,7 +245,12 @@ async fn test_moderation_bulk_delete_idempotent(pool: sqlx::PgPool) {
         .json(&serde_json::json!({ "comment_ids": [c.id] }))
         .await;
     assert_eq!(first.status_code(), StatusCode::OK);
-    assert_eq!(first.json::<serde_json::Value>()["deleted"].as_u64().unwrap(), 1);
+    assert_eq!(
+        first.json::<serde_json::Value>()["deleted"]
+            .as_u64()
+            .unwrap(),
+        1
+    );
 
     let csrf2 = get_csrf_token(&server).await;
     let second = server
@@ -257,7 +260,9 @@ async fn test_moderation_bulk_delete_idempotent(pool: sqlx::PgPool) {
         .await;
     assert_eq!(second.status_code(), StatusCode::OK);
     assert_eq!(
-        second.json::<serde_json::Value>()["deleted"].as_u64().unwrap(),
+        second.json::<serde_json::Value>()["deleted"]
+            .as_u64()
+            .unwrap(),
         0,
         "re-running bulk-delete on already-deleted rows must return 0"
     );

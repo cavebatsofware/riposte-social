@@ -32,12 +32,10 @@ async fn test_invite_landing_does_not_set_cookie(pool: sqlx::PgPool) {
     // device + cookie-consent gate. This keeps a visitor on a shared
     // device free of any persisted invite state if they decline.
     let (server, backend, db) = build_test_server(pool).await;
-    let admin =
-        create_verified_admin(&backend, &test_email("ip-creator"), TEST_PASSWORD).await;
-    let (_invite, plaintext) =
-        riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
-            .await
-            .unwrap();
+    let admin = create_verified_admin(&backend, &test_email("ip-creator"), TEST_PASSWORD).await;
+    let (_invite, plaintext) = riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
+        .await
+        .unwrap();
 
     let response = server.get(&format!("/invite/{}", plaintext)).await;
     assert_eq!(response.status_code(), StatusCode::OK);
@@ -60,7 +58,9 @@ async fn test_invite_landing_does_not_set_cookie(pool: sqlx::PgPool) {
 async fn test_invite_landing_serves_spa_for_invalid_code(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
-    let response = server.get("/invite/this-code-does-not-exist-anywhere").await;
+    let response = server
+        .get("/invite/this-code-does-not-exist-anywhere")
+        .await;
     // Always serves the SPA so React Router can render the gate; the SPA
     // posts to /api/invites/confirm which returns null for an invalid code.
     assert_eq!(response.status_code(), StatusCode::OK);
@@ -187,10 +187,9 @@ async fn test_current_invite_returns_null_for_revoked_code(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin =
         create_verified_admin(&backend, &test_email("ip-revoked-admin"), TEST_PASSWORD).await;
-    let (invite, plaintext) =
-        riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
-            .await
-            .unwrap();
+    let (invite, plaintext) = riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
+        .await
+        .unwrap();
 
     // Confirm to plant the cookie.
     let csrf = get_csrf_token(&server).await;
@@ -218,10 +217,9 @@ async fn test_logout_invite_clears_cookie(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin =
         create_verified_admin(&backend, &test_email("ip-logout-admin"), TEST_PASSWORD).await;
-    let (_invite, plaintext) =
-        riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
-            .await
-            .unwrap();
+    let (_invite, plaintext) = riposte_social::invites::issue_invite_for_user(&db, admin.id, None)
+        .await
+        .unwrap();
 
     let csrf = get_csrf_token(&server).await;
     // Set the cookie via confirm.

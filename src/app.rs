@@ -20,22 +20,28 @@ use crate::categories;
 use crate::email::EmailService;
 use crate::engagement;
 use crate::entities::{access_code, AccessCode};
-use crate::imports;
 use crate::errors::{AppError, AppResult};
-use crate::middleware::{csrf_middleware, require_authenticated, require_admin, require_admin_or_poster};
+use crate::imports;
+use crate::invites;
+use crate::middleware::{
+    csrf_middleware, require_admin, require_admin_or_poster, require_authenticated,
+};
+use crate::oidc::{OidcConfig, OidcService};
 use crate::posts;
 use crate::profile;
-use crate::oidc::{OidcConfig, OidcService};
 use crate::s3::S3Service;
 use crate::security_callbacks::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
-use crate::invites;
 use crate::{contact, subscribe};
 use anyhow::Result;
 use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
 use axum::response::{Html, IntoResponse};
-use axum::{middleware::{from_fn, from_fn_with_state}, routing::get, Router};
+use axum::{
+    middleware::{from_fn, from_fn_with_state},
+    routing::get,
+    Router,
+};
 use axum_login::AuthManagerLayerBuilder;
 use basic_axum_rate_limit::{
     rate_limit_middleware, RateLimitConfig, RateLimiter, RequestScreener, ScreeningConfig,
@@ -262,7 +268,12 @@ async fn serve_access(
     State(state): State<AppState>,
     Path(code): Path<String>,
 ) -> AppResult<Html<String>> {
-    if !state.settings.get_access_codes_enabled().await.unwrap_or(true) {
+    if !state
+        .settings
+        .get_access_codes_enabled()
+        .await
+        .unwrap_or(true)
+    {
         return Err(AppError::InvalidAccess);
     }
 
@@ -289,7 +300,12 @@ async fn download_access(
     State(state): State<AppState>,
     Path(code): Path<String>,
 ) -> AppResult<impl IntoResponse> {
-    if !state.settings.get_access_codes_enabled().await.unwrap_or(true) {
+    if !state
+        .settings
+        .get_access_codes_enabled()
+        .await
+        .unwrap_or(true)
+    {
         return Err(AppError::InvalidAccess);
     }
 

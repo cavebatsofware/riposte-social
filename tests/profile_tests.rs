@@ -320,7 +320,10 @@ async fn test_avatar_upload_normalizes_to_webp(pool: sqlx::PgPool) {
         response.text()
     );
     let body: serde_json::Value = response.json();
-    assert!(body["avatar_url"].as_str().unwrap().starts_with("/avatars/"));
+    assert!(body["avatar_url"]
+        .as_str()
+        .unwrap()
+        .starts_with("/avatars/"));
 
     // Confirm row got the s3_key set + the public profile reads it back.
     let row = User::find()
@@ -351,9 +354,7 @@ async fn test_avatar_delete_clears_key(pool: sqlx::PgPool) {
     let csrf = get_csrf_token(&server).await;
     let form = MultipartForm::new().add_part(
         "file",
-        Part::bytes(png)
-            .mime_type("image/png")
-            .file_name("a.png"),
+        Part::bytes(png).mime_type("image/png").file_name("a.png"),
     );
     let upload = server
         .post("/api/me/avatar")
@@ -390,9 +391,7 @@ async fn test_feed_author_filter(pool: sqlx::PgPool) {
     insert_public_post(&db, a.id, "post by A").await;
     insert_public_post(&db, b.id, "post by B").await;
 
-    let response = server
-        .get(&format!("/api/feed?author={}", a.id))
-        .await;
+    let response = server.get(&format!("/api/feed?author={}", a.id)).await;
     assert_eq!(response.status_code(), StatusCode::OK);
     let body: serde_json::Value = response.json();
     let posts = body["posts"].as_array().unwrap();

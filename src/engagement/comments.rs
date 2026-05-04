@@ -128,9 +128,7 @@ pub(crate) fn build_comment_response_with_engagement(
     engagement: CommentEngagement,
 ) -> CommentResponse {
     let body_html = markdown::render_to_html(&row.body);
-    let edited_at = row
-        .edited_at
-        .map(|t| t.with_timezone(&Utc).to_rfc3339());
+    let edited_at = row.edited_at.map(|t| t.with_timezone(&Utc).to_rfc3339());
     CommentResponse {
         id: row.id,
         post_id: row.post_id,
@@ -211,9 +209,7 @@ async fn list_comments(
             .settings
             .get_public_feed_enabled()
             .await
-            .map_err(|e| {
-                AppError::InternalError(format!("settings read failed: {:#}", e))
-            })?;
+            .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !enabled {
             return Err(AppError::AuthError("Post not found".to_string()));
         }
@@ -225,7 +221,9 @@ async fn list_comments(
         .await?
         .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
     let parent_cat = if let Some(cid) = parent.category_id {
-        crate::entities::Category::find_by_id(cid).one(&state.db).await?
+        crate::entities::Category::find_by_id(cid)
+            .one(&state.db)
+            .await?
     } else {
         None
     };

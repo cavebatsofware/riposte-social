@@ -26,9 +26,7 @@ use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
-use riposte_social::{
-    admin, app, crypto, database, email, errors, imports, metrics, middleware,
-};
+use riposte_social::{admin, app, crypto, database, email, errors, imports, metrics, middleware};
 
 use app::{AppState, RouterDeps};
 use basic_axum_rate_limit::{

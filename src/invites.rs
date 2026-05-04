@@ -84,12 +84,17 @@ pub fn public_invite_routes() -> Router<InviteState> {
 /// acceptance handler. Registered separately so the auth_rate_limiter wraps
 /// only the routes that need it (not the SPA landing or splash polling).
 pub fn auth_invite_routes(
-    auth_rate_limiter: basic_axum_rate_limit::RateLimiter<crate::security_callbacks::AppRateLimitCallbacks>,
+    auth_rate_limiter: basic_axum_rate_limit::RateLimiter<
+        crate::security_callbacks::AppRateLimitCallbacks,
+    >,
 ) -> Router<InviteState> {
     use axum::middleware::from_fn_with_state;
     use basic_axum_rate_limit::rate_limit_middleware;
     Router::new()
-        .route("/api/auth/invite/accept-password", post(accept_invite_password))
+        .route(
+            "/api/auth/invite/accept-password",
+            post(accept_invite_password),
+        )
         .layer(from_fn_with_state(auth_rate_limiter, rate_limit_middleware))
 }
 
@@ -163,11 +168,7 @@ pub async fn validate_invite_code(
 /// Marks an invite as accepted by the given user. Idempotent in the sense that
 /// re-running for an already-used invite is a no-op (we don't overwrite the
 /// existing `used_by_user_id`); but the caller should always validate first.
-pub async fn mark_used(
-    db: &DatabaseConnection,
-    invite_id: Uuid,
-    user_id: Uuid,
-) -> AppResult<()> {
+pub async fn mark_used(db: &DatabaseConnection, invite_id: Uuid, user_id: Uuid) -> AppResult<()> {
     let row = InviteCode::find_by_id(invite_id)
         .one(db)
         .await?
@@ -404,7 +405,6 @@ fn is_cookie_secure() -> bool {
         .unwrap_or(true)
 }
 
-
 #[derive(Serialize)]
 pub struct CurrentInviteResponse {
     pub code: String,
@@ -453,7 +453,10 @@ async fn confirm_invite(
     State(state): State<InviteState>,
     cookies: axum_extra::extract::CookieJar,
     Json(req): Json<ConfirmInviteRequest>,
-) -> AppResult<(axum_extra::extract::CookieJar, Json<Option<CurrentInviteResponse>>)> {
+) -> AppResult<(
+    axum_extra::extract::CookieJar,
+    Json<Option<CurrentInviteResponse>>,
+)> {
     // Kill switch: refuse to set the pending_invite cookie when commenter
     // invites are off. Returning the same `None` shape as a stale/revoked
     // invite means the SPA renders its "no live invite" state without
@@ -476,11 +479,7 @@ async fn confirm_invite(
     };
 
     let secure = is_cookie_secure();
-    let cookie = build_pending_invite_cookie(
-        &req.code,
-        row.expires_at.with_timezone(&Utc),
-        secure,
-    );
+    let cookie = build_pending_invite_cookie(&req.code, row.expires_at.with_timezone(&Utc), secure);
     let cookies = cookies.add(cookie);
 
     Ok((
@@ -510,10 +509,7 @@ pub fn build_pending_invite_cookie(
     secure: bool,
 ) -> axum_extra::extract::cookie::Cookie<'static> {
     let max_age = (expires_at - Utc::now()).max(Duration::seconds(0));
-    let mut c = axum_extra::extract::cookie::Cookie::new(
-        PENDING_INVITE_COOKIE,
-        code.to_owned(),
-    );
+    let mut c = axum_extra::extract::cookie::Cookie::new(PENDING_INVITE_COOKIE, code.to_owned());
     c.set_path("/");
     c.set_http_only(true);
     c.set_same_site(axum_extra::extract::cookie::SameSite::Lax);
@@ -586,9 +582,11 @@ async fn accept_invite_password(
         return Err(AppError::ValidationError(errors.join("; ")));
     }
 
-    let invite = validate_invite_code(&state.db, &req.code).await?.ok_or_else(|| {
-        AppError::AuthError("Invite is invalid, expired, revoked, or already used".to_string())
-    })?;
+    let invite = validate_invite_code(&state.db, &req.code)
+        .await?
+        .ok_or_else(|| {
+            AppError::AuthError("Invite is invalid, expired, revoked, or already used".to_string())
+        })?;
 
     // Dispatch on email_hint: when set, the invite was issued for a
     // pre-provisioned row (Flow C.1). Otherwise it's a commenter invite (C.2).
@@ -606,7 +604,9 @@ async fn accept_invite_password(
             .map_err(|e| AppError::AuthError(e.to_string()))?
     };
 
-    let user_auth = state.auth_backend.user_auth_for_invite_accept(updated.clone());
+    let user_auth = state
+        .auth_backend
+        .user_auth_for_invite_accept(updated.clone());
     auth_session
         .login(&user_auth)
         .await
@@ -619,4 +619,3 @@ async fn accept_invite_password(
         message: "Account activated. You're signed in.".to_string(),
     }))
 }
-

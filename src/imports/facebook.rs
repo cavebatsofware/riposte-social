@@ -325,16 +325,19 @@ pub async fn run_facebook_import(
             if already.contains(&p.external_id) {
                 return ItemOutcome::Skipped;
             }
-            match import_one_post(&db, &s3, archive_path.as_path(), &p, &visibility, created_by)
-                .await
+            match import_one_post(
+                &db,
+                &s3,
+                archive_path.as_path(),
+                &p,
+                &visibility,
+                created_by,
+            )
+            .await
             {
                 Ok(()) => ItemOutcome::Succeeded,
                 Err(e) => {
-                    tracing::warn!(
-                        "facebook import: post {} failed: {}",
-                        &p.external_id,
-                        e
-                    );
+                    tracing::warn!("facebook import: post {} failed: {}", &p.external_id, e);
                     let _ = imports::append_log(
                         &db,
                         job_id,
@@ -392,16 +395,19 @@ pub async fn run_facebook_import(
             if already.contains(&a.external_id) {
                 return ItemOutcome::Skipped;
             }
-            match import_one_album(&db, &s3, archive_path.as_path(), &a, &visibility, created_by)
-                .await
+            match import_one_album(
+                &db,
+                &s3,
+                archive_path.as_path(),
+                &a,
+                &visibility,
+                created_by,
+            )
+            .await
             {
                 Ok(()) => ItemOutcome::Succeeded,
                 Err(e) => {
-                    tracing::warn!(
-                        "facebook import: album {} failed: {}",
-                        &a.external_id,
-                        e
-                    );
+                    tracing::warn!("facebook import: album {} failed: {}", &a.external_id, e);
                     let _ = imports::append_log(
                         &db,
                         job_id,
@@ -797,11 +803,7 @@ fn normalize_album(raw: RawAlbum) -> Option<FacebookAlbum> {
         return None;
     }
 
-    let earliest_creation = raw
-        .photos
-        .iter()
-        .filter_map(|p| p.creation_timestamp)
-        .min();
+    let earliest_creation = raw.photos.iter().filter_map(|p| p.creation_timestamp).min();
     let timestamp = earliest_creation
         .or(raw.last_modified_timestamp)
         // No timestamps anywhere — drop. The album entity requires a
@@ -868,7 +870,11 @@ fn normalize_post(raw: RawFacebookPost) -> Option<FacebookPost> {
         return None;
     }
 
-    let external_id = compute_external_id(timestamp, &body, attachment_uris.first().map(|s| s.as_str()));
+    let external_id = compute_external_id(
+        timestamp,
+        &body,
+        attachment_uris.first().map(|s| s.as_str()),
+    );
     Some(FacebookPost {
         external_id,
         timestamp,
@@ -1060,7 +1066,11 @@ async fn import_one_album(
 ) -> Result<(), anyhow::Error> {
     let album_id = Uuid::new_v4();
 
-    let uris: Vec<String> = fb_album.attachments.iter().map(|(u, _)| u.clone()).collect();
+    let uris: Vec<String> = fb_album
+        .attachments
+        .iter()
+        .map(|(u, _)| u.clone())
+        .collect();
     let staged_media = {
         let archive_path = archive_path.to_path_buf();
         let uris = uris.clone();
@@ -1106,7 +1116,11 @@ async fn import_one_album(
             for (_, prior_key, _, _) in &uploaded {
                 let _ = s3.delete_object_at(prior_key).await;
             }
-            return Err(anyhow::anyhow!("failed to upload media #{}: {}", out_idx, e));
+            return Err(anyhow::anyhow!(
+                "failed to upload media #{}: {}",
+                out_idx,
+                e
+            ));
         }
         uploaded.push((
             media_id,
@@ -1198,11 +1212,7 @@ fn read_archive_entries(
             }
         }
         if let Some(bytes) = bytes {
-            let basename = uri
-                .rsplit('/')
-                .next()
-                .unwrap_or(uri.as_str())
-                .to_string();
+            let basename = uri.rsplit('/').next().unwrap_or(uri.as_str()).to_string();
             out.push((basename, bytes));
         } else {
             // Missing media is logged but not fatal: the post still
@@ -1265,7 +1275,9 @@ mod tests {
             "your_facebook_activity/posts/your_posts__check_ins__photos_and_videos_1.json"
         ));
         // Older, simpler shape.
-        assert!(is_post_manifest("your_facebook_activity/posts/your_posts_1.json"));
+        assert!(is_post_manifest(
+            "your_facebook_activity/posts/your_posts_1.json"
+        ));
     }
 
     #[test]
@@ -1443,4 +1455,3 @@ mod tests {
         assert_eq!(post.body, "baby «hunger»");
     }
 }
-

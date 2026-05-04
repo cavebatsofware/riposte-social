@@ -15,9 +15,9 @@
  */
 mod common;
 
-use riposte_social::entities::{invite_code, user, User};
 use common::oidc_mock::{extract_query_param, OidcMockServer, OidcMockUser, TEST_CLIENT_ID};
 use common::{build_test_server, build_test_server_with, TestServices};
+use riposte_social::entities::{invite_code, user, User};
 
 use axum::http::StatusCode;
 use openidconnect::Nonce;
@@ -173,13 +173,9 @@ async fn issue_invite(
     creator: uuid::Uuid,
     email_hint: Option<&str>,
 ) -> (invite_code::Model, String) {
-    riposte_social::invites::issue_invite_for_user(
-        db,
-        creator,
-        email_hint.map(String::from),
-    )
-    .await
-    .unwrap()
+    riposte_social::invites::issue_invite_for_user(db, creator, email_hint.map(String::from))
+        .await
+        .unwrap()
 }
 
 // ==================== Helpers ====================
@@ -344,9 +340,14 @@ async fn test_oidc_callback_admin_role_creates_administrator(pool: sqlx::PgPool)
     // pre-stamped, mirroring what POST /api/admin/users does in production.
     // The OIDC callback then binds the row by looking it up via that id.
     let creator_id = preprovision_user(&db, "creator@keycloak.test", "administrator", None).await;
-    let (invite, _plaintext) =
-        pre_provision_with_invite(&server, &db, creator_id, "admin@keycloak.test", "administrator")
-            .await;
+    let (invite, _plaintext) = pre_provision_with_invite(
+        &server,
+        &db,
+        creator_id,
+        "admin@keycloak.test",
+        "administrator",
+    )
+    .await;
 
     let user = OidcMockUser::new("admin@keycloak.test", vec!["admin"]);
     let response = drive_oidc_flow(&server, &mock, user, "realm_access.roles").await;
@@ -368,7 +369,10 @@ async fn test_oidc_callback_admin_role_creates_administrator(pool: sqlx::PgPool)
         .expect("user row");
     assert_eq!(row.role, "administrator");
     assert!(row.email_verified);
-    assert!(row.oidc_sub.is_some(), "row should be linked to an OIDC sub");
+    assert!(
+        row.oidc_sub.is_some(),
+        "row should be linked to an OIDC sub"
+    );
     assert!(row.activated_at.is_some(), "bind should activate the row");
     assert_eq!(row.invite_code_id, Some(invite.id));
 }
@@ -435,8 +439,7 @@ async fn test_oidc_normal_login_rejects_role_drift(pool: sqlx::PgPool) {
     // for the same sub; drift must be rejected.
     insert_active_oidc_user(&db, "drift@keycloak.test", "commenter", "drift-sub").await;
 
-    let user =
-        OidcMockUser::with_sub("drift@keycloak.test", vec!["admin"], "drift-sub");
+    let user = OidcMockUser::with_sub("drift@keycloak.test", vec!["admin"], "drift-sub");
     let response = drive_oidc_flow(&server, &mock, user, "realm_access.roles").await;
 
     assert_eq!(

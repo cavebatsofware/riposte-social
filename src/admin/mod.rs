@@ -24,7 +24,7 @@ pub mod routes;
 pub mod settings;
 pub mod totp;
 
-pub use auth::{UserAuthBackend, UserAuth, Credentials};
+pub use auth::{Credentials, UserAuth, UserAuthBackend};
 
 /// Session key for MFA verification status. Shared across routes and middleware.
 pub const MFA_VERIFIED_KEY: &str = "mfa_verified";
