@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { formatRelativeTime } from "../utils/formatTime";
 import MediaLightbox from "./MediaLightbox";
 import ReactionBar from "./ReactionBar";
+import VisibilityBadge from "./VisibilityBadge";
 import VisibilityMenu from "./VisibilityMenu";
 
 /// Renders one post in the feed or on its permalink.
@@ -386,27 +387,6 @@ function truncate(s, max) {
   const lastSpace = slice.lastIndexOf(" ");
   const cut = lastSpace > max * 0.6 ? lastSpace : max;
   return s.slice(0, cut).replace(/\s+$/, "") + "…";
-}
-
-function VisibilityBadge({ visibility, fromCategory }) {
-  const { t } = useTranslation("feed");
-  const cls = `visibility-badge ${visibility}`;
-  // Known tiers: post-level four + the category-only `user_list`. Unknown
-  // tiers fall back to "Public" so a future server-side tier doesn't
-  // render as a missing-key gap.
-  const known = ["private", "commenters", "posters", "user_list"];
-  const key = known.includes(visibility) ? visibility : "public";
-  return (
-    <span className={cls}>
-      {t(`visibility.${key}.name`)}
-      {fromCategory && (
-        <span className="visibility-badge-from-category">
-          {" "}
-          ({t("visibility.fromCategory")})
-        </span>
-      )}
-    </span>
-  );
 }
 
 function computeInitials(name) {

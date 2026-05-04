@@ -7,6 +7,7 @@ import { recordAlbumVisit } from "../utils/browseHistory";
 import Layout from "../components/Layout";
 import MediaLightbox from "../components/MediaLightbox";
 import SkeletonCard from "../components/SkeletonCard";
+import VisibilityBadge from "../components/VisibilityBadge";
 import "./Album.css";
 
 /// Permalink page at `/album/:id`. Renders the album header (cover/name/
@@ -136,7 +137,7 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
         <span className="album-meta-dot" aria-hidden="true" />
         <span>{t("albums.itemCount", { count: album.photo_count })}</span>
         <span className="album-meta-dot" aria-hidden="true" />
-        <VisibilityChip
+        <VisibilityBadge
           visibility={album.effective_visibility || album.visibility}
           fromCategory={Boolean(album.category_id)}
         />
@@ -194,25 +195,5 @@ function AlbumMediaGrid({ media, onOpen }) {
         </button>
       ))}
     </div>
-  );
-}
-
-/// Visibility tier label — same source-of-truth catalog the post badges
-/// use, so renaming a tier ripples here automatically.
-function VisibilityChip({ visibility, fromCategory }) {
-  const { t } = useTranslation("feed");
-  const cls = `visibility-badge ${visibility}`;
-  const known = ["private", "commenters", "posters", "user_list"];
-  const key = known.includes(visibility) ? visibility : "public";
-  return (
-    <span className={cls}>
-      {t(`visibility.${key}.name`)}
-      {fromCategory && (
-        <span className="visibility-badge-from-category">
-          {" "}
-          ({t("visibility.fromCategory")})
-        </span>
-      )}
-    </span>
   );
 }
