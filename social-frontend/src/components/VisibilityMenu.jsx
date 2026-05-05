@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchApi } from "../utils/api";
+import useRovingFocus from "../utils/useRovingFocus";
 
 const OPTION_IDS = ["private", "public", "commenters", "posters"];
 
@@ -25,6 +26,10 @@ export default function VisibilityMenu({ post, onChange }) {
   const [error, setError] = useState("");
   const [current, setCurrent] = useState(post.visibility);
   const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+  const popoverRef = useRef(null);
+
+  useRovingFocus(popoverRef, open);
 
   useEffect(() => {
     setCurrent(post.visibility);
@@ -37,13 +42,26 @@ export default function VisibilityMenu({ post, onChange }) {
         setOpen(false);
       }
     }
+    // Close when keyboard focus leaves the menu (e.g. user Tabs out
+    // without selecting). Mirrors the behavior of the chrome pickers
+    // so adjacent affordances cannot stay open simultaneously.
+    function onFocusOut(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
     function onKey(e) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("focusin", onFocusOut);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("focusin", onFocusOut);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -83,6 +101,7 @@ export default function VisibilityMenu({ post, onChange }) {
   return (
     <span className="visibility-menu" ref={wrapperRef}>
       <button
+        ref={triggerRef}
         type="button"
         className={`visibility-badge visibility-badge-button ${current}`}
         aria-haspopup="menu"
@@ -100,7 +119,7 @@ export default function VisibilityMenu({ post, onChange }) {
         </span>
       </button>
       {open && (
-        <div className="visibility-menu-popover" role="menu">
+        <div ref={popoverRef} className="visibility-menu-popover" role="menu">
           {OPTION_IDS.map((id) => (
             <button
               key={id}

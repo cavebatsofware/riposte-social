@@ -1,12 +1,14 @@
 {
   "fallbackAuthor": "Mitglied",
   "post": {
+    "heading": "Beitrag",
     "notFound": "Beitrag nicht gefunden.",
     "loadFailed": "Beitrag konnte nicht geladen werden",
     "deleteConfirm": "Diesen Beitrag löschen? Das kann nicht rückgängig gemacht werden.",
     "deleteFailed": "Beitrag konnte nicht gelöscht werden"
   },
   "feed": {
+    "heading": "Feed",
     "loadFailed": "Feed konnte nicht geladen werden",
     "loadingAria": "Feed wird geladen",
     "anonInviteOnly": "Diese Seite ist nur per Einladung zugänglich.",
@@ -48,6 +50,7 @@
   },
   "postCard": {
     "actionsAria": "Beitragsaktionen",
+    "articleAria": "Beitrag von {{author}}, {{time}}",
     "recentCommentsAria": "Aktuelle Kommentare",
     "videoFallback": "Dein Browser unterstützt keine eingebettete Videowiedergabe.",
     "openMediaAria": "Element {{index}} öffnen",

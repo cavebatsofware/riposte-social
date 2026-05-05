@@ -1,12 +1,14 @@
 {
   "fallbackAuthor": "成员",
   "post": {
+    "heading": "帖子",
     "notFound": "找不到该帖子。",
     "loadFailed": "加载帖子失败",
     "deleteConfirm": "删除这条帖子吗?此操作无法撤销。",
     "deleteFailed": "删除帖子失败"
   },
   "feed": {
+    "heading": "动态",
     "loadFailed": "加载动态失败",
     "loadingAria": "正在加载动态",
     "anonInviteOnly": "本站仅限受邀使用。",
@@ -48,6 +50,7 @@
   },
   "postCard": {
     "actionsAria": "帖子操作",
+    "articleAria": "{{author}} 的帖子，{{time}}",
     "recentCommentsAria": "最近的评论",
     "videoFallback": "你的浏览器不支持内嵌视频播放。",
     "openMediaAria": "打开第 {{index}} 项",

@@ -1,12 +1,14 @@
 {
   "fallbackAuthor": "Member",
   "post": {
+    "heading": "Post",
     "notFound": "Post not found.",
     "loadFailed": "Failed to load post",
     "deleteConfirm": "Delete this post? This can't be undone.",
     "deleteFailed": "Failed to delete post"
   },
   "feed": {
+    "heading": "Feed",
     "loadFailed": "Failed to load feed",
     "loadingAria": "Loading feed",
     "anonInviteOnly": "This site is invite-only.",
@@ -48,6 +50,7 @@
   },
   "postCard": {
     "actionsAria": "Post actions",
+    "articleAria": "Post by {{author}}, {{time}}",
     "recentCommentsAria": "Recent comments",
     "videoFallback": "Your browser doesn't support inline video playback.",
     "openMediaAria": "Open media {{index}}",

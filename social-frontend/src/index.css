@@ -419,6 +419,21 @@ summary:focus-visible,
   outline-offset: 2px;
 }
 
+/* Visually-hidden utility for content that should be readable by
+   assistive tech but not painted on screen (e.g. page-level <h1>s
+   that the design replaces with a logo, screen-reader-only labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ==========================================================================
    Feed shell
    ========================================================================== */
@@ -1194,11 +1209,10 @@ summary:focus-visible,
 }
 
 /* ARIA tooltip for the categorized-badge "from category" provenance.
-   Hidden by default; revealed when the sibling badge is hovered (and
-   when the tooltip itself is hovered, so a small mouse-out doesn't
-   immediately yank it away). Keyboard reachability is intentionally
-   deferred to the upcoming accessibility pass; for now this is a
-   hover-only affordance. */
+   Hidden by default; revealed when the sibling badge is hovered (so a
+   small mouse-out doesn't immediately yank it away) AND when the badge
+   has keyboard focus (the badge is a tab stop with `tabindex=0` so
+   keyboard users can read the same provenance). */
 .visibility-tooltip {
   visibility: hidden;
   opacity: 0;
@@ -1221,7 +1235,8 @@ summary:focus-visible,
   pointer-events: none;
   transition: visibility 0s linear 0.2s, opacity 0.15s ease;
 }
-.visibility-badge-wrap:hover .visibility-tooltip {
+.visibility-badge-wrap:hover .visibility-tooltip,
+.visibility-badge-wrap:focus-within .visibility-tooltip {
   visibility: visible;
   opacity: 1;
   transition-delay: 0s;

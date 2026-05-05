@@ -16,7 +16,9 @@
     "lint": "eslint social-frontend",
     "lint:a11y": "eslint --rule '{ \"react/jsx-uses-vars\": \"off\", \"no-unused-vars\": \"off\" }' social-frontend",
     "a11y:smoke": "cypress run --spec cypress/e2e/a11y.cy.js",
-    "a11y:smoke:strict": "A11Y_STRICTNESS=strict cypress run --spec cypress/e2e/a11y.cy.js"
+    "a11y:smoke:strict": "A11Y_STRICTNESS=strict cypress run --spec cypress/e2e/a11y.cy.js",
+    "a11y:smoke:docker": "docker run --rm --network=host -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js",
+    "a11y:smoke:strict:docker": "docker run --rm --network=host -e A11Y_STRICTNESS=strict -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js"
   },
   "keywords": [],
   "author": "Grant DeFayette <grant@cavebatsofware.com>",

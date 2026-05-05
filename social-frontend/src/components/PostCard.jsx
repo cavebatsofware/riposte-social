@@ -63,6 +63,9 @@ export default function PostCard({ post, variant = "feed" }) {
 
   const card = (
     <article className="post-card">
+      <h2 className="sr-only">
+        {t("postCard.articleHeading", { author, time })}
+      </h2>
       <header className="post-meta">
         <PostAvatar
           handle={post.author_handle}
