@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -175,6 +175,7 @@ export default function BrowseRail() {
           className={`browse-rail-link browse-rail-clear ${
             !activeCategory ? "active" : ""
           }`}
+          aria-current={!activeCategory ? "page" : undefined}
         >
           <span
             className="browse-rail-swatch"
@@ -183,24 +184,26 @@ export default function BrowseRail() {
           />
           <span className="browse-rail-label">{t("rail.allPosts")}</span>
         </Link>
-        {categoriesView.map((c) => (
-          <Link
-            key={c.id}
-            to={`/?category=${encodeURIComponent(c.slug)}`}
-            className={`browse-rail-link ${
-              activeCategory === c.slug ? "active" : ""
-            }`}
-          >
-            {c.color && (
-              <span
-                className="browse-rail-swatch"
-                style={{ backgroundColor: c.color }}
-                aria-hidden="true"
-              />
-            )}
-            <span className="browse-rail-label">{c.name}</span>
-          </Link>
-        ))}
+        {categoriesView.map((c) => {
+          const isActive = activeCategory === c.slug;
+          return (
+            <Link
+              key={c.id}
+              to={`/?category=${encodeURIComponent(c.slug)}`}
+              className={`browse-rail-link ${isActive ? "active" : ""}`}
+              aria-current={isActive ? "page" : undefined}
+            >
+              {c.color && (
+                <span
+                  className="browse-rail-swatch"
+                  style={{ backgroundColor: c.color }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="browse-rail-label">{c.name}</span>
+            </Link>
+          );
+        })}
       </Group>
 
       <Group
@@ -288,6 +291,7 @@ export default function BrowseRail() {
 }
 
 function Group({ label, open, onToggle, children }) {
+  const bodyId = useId();
   return (
     <section className="browse-rail-group" data-open={open ? "true" : "false"}>
       <button
@@ -295,13 +299,18 @@ function Group({ label, open, onToggle, children }) {
         className="browse-rail-group-header"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={bodyId}
       >
         <span className="browse-rail-chevron" aria-hidden="true">
           {open ? "▾" : "▸"}
         </span>
         <span>{label}</span>
       </button>
-      {open && <div className="browse-rail-group-body">{children}</div>}
+      {open && (
+        <div id={bodyId} className="browse-rail-group-body">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -312,6 +321,7 @@ function RailSearch({ placeholder, value, onChange }) {
       type="search"
       className="browse-rail-search"
       placeholder={placeholder}
+      aria-label={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />

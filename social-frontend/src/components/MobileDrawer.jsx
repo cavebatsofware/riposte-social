@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useFocusTrap } from "../utils/useFocusTrap";
 import LanguagePicker from "./LanguagePicker";
 import ThemePicker from "./ThemePicker";
 import "./MobileDrawer.css";
@@ -10,55 +11,26 @@ import "./MobileDrawer.css";
 /// Rendered by `<Layout>` and toggled via the header's hamburger button.
 /// Open state is owned by the parent so the close handler can come from
 /// outside as well (e.g. a route change). Backdrop click and Escape
-/// dismiss; focus is moved to the close button when the drawer opens
-/// and a focus trap keeps Tab inside while open.
+/// dismiss; focus is trapped inside the panel while open and restored to
+/// the trigger when closed (via the shared `useFocusTrap` hook).
 ///
 /// Closed-state always renders an empty placeholder so the markup stays
 /// stable; the slide animation comes from a `data-open` attribute and a
 /// CSS transition on transform/opacity.
 export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut }) {
-  const panelRef = useRef(null);
-  const closeBtnRef = useRef(null);
-  const lastFocusRef = useRef(null);
   const { t } = useTranslation("common");
+  const location = useLocation();
+  const panelRef = useFocusTrap(open, { onEscape: onClose });
 
-  // Close on Escape, restore prior focus on close, focus the close button on open.
+  // Lock body scroll while the drawer is open. Focus trap and Escape are
+  // handled by the shared hook.
   useEffect(() => {
     if (!open) return undefined;
-    lastFocusRef.current = document.activeElement;
-    closeBtnRef.current?.focus();
-    function onKey(e) {
-      if (e.key === "Escape") {
-        onClose();
-        return;
-      }
-      if (e.key === "Tab" && panelRef.current) {
-        // Minimal focus trap: cycle within the panel's focusable elements.
-        const focusables = panelRef.current.querySelectorAll(
-          'a, button, input, textarea, [tabindex]:not([tabindex="-1"])',
-        );
-        if (focusables.length === 0) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    }
-    document.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
-      if (lastFocusRef.current && lastFocusRef.current.focus) {
-        lastFocusRef.current.focus();
-      }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   return (
     <div
@@ -81,7 +53,6 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
         <div className="mobile-drawer-header">
           <span className="mobile-drawer-title">{t("menuTitle")}</span>
           <button
-            ref={closeBtnRef}
             type="button"
             className="mobile-drawer-close"
             aria-label={t("closeMenu")}
@@ -91,20 +62,25 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
           </button>
         </div>
         <nav className="mobile-drawer-nav" aria-label={t("primaryNav")}>
-          {navLinks.map((l) => (
-            <Link
-              key={l.to}
-              to={l.to}
-              className="mobile-drawer-nav-link"
-              onClick={onClose}
-            >
-              {l.label}
-            </Link>
-          ))}
+          {navLinks.map((l) => {
+            const isActive = location.pathname === l.to;
+            return (
+              <Link
+                key={l.to}
+                to={l.to}
+                className="mobile-drawer-nav-link"
+                aria-current={isActive ? "page" : undefined}
+                onClick={onClose}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
           {user && user.handle && (
             <Link
               to={`/u/${user.handle}`}
               className="mobile-drawer-nav-link"
+              aria-current={location.pathname === `/u/${user.handle}` ? "page" : undefined}
               onClick={onClose}
             >
               {t("userMenu.viewProfile")}
@@ -114,6 +90,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
             <Link
               to="/settings/profile"
               className="mobile-drawer-nav-link"
+              aria-current={location.pathname === "/settings/profile" ? "page" : undefined}
               onClick={onClose}
             >
               {t("userMenu.settings")}

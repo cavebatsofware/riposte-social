@@ -1,17 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import useRovingFocus from "../utils/useRovingFocus";
 
 /// Avatar dropdown that replaces the bare Sign-out button in `<Layout>`.
 ///
-/// Renders the viewer's avatar (or initials fallback) as a button. Clicking
-/// it opens a small popover with profile / settings / sign-out entries.
-/// Keyboard navigation: Tab cycles through items; Escape closes; click-
-/// outside closes.
+/// Renders the viewer's avatar (or initials fallback) as a button.
+/// Clicking it opens a small popover with profile / settings / sign-out
+/// entries. Keyboard navigation: Up/Down arrows + Home/End move between
+/// items, Escape closes, click-outside closes. The trigger gets focus
+/// back when the popover closes.
 export default function UserMenu({ user, onSignOut }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
+  const popoverRef = useRef(null);
+  const triggerRef = useRef(null);
   const { t } = useTranslation("common");
+
+  useRovingFocus(popoverRef, open);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -21,7 +27,10 @@ export default function UserMenu({ user, onSignOut }) {
       }
     }
     function onKey(e) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onKey);
@@ -39,6 +48,7 @@ export default function UserMenu({ user, onSignOut }) {
   return (
     <div className="user-menu" ref={wrapperRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="user-menu-trigger"
         aria-haspopup="menu"
@@ -56,7 +66,7 @@ export default function UserMenu({ user, onSignOut }) {
       </button>
 
       {open && (
-        <div className="user-menu-popover" role="menu">
+        <div ref={popoverRef} className="user-menu-popover" role="menu">
           <div className="user-menu-meta">
             <div className="user-menu-name">{display}</div>
             {user.handle && (

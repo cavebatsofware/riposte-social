@@ -12,26 +12,24 @@ import "./Layout.css";
 
 /// Shared application shell for the social frontend.
 ///
-/// Replaces the per-page `<header className="feed-header">` blocks that
-/// duplicated logo, auth state, and back-to-feed links across every page.
 /// Renders three regions:
 ///
 ///   <header>  : logo (link to /), inline nav (Feed / Compose),
-///               ThemePicker, auth state. On narrow viewports nav links
-///               and ThemePicker collapse into a hamburger drawer.
+///               theme/language pickers, auth state. On narrow viewports
+///               the nav links and pickers collapse into a hamburger
+///               drawer.
 ///   <main>    : a 12-col grid with optional left and right rail slots
 ///               surrounding the center content column. The grid resolves
-///               to a single column when rail props are not supplied,
-///               so today's UI looks identical to the pre-Layout version
-///               while leaving room for Phase 8 / 9 to drop in nav rails
-///               and activity panels.
-///   <footer>  : ThemePicker is sufficient on the header; the footer is
-///               minimal and may grow with cookie-consent re-open later.
+///               to a single column when rail props are not supplied, so
+///               pages that opt out of rails render identically to a
+///               single-column shell.
+///   <footer>  : minimal placeholder for cookie-consent re-open, etc.
 ///
-/// Auth-aware affordances (Compose link, Sign in vs Sign out) live here
-/// so the per-page logic doesn't have to repeat them. The fail-closed
-/// gating from Phase 6 is preserved: the Compose link only renders when
-/// `siteConfig.poster_posting_enabled === true` for poster users.
+/// Auth-aware affordances (Compose link, Sign in vs the user menu) live
+/// here so the per-page logic doesn't have to repeat them. The Compose
+/// link is fail-closed: it only renders when
+/// `siteConfig.poster_posting_enabled === true` for poster users (admins
+/// always retain access).
 export default function Layout({ leftRail, rightRail, children }) {
   const { user, loading: authLoading, logout } = useAuth();
   const { config: site } = useSiteConfig();
@@ -39,14 +37,14 @@ export default function Layout({ leftRail, rightRail, children }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { t } = useTranslation("common");
 
-  // Auto-mount the BrowseRail (Phase 9e) when the caller didn't pass an
-  // explicit leftRail. Anonymous viewers also get the rail — categories
-  // are public and albums respect server-side visibility.
+  // Auto-mount the BrowseRail when the caller didn't pass an explicit
+  // leftRail. Anonymous viewers also get the rail; categories are public
+  // and albums respect server-side visibility.
   const effectiveLeftRail = leftRail !== undefined ? leftRail : <BrowseRail />;
 
   // Posters can be muted by an admin via `poster_posting_enabled`;
   // admins always retain access. Treat anything other than explicit true
-  // as disabled (fail closed) — the site config fetch starts as null and
+  // as disabled (fail closed); the site config fetch starts as null and
   // only populates on success.
   const canCompose =
     user &&
@@ -72,15 +70,19 @@ export default function Layout({ leftRail, rightRail, children }) {
             {t("siteName")}
           </Link>
           <nav className="layout-nav" aria-label={t("primaryNav")}>
-            {navLinks.map((l) => (
-              <Link
-                key={l.to}
-                to={l.to}
-                className={`layout-nav-link ${location.pathname === l.to ? "active" : ""}`}
-              >
-                {l.label}
-              </Link>
-            ))}
+            {navLinks.map((l) => {
+              const isActive = location.pathname === l.to;
+              return (
+                <Link
+                  key={l.to}
+                  to={l.to}
+                  className={`layout-nav-link ${isActive ? "active" : ""}`}
+                  aria-current={isActive ? "page" : undefined}
+                >
+                  {l.label}
+                </Link>
+              );
+            })}
           </nav>
           <div className="layout-header-actions">
             <LanguagePicker />

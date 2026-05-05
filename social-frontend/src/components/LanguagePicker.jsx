@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { fetchApi } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
+import useRovingFocus from "../utils/useRovingFocus";
 
 /// Language picker for the social-frontend.
 ///
@@ -15,14 +16,18 @@ import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
 /// Switching always writes to localStorage (via i18next-browser-language-
 /// detector's `caches`). For authenticated users it additionally fires a
 /// fire-and-forget `PATCH /api/me/locale` so the choice follows the user
-/// to other devices (Phase 11e). Failure of the server-side persist does
-/// not undo the local switch — the active session honors the choice
-/// immediately and the next login will re-sync from server state.
+/// to other devices. Failure of the server-side persist does not undo
+/// the local switch; the active session honors the choice immediately
+/// and the next login will re-sync from server state.
 export default function LanguagePicker({ variant = "popover" }) {
   const { i18n, t } = useTranslation("common");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
+  const popoverRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  useRovingFocus(popoverRef, variant === "popover" && open);
 
   useEffect(() => {
     if (variant !== "popover" || !open) return undefined;
@@ -32,7 +37,10 @@ export default function LanguagePicker({ variant = "popover" }) {
       }
     }
     function handleEsc(e) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleEsc);
@@ -107,6 +115,7 @@ export default function LanguagePicker({ variant = "popover" }) {
     <div className="language-picker" ref={containerRef}>
       {open && (
         <div
+          ref={popoverRef}
           className="language-picker-popover"
           role="dialog"
           aria-label={t("language.title")}
@@ -115,6 +124,7 @@ export default function LanguagePicker({ variant = "popover" }) {
         </div>
       )}
       <button
+        ref={triggerRef}
         type="button"
         className="language-picker-toggle"
         aria-label={t("language.toggleAria")}
