@@ -63,6 +63,7 @@
     "title": "Kommentare",
     "titleWithCount": "Kommentare ({{count}})",
     "empty": "Noch keine Kommentare.",
+    "loadingAria": "Kommentare werden geladen",
     "loadFailed": "Kommentare konnten nicht geladen werden",
     "submitFailed": "Kommentar konnte nicht veröffentlicht werden",
     "deleteConfirm": "Diesen Kommentar löschen? Das kann nicht rückgängig gemacht werden.",

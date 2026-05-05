@@ -63,6 +63,7 @@
     "title": "Comments",
     "titleWithCount": "Comments ({{count}})",
     "empty": "No comments yet.",
+    "loadingAria": "Loading comments",
     "loadFailed": "Failed to load comments",
     "submitFailed": "Failed to post comment",
     "deleteConfirm": "Delete this comment? This can't be undone.",
