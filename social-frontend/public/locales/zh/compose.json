@@ -58,6 +58,7 @@
   },
   "attachments": {
     "label": "附件",
+    "dropzoneAria": "添加附件。将文件拖到此处,或激活以打开文件选择器。",
     "dropzonePrompt": "将图片或视频拖到此处,或点击浏览",
     "dropzoneMeta": "图片(JPEG/PNG/GIF/WebP,每个 10 MB)或视频(MP4/WebM,每个 100 MB)· 最多 {{max}} 个文件",
     "dropzoneMetaAlbum": "每个相册最多 {{max}} 项 · 图片 10 MB / 视频 100 MB",

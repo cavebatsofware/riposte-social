@@ -295,6 +295,9 @@ export default function Compose() {
 
   return (
     <Layout>
+      <h1 className="sr-only">
+        {editId ? t("post.editTitle") : t("post.newTitle")}
+      </h1>
       <Link to="/" className="post-back-link">
         {t("backToFeed")}
       </Link>
@@ -305,12 +308,20 @@ export default function Compose() {
         })}
       </p>
 
-      <form className="compose-card" onSubmit={handleSubmit}>
+      <form
+        className="compose-card"
+        onSubmit={handleSubmit}
+        aria-busy={submitting}
+      >
         <h2 className="compose-title">
           {editId ? t("post.editTitle") : t("post.newTitle")}
         </h2>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && (
+          <div className="alert alert-error" role="alert">
+            {error}
+          </div>
+        )}
 
         <div className="compose-field">
           <label htmlFor="compose-body">{t("body.label")}</label>
@@ -320,8 +331,11 @@ export default function Compose() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={t("body.placeholder")}
+            aria-describedby="compose-body-hint"
           />
-          <p className="form-hint">{t("body.hint")}</p>
+          <p id="compose-body-hint" className="form-hint">
+            {t("body.hint")}
+          </p>
         </div>
 
         <div className="compose-field">
@@ -391,8 +405,15 @@ export default function Compose() {
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  fileInputRef.current?.click();
+                }
+              }}
               role="button"
               tabIndex={0}
+              aria-label={t("attachments.dropzoneAria")}
             >
               <p className="dropzone-prompt">
                 {t("attachments.dropzonePrompt")}
