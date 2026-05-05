@@ -390,17 +390,31 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Phase 7e — visible focus rings on every interactive element. The
-   :focus-visible pseudo only triggers on keyboard focus (not on mouse
-   click), so the ring appears for keyboard users without polluting
-   pointer interactions. Per-component overrides may tighten the offset
-   or color but should preserve the basic affordance. */
+/* Visible focus rings on every interactive element. The :focus-visible
+   pseudo only triggers on keyboard focus (not on mouse click), so the
+   ring appears for keyboard users without polluting pointer
+   interactions. Per-component overrides may tighten the offset or
+   color but should preserve the basic affordance. Covers native
+   focusable elements, ARIA interactive roles, and any focusable
+   non-native element marked with [tabindex] other than -1. */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
-[role="button"]:focus-visible {
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menuitemcheckbox"]:focus-visible,
+[role="menuitemradio"]:focus-visible,
+[role="option"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="treeitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
@@ -2241,5 +2255,28 @@ select:focus-visible,
   .compose-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+/* Respect prefers-reduced-motion across the entire app. Component
+   CSS files do not need their own reduced-motion guards. This single
+   override neutralizes every transition and animation when the OS
+   preference is set.
+
+   The 0.01ms duration (vs 0) keeps `transitionend` and `animationend`
+   events firing so JS that relies on those callbacks still completes.
+   Delays are forced to 0 so users do not sit through a long wait
+   before the (already-shortened) animation fires. The !important is
+   required because per-component rules have more specific selectors. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }
