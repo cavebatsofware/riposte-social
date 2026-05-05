@@ -31,11 +31,14 @@ export default function BrowseRail() {
   const location = useLocation();
   const [params] = useSearchParams();
   const activeCategory = params.get("category");
+  const activeQuery = params.get("q");
   // The category-active styling and aria-current claim only apply when
-  // the user is actually on the feed route. BrowseRail is rendered on
-  // many other routes (`/categories`, `/albums`, `/login`...), and "All
-  // posts" must not announce itself as the current page on those.
-  const onFeedRoute = location.pathname === "/";
+  // the user is actually on the feed route AND there is no search
+  // query. BrowseRail is rendered on many other routes (`/categories`,
+  // `/albums`, `/login`...), and clicking the rail links navigates to
+  // URLs without `q`, so a feed view filtered by `q` is a different
+  // view than what any rail link represents.
+  const onFeedRoute = location.pathname === "/" && !activeQuery;
   const { t } = useTranslation("browse");
 
   // Persist open-state on every change.
