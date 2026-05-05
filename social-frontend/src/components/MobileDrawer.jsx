@@ -32,6 +32,14 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
     };
   }, [open]);
 
+  // Close the drawer on any route change. The link click handlers
+  // already call onClose, but this also covers browser back/forward and
+  // imperative navigation that bypasses the rendered links. Depends
+  // only on path/search so the effect fires once per route change.
+  useEffect(() => {
+    if (open) onClose();
+  }, [location.pathname, location.search]);
+
   return (
     <div
       className="mobile-drawer"
