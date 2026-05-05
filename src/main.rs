@@ -143,6 +143,22 @@ async fn main() -> anyhow::Result<()> {
         return bootstrap_admin(email).await;
     }
 
+    // Seed an activated admin row with a known password for end-to-end
+    // tests. Idempotent on email: existing rows are upserted to a known
+    // password + activated state; missing rows are inserted. Refuses to
+    // run unless `SEED_TEST_ADMIN=true` so the subcommand cannot
+    // accidentally provision a known-credential admin in a production
+    // container.
+    if args.len() > 1 && args[1] == "seed-test-admin" {
+        let email = args.get(2).ok_or_else(|| {
+            anyhow::anyhow!("usage: cargo run -- seed-test-admin <email> <password>")
+        })?;
+        let password = args.get(3).ok_or_else(|| {
+            anyhow::anyhow!("usage: cargo run -- seed-test-admin <email> <password>")
+        })?;
+        return seed_test_admin(email, password).await;
+    }
+
     // Validate encryption key is configured before accepting requests
     crypto::validate_encryption_key();
 
@@ -475,5 +491,121 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
     }
 
     database::close_connection(db).await?;
+    Ok(())
+}
+
+/// Idempotently seed an activated administrator with a known password
+/// for end-to-end tests. Used by `docker-compose.test.yml`'s app-test
+/// service after migrations so Cypress (and humans poking the test
+/// container) can sign in against a deterministic fixture.
+///
+/// Refuses to run unless `SEED_TEST_ADMIN=true` is set in the
+/// environment. The compose file sets it; production deployments do
+/// not. Defense-in-depth: the entrypoint script also only invokes
+/// this subcommand when the flag is true.
+///
+/// Behavior:
+/// - If a `users` row with this email exists, update it: rehash the
+///   password, activate the row, mark email verified, clear any
+///   pending invite/reset/MFA-lockout state, ensure role=administrator
+///   and active=true.
+/// - Otherwise insert a fresh row with handle derived from the email
+///   local-part.
+async fn seed_test_admin(email: &str, password: &str) -> anyhow::Result<()> {
+    use chrono::Utc;
+    use riposte_social::admin::auth;
+    use riposte_social::entities::{user, User};
+    use riposte_social::profile;
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+    use uuid::Uuid;
+
+    if env::var("SEED_TEST_ADMIN").as_deref() != Ok("true") {
+        anyhow::bail!(
+            "seed-test-admin refused: SEED_TEST_ADMIN must be set to 'true' to run \
+             this subcommand. This guard prevents accidentally provisioning a \
+             known-credential admin in a production container."
+        );
+    }
+
+    crypto::validate_encryption_key();
+
+    let db = database::establish_connection().await?;
+    let now = Utc::now().fixed_offset();
+    let password_hash = auth::hash_password_for_seed(password)?;
+
+    let existing = User::find()
+        .filter(user::Column::Email.eq(email))
+        .one(&db)
+        .await?;
+
+    let user_id = if let Some(model) = existing {
+        let id = model.id;
+        let mut active: user::ActiveModel = model.into();
+        active.password_hash = Set(password_hash);
+        active.email_verified = Set(true);
+        active.role = Set(user::ROLE_ADMINISTRATOR.to_string());
+        active.active = Set(true);
+        active.activated_at = Set(Some(now));
+        active.deactivated_at = Set(None);
+        active.force_password_change = Set(false);
+        active.password_reset_token = Set(None);
+        active.password_reset_token_expires_at = Set(None);
+        active.mfa_failed_attempts = Set(Some(0));
+        active.mfa_locked_until = Set(None);
+        // Force the row into a clean local-password-auth state. Without
+        // these, an existing OIDC-linked row would still reject the
+        // password path (see `authenticate_password`'s oidc_sub guard),
+        // and an existing TOTP-enabled row would force `cy.login()`
+        // through a second-factor it can't satisfy.
+        active.oidc_sub = Set(None);
+        active.totp_enabled = Set(Some(false));
+        active.totp_secret = Set(None);
+        active.totp_enabled_at = Set(None);
+        active.update(&db).await?;
+        println!("Updated existing test admin {} ({})", email, id);
+        id
+    } else {
+        let new_id = Uuid::new_v4();
+        let local = email.split('@').next().unwrap_or(email);
+        let handle = profile::mint_unique_handle(&db, local).await?;
+        let new_user = user::ActiveModel {
+            id: Set(new_id),
+            email: Set(email.to_string()),
+            password_hash: Set(password_hash),
+            email_verified: Set(true),
+            verification_token: Set(None),
+            verification_token_expires_at: Set(None),
+            totp_secret: Set(None),
+            totp_enabled: Set(Some(false)),
+            totp_enabled_at: Set(None),
+            mfa_failed_attempts: Set(Some(0)),
+            mfa_locked_until: Set(None),
+            active: Set(true),
+            deactivated_at: Set(None),
+            force_password_change: Set(false),
+            password_reset_token: Set(None),
+            password_reset_token_expires_at: Set(None),
+            role: Set(user::ROLE_ADMINISTRATOR.to_string()),
+            oidc_sub: Set(None),
+            display_name: Set(Some("Test Admin".to_string())),
+            avatar_url: Set(None),
+            last_login_at: Set(None),
+            invite_code_id: Set(None),
+            activated_at: Set(Some(now)),
+            handle: Set(handle),
+            bio: Set(None),
+            pronouns: Set(None),
+            avatar_s3_key: Set(None),
+            locale: Set(None),
+            ..Default::default()
+        }
+        .insert(&db)
+        .await?;
+        println!("Created test admin {} ({})", email, new_user.id);
+        new_user.id
+    };
+
+    database::close_connection(db).await?;
+    println!("Test admin user_id: {}", user_id);
     Ok(())
 }

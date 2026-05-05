@@ -17,6 +17,13 @@ module.exports = defineConfig({
     screenshotOnRunFailure: false,
     env: {
       A11Y_STRICTNESS: process.env.A11Y_STRICTNESS,
+      // Mirror the test-admin credentials from the env into Cypress
+      // so `cy.login()` can read them via `Cypress.env(...)`. Defaults
+      // match `docker-compose.test.yml`'s defaults.
+      TEST_ADMIN_EMAIL:
+        process.env.TEST_ADMIN_EMAIL || "admin@test.local",
+      TEST_ADMIN_PASSWORD:
+        process.env.TEST_ADMIN_PASSWORD || "test_admin_password",
     },
     setupNodeEvents(on) {
       // Surface `cy.task("log", ...)` to the runner output so violation

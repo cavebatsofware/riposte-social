@@ -31,9 +31,47 @@ Working notes on conventions for this repo. Updated as standards solidify.
 - `check.yml`: `cargo check --all-targets --workspace`
 - `format.yml`: `cargo fmt --all -- --check --verbose`
 - `lint.yml`: `cargo clippy --workspace --all-targets --no-deps -- -D warnings`
-- `test.yml`: `cargo test --verbose --workspace`
+- `test.yml`: `cargo test --verbose --workspace` against a service-container Postgres on port 5433
 
 These mirror the local commands above. Keep them in sync if you add a new gate.
+
+## Test infrastructure
+
+Two layers of test runners share one Postgres test DB on port 5433.
+
+### Backend (`cargo test`)
+
+`make test` brings up the test DB via `docker-compose -f docker-compose.test.yml up -d` (the `postgres-test` service only) and runs `cargo test` with `DATABASE_URL` and `TEST_DATABASE_URL` pointed at it. CI's `test.yml` does the same with a GitHub Actions service container.
+
+### End-to-end (Cypress)
+
+`make test-app-up` brings up the FULL test stack: postgres-test plus `app-test`, a containerized riposte-social wired to the test DB. The app-test service runs migrations on start and seeds an idempotent admin row via `riposte-social seed-test-admin`. The app is published on host port `TEST_APP_PORT` (default `3001`) so it can run alongside `make dev` (port 3000).
+
+Smoke and functional specs against the test stack:
+
+```
+make test-app-up
+npm run a11y:smoke:strict:docker      # CYPRESS_BASE_URL defaults to http://localhost:3001
+npm run e2e:docker                    # Run every cypress/e2e/*.cy.js spec
+make test-app-down                    # Stop (volume kept)
+make test-app-reset                   # Drop the postgres_test_data volume + rebuild
+```
+
+The `postgres_test_data` volume persists across `test-app-up` / `test-app-down` cycles. If a spec or a manual session has mutated the DB and you need a deterministic seed-only starting point, use `make test-app-reset` to drop and reseed.
+
+The Cypress support file ships `cy.login()` (in `cypress/support/auth.js`), which authenticates as the seeded admin via the GET-csrf-token + POST-login dance and persists the session cookie. Authed-route specs should call it in a `beforeEach`. See `cypress/e2e/auth.cy.js` for a working example.
+
+### Seeded admin credentials
+
+The `app-test` container reads:
+
+| Env var               | Default                |
+|-----------------------|------------------------|
+| `TEST_ADMIN_EMAIL`    | `admin@test.local`     |
+| `TEST_ADMIN_PASSWORD` | `test_admin_password`  |
+| `SEED_TEST_ADMIN`     | `true` (in compose only)|
+
+The `riposte-social seed-test-admin <email> <password>` subcommand refuses to run unless `SEED_TEST_ADMIN=true` is set in the environment. The compose file sets it; production deployments must NOT. This is a defense-in-depth gate against accidentally provisioning a known-credential admin in a real container. Override the email/password via env at compose time (`TEST_ADMIN_EMAIL=foo@bar make test-app-up`) when a test needs a custom fixture.
 
 ## Code style
 

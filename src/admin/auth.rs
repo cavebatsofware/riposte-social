@@ -1213,6 +1213,13 @@ fn hash_password(password: &str) -> Result<String> {
     Ok(password_hash)
 }
 
+/// Public re-export of the password hashing routine used by the test
+/// admin seed in `main.rs`. Lives on the auth module so that the seed
+/// path uses the exact same hash format the runtime auth flow expects.
+pub fn hash_password_for_seed(password: &str) -> Result<String> {
+    hash_password(password)
+}
+
 /// Argon2 hash of a fresh random throwaway secret. Used to seed `password_hash`
 /// on inert invite-pending rows so that `verify_password` returns `Ok(false)`
 /// (just like the dummy-hash branch for non-existent users) instead of an
