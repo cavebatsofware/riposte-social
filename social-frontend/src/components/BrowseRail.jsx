@@ -31,6 +31,11 @@ export default function BrowseRail() {
   const location = useLocation();
   const [params] = useSearchParams();
   const activeCategory = params.get("category");
+  // The category-active styling and aria-current claim only apply when
+  // the user is actually on the feed route. BrowseRail is rendered on
+  // many other routes (`/categories`, `/albums`, `/login`...), and "All
+  // posts" must not announce itself as the current page on those.
+  const onFeedRoute = location.pathname === "/";
   const { t } = useTranslation("browse");
 
   // Persist open-state on every change.
@@ -173,9 +178,9 @@ export default function BrowseRail() {
         <Link
           to="/"
           className={`browse-rail-link browse-rail-clear ${
-            !activeCategory ? "active" : ""
+            onFeedRoute && !activeCategory ? "active" : ""
           }`}
-          aria-current={!activeCategory ? "page" : undefined}
+          aria-current={onFeedRoute && !activeCategory ? "page" : undefined}
         >
           <span
             className="browse-rail-swatch"
@@ -185,7 +190,7 @@ export default function BrowseRail() {
           <span className="browse-rail-label">{t("rail.allPosts")}</span>
         </Link>
         {categoriesView.map((c) => {
-          const isActive = activeCategory === c.slug;
+          const isActive = onFeedRoute && activeCategory === c.slug;
           return (
             <Link
               key={c.id}

@@ -25,9 +25,11 @@ export default function LanguagePicker({ variant = "popover" }) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
   const popoverRef = useRef(null);
+  const inlineRef = useRef(null);
   const triggerRef = useRef(null);
 
   useRovingFocus(popoverRef, variant === "popover" && open);
+  useRovingFocus(inlineRef, variant === "inline", { autoFocus: false });
 
   useEffect(() => {
     if (variant !== "popover" || !open) return undefined;
@@ -108,7 +110,11 @@ export default function LanguagePicker({ variant = "popover" }) {
   );
 
   if (variant === "inline") {
-    return <div className="language-picker-inline">{list}</div>;
+    return (
+      <div ref={inlineRef} className="language-picker-inline">
+        {list}
+      </div>
+    );
   }
 
   return (
