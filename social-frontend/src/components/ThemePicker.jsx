@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "../contexts/ThemeContext";
+import PopoverPicker from "./PopoverPicker";
 
 const ARROW_KEYS = ["ArrowDown", "ArrowUp", "ArrowRight", "ArrowLeft", "Home", "End"];
 
@@ -45,32 +46,9 @@ function nextRadioIndex(key, currentIndex, length) {
 export default function ThemePicker({ variant = "popover" }) {
   const { theme, setTheme, colorways, mode, setMode } = useTheme();
   const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
-  const triggerRef = useRef(null);
   const colorwayBtnRefs = useRef([]);
   const modeBtnRefs = useRef([]);
   const { t } = useTranslation("common");
-
-  useEffect(() => {
-    if (variant !== "popover" || !open) return undefined;
-    function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    function handleEsc(e) {
-      if (e.key === "Escape") {
-        setOpen(false);
-        triggerRef.current?.focus();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-    };
-  }, [open, variant]);
 
   // Today the theme id is "<colorway>" (light) or "<colorway>-dark". Derive
   // the current colorway from the resolved theme so the swatches show
@@ -169,29 +147,15 @@ export default function ThemePicker({ variant = "popover" }) {
     </div>
   );
 
-  if (variant === "inline") {
-    return <div className="theme-picker-inline">{grid}</div>;
-  }
-
   return (
-    <div className="theme-picker" ref={containerRef}>
-      {open && (
-        <div
-          className="theme-picker-popover"
-          role="dialog"
-          aria-label={t("theme.dialogAria")}
-        >
-          {grid}
-        </div>
-      )}
-      <button
-        ref={triggerRef}
-        type="button"
-        className="theme-picker-toggle"
-        aria-label={t("theme.toggleAria")}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+    <PopoverPicker
+      variant={variant}
+      open={open}
+      onOpenChange={setOpen}
+      className="theme-picker"
+      toggleAriaLabel={t("theme.toggleAria")}
+      popoverAriaLabel={t("theme.dialogAria")}
+      toggleIcon={
         <svg
           width="20"
           height="20"
@@ -209,7 +173,9 @@ export default function ThemePicker({ variant = "popover" }) {
           <circle cx="6.5" cy="12.5" r="0.5" fill="currentColor" />
           <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1 0 1.5-.5 1.5-1.2 0-.4-.1-.7-.4-1-.2-.3-.4-.6-.4-1 0-.7.5-1.2 1.2-1.2H16c3.3 0 6-2.7 6-6 0-5-4.5-9-10-9z" />
         </svg>
-      </button>
-    </div>
+      }
+    >
+      {grid}
+    </PopoverPicker>
   );
 }
