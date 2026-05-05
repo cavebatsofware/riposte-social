@@ -63,6 +63,7 @@
     "title": "评论",
     "titleWithCount": "评论 ({{count}})",
     "empty": "暂时没有评论。",
+    "loadingAria": "正在加载评论",
     "loadFailed": "加载评论失败",
     "submitFailed": "发布评论失败",
     "deleteConfirm": "删除这条评论吗?此操作无法撤销。",

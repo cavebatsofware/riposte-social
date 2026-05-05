@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
@@ -124,12 +124,20 @@ export default function CommentThread({ postId }) {
     <section className="comment-thread" aria-label={t("comments.title")}>
       <h3 className="comment-thread-title">{titleText}</h3>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {loading ? (
-        <ol className="comment-list" aria-hidden="true">
+        <ol
+          className="comment-list"
+          aria-busy="true"
+          aria-label={t("comments.loadingAria")}
+        >
           {Array.from({ length: 2 }).map((_, i) => (
-            <li key={i} className="comment-item">
+            <li key={i} className="comment-item" aria-hidden="true">
               <header className="comment-item-meta">
                 <span className="skeleton-line skeleton-line-md" />
               </header>
@@ -158,7 +166,11 @@ export default function CommentThread({ postId }) {
       )}
 
       {user ? (
-        <form className="comment-compose" onSubmit={handleSubmit}>
+        <form
+          className="comment-compose"
+          onSubmit={handleSubmit}
+          aria-busy={submitting}
+        >
           <label htmlFor="comment-draft" className="comment-compose-label">
             {t("comments.compose.label")}
           </label>
@@ -296,13 +308,16 @@ function CommentItem({ postId, comment, viewer, onDelete, onEdit }) {
       </header>
       {editing ? (
         <div className="comment-item-edit">
-          {editError && <div className="alert alert-error">{editError}</div>}
+          {editError && (
+            <div className="alert alert-error" role="alert">
+              {editError}
+            </div>
+          )}
           <CommentMarkdownArea
             value={draft}
             onChange={setDraft}
             rows={3}
             maxLength={4000}
-            autoFocus
           />
           <div className="comment-compose-actions">
             <span className="form-hint">
@@ -354,6 +369,12 @@ function CommentItem({ postId, comment, viewer, onDelete, onEdit }) {
 /// the inline edit form on existing comments. Preview pipes the markdown
 /// source through `marked` and DOMPurify, mirroring the Compose page's
 /// approximate-but-safe live preview pipeline.
+///
+/// The tab buttons + content panels follow the WAI-ARIA tabs pattern:
+/// only the active tab is in the tab order (`tabindex=0`); arrow keys
+/// move both focus and selection across tabs; the rendered panel
+/// references its tab via `aria-labelledby` and is itself focusable so
+/// keyboard users can land in the panel after tabbing past the tabs.
 function CommentMarkdownArea({
   id,
   value,
@@ -361,10 +382,16 @@ function CommentMarkdownArea({
   rows = 3,
   maxLength = 4000,
   placeholder,
-  autoFocus = false,
 }) {
   const { t } = useTranslation("feed");
   const [tab, setTab] = useState("write");
+  const writeTabId = useId();
+  const previewTabId = useId();
+  const writePanelId = useId();
+  const previewPanelId = useId();
+  const writeTabRef = useRef(null);
+  const previewTabRef = useRef(null);
+
   const previewHtml = useMemo(() => {
     if (!value || !value.trim()) {
       const empty = t("comments.editor.previewEmpty");
@@ -374,6 +401,33 @@ function CommentMarkdownArea({
     return DOMPurify.sanitize(raw);
   }, [value, t]);
 
+  function onTabKey(e, currentTab) {
+    let nextTab;
+    switch (e.key) {
+      case "Home":
+        nextTab = "write";
+        break;
+      case "End":
+        nextTab = "preview";
+        break;
+      case "ArrowLeft":
+        nextTab = currentTab === "preview" ? "write" : "preview";
+        break;
+      case "ArrowRight":
+        nextTab = currentTab === "write" ? "preview" : "write";
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    setTab(nextTab);
+    if (nextTab === "write") {
+      writeTabRef.current?.focus();
+    } else {
+      previewTabRef.current?.focus();
+    }
+  }
+
   return (
     <div className="comment-md-area">
       <div
@@ -382,37 +436,56 @@ function CommentMarkdownArea({
         aria-label={t("comments.editor.modeAria")}
       >
         <button
+          ref={writeTabRef}
           type="button"
           role="tab"
+          id={writeTabId}
           aria-selected={tab === "write"}
+          aria-controls={writePanelId}
+          tabIndex={tab === "write" ? 0 : -1}
           className={`comment-md-tab ${tab === "write" ? "is-active" : ""}`}
           onClick={() => setTab("write")}
+          onKeyDown={(e) => onTabKey(e, "write")}
         >
           {t("comments.editor.tabWrite")}
         </button>
         <button
+          ref={previewTabRef}
           type="button"
           role="tab"
+          id={previewTabId}
           aria-selected={tab === "preview"}
+          aria-controls={previewPanelId}
+          tabIndex={tab === "preview" ? 0 : -1}
           className={`comment-md-tab ${tab === "preview" ? "is-active" : ""}`}
           onClick={() => setTab("preview")}
+          onKeyDown={(e) => onTabKey(e, "preview")}
         >
           {t("comments.editor.tabPreview")}
         </button>
       </div>
       {tab === "write" ? (
-        <textarea
-          id={id}
-          className="comment-compose-textarea"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          rows={rows}
-          maxLength={maxLength}
-          placeholder={placeholder}
-          autoFocus={autoFocus}
-        />
+        <div
+          role="tabpanel"
+          id={writePanelId}
+          aria-labelledby={writeTabId}
+        >
+          <textarea
+            id={id}
+            className="comment-compose-textarea"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={rows}
+            maxLength={maxLength}
+            placeholder={placeholder}
+          />
+        </div>
       ) : (
         <div
+          role="tabpanel"
+          id={previewPanelId}
+          aria-labelledby={previewTabId}
+          tabIndex={0}
           className="comment-md-preview post-body"
           dangerouslySetInnerHTML={{ __html: previewHtml }}
         />

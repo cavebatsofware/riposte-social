@@ -63,6 +63,7 @@
     "title": "Commentaires",
     "titleWithCount": "Commentaires ({{count}})",
     "empty": "Aucun commentaire pour l'instant.",
+    "loadingAria": "Chargement des commentaires",
     "loadFailed": "Échec du chargement des commentaires",
     "submitFailed": "Échec de la publication du commentaire",
     "deleteConfirm": "Supprimer ce commentaire ? Cette action est irréversible.",
