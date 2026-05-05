@@ -89,13 +89,18 @@ export default function Post() {
 
   return (
     <Layout>
+      <h1 className="sr-only">{t("post.heading")}</h1>
       <Link to="/" className="post-back-link">
         {tCommon("backToFeed")}
       </Link>
 
       {loading && <SkeletonCard />}
 
-      {!loading && error && <div className="alert alert-error">{error}</div>}
+      {!loading && error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {!loading && post && (
         <>

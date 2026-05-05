@@ -21,9 +21,21 @@ export default function VisibilityBadge({ visibility, fromCategory }) {
   if (!fromCategory) {
     return <span className={cls}>{label}</span>;
   }
+  // The badge is made keyboard-focusable so the tooltip is reachable
+  // without a mouse. CSS reveals the tooltip on `:focus-within` of the
+  // wrapping span; the badge itself stays a non-interactive label
+  // (no role change), it just acquires a tab stop. The lint rule
+  // discourages `tabIndex` on non-interactive elements, but a focusable
+  // tooltip trigger is the documented WAI-ARIA pattern for surfacing
+  // supplementary labels to keyboard users.
   return (
     <span className="visibility-badge-wrap">
-      <span className={cls} aria-describedby={tooltipId}>
+      <span
+        className={cls}
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        aria-describedby={tooltipId}
+      >
         {label}
       </span>
       <span className="visibility-tooltip" role="tooltip" id={tooltipId}>

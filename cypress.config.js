@@ -18,8 +18,16 @@ module.exports = defineConfig({
     env: {
       A11Y_STRICTNESS: process.env.A11Y_STRICTNESS,
     },
-    setupNodeEvents() {
-      // No plugins in use today.
+    setupNodeEvents(on) {
+      // Surface `cy.task("log", ...)` to the runner output so violation
+      // detail from the a11y smoke shows up alongside the test failure.
+      on("task", {
+        log(message) {
+          // eslint-disable-next-line no-console
+          console.log(message);
+          return null;
+        },
+      });
     },
   },
 });

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import useRovingFocus from "../utils/useRovingFocus";
 
 /// The Facebook-6 reaction set. Order is the display order in the picker
 /// strip. The first entry is the default kind a user gets when they click
@@ -63,6 +64,14 @@ export default function ReactionBar({ target, state, compact = false }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const longPressTimer = useRef(null);
   const wrapperRef = useRef(null);
+  const triggerRef = useRef(null);
+  const pickerRef = useRef(null);
+
+  // Roving focus inside the picker once it's open. Horizontal layout;
+  // ArrowLeft/ArrowRight (and Home/End) move the tab anchor + focus.
+  // Disabled when the picker is closed so the inactive buttons don't
+  // claim a tab stop.
+  useRovingFocus(pickerRef, pickerOpen, { orientation: "horizontal" });
 
   useEffect(() => {
     setCounts(state.reaction_counts || {});
@@ -70,7 +79,9 @@ export default function ReactionBar({ target, state, compact = false }) {
   }, [state.id, state.reaction_counts, state.viewer_reaction_kinds]);
 
   // Close the picker when the user taps outside (mobile path; desktop
-  // hover-out CSS already handles the close).
+  // hover-out CSS already handles the close) or when keyboard focus
+  // moves out of the bar entirely. Escape inside the picker returns
+  // focus to the trigger.
   useEffect(() => {
     if (!pickerOpen) return;
     function onDocPointer(e) {
@@ -79,8 +90,26 @@ export default function ReactionBar({ target, state, compact = false }) {
         setPickerOpen(false);
       }
     }
+    function onFocusIn(e) {
+      if (!wrapperRef.current) return;
+      if (!wrapperRef.current.contains(e.target)) {
+        setPickerOpen(false);
+      }
+    }
+    function onKey(e) {
+      if (e.key === "Escape") {
+        setPickerOpen(false);
+        triggerRef.current?.focus();
+      }
+    }
     document.addEventListener("pointerdown", onDocPointer);
-    return () => document.removeEventListener("pointerdown", onDocPointer);
+    document.addEventListener("focusin", onFocusIn);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointer);
+      document.removeEventListener("focusin", onFocusIn);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [pickerOpen]);
 
   const currentKind = viewerKinds[0] || null;
@@ -192,6 +221,7 @@ export default function ReactionBar({ target, state, compact = false }) {
     >
       {canReact ? (
         <button
+          ref={triggerRef}
           type="button"
           className={`reaction-btn ${currentKind ? "active" : ""}`}
           onClick={toggleDefault}
@@ -200,7 +230,20 @@ export default function ReactionBar({ target, state, compact = false }) {
           onPointerCancel={clearLongPress}
           onPointerMove={clearLongPress}
           onMouseEnter={() => setPickerOpen(true)}
+          onKeyDown={(e) => {
+            // Keyboard equivalent of hover/long-press: ArrowDown / ArrowUp
+            // open the picker so the 6-emoji set is reachable without a
+            // mouse. useRovingFocus moves focus to the first picker
+            // button as the picker activates.
+            if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+              e.preventDefault();
+              e.stopPropagation();
+              setPickerOpen(true);
+            }
+          }}
           disabled={pending}
+          aria-haspopup="menu"
+          aria-expanded={pickerOpen}
           aria-pressed={Boolean(currentKind)}
           aria-label={
             primary
@@ -218,6 +261,7 @@ export default function ReactionBar({ target, state, compact = false }) {
       ) : (
         totalCount > 0 && (
           <span
+            role="img"
             className="reaction-static"
             aria-label={t("reactions.summaryAria", { count: totalCount })}
           >
@@ -243,6 +287,7 @@ export default function ReactionBar({ target, state, compact = false }) {
 
       {canReact && (
         <div
+          ref={pickerRef}
           className="reaction-picker"
           role="menu"
           aria-label={t("reactions.pickerAria")}
