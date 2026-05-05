@@ -58,6 +58,7 @@
   },
   "attachments": {
     "label": "Adjuntos",
+    "dropzoneAria": "Añadir adjuntos. Arrastra archivos aquí o activa para abrir el selector.",
     "dropzonePrompt": "Arrastra imágenes o vídeos aquí, o haz clic para examinar",
     "dropzoneMeta": "Imágenes (JPEG/PNG/GIF/WebP, 10 MB cada una) o vídeos (MP4/WebM, 100 MB cada uno) · hasta {{max}} archivos",
     "dropzoneMetaAlbum": "Hasta {{max}} elementos por álbum · 10 MB por imagen / 100 MB por vídeo",

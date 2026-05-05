@@ -58,6 +58,7 @@
   },
   "attachments": {
     "label": "Anhänge",
+    "dropzoneAria": "Anhänge hinzufügen. Dateien hierher ziehen oder aktivieren, um die Auswahl zu öffnen.",
     "dropzonePrompt": "Bilder oder Videos hierher ziehen oder klicken zum Auswählen",
     "dropzoneMeta": "Bilder (JPEG/PNG/GIF/WebP, je 10 MB) oder Videos (MP4/WebM, je 100 MB) · bis zu {{max}} Dateien",
     "dropzoneMetaAlbum": "Bis zu {{max}} Elemente pro Album · 10 MB pro Bild / 100 MB pro Video",

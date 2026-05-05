@@ -58,6 +58,7 @@
   },
   "attachments": {
     "label": "Attachments",
+    "dropzoneAria": "Add attachments. Drop files here or activate to open the file picker.",
     "dropzonePrompt": "Drop images or videos here, or click to browse",
     "dropzoneMeta": "Images (JPEG/PNG/GIF/WebP, 10 MB each) or videos (MP4/WebM, 100 MB each) · up to {{max}} files",
     "dropzoneMetaAlbum": "Up to {{max}} items per album · 10 MB image / 100 MB video each",
