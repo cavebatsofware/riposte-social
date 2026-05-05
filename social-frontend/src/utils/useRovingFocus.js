@@ -82,9 +82,24 @@ export function useRovingFocus(
       list[next].focus();
     }
 
+    // Click on any item also re-anchors the tab order. Without this,
+    // a consumer that updates selection state via click leaves the 
+    // tab-order anchor stuck on the previously-selected item:
+    // aria-checked follows React state, but tabindex was set
+    // imperatively at activation and never moves.
+    function onClick(e) {
+      const target = e.target.closest(selector);
+      if (!target) return;
+      const list = items();
+      const idx = list.indexOf(target);
+      if (idx >= 0) setRovingTabIndex(list, idx);
+    }
+
     container.addEventListener("keydown", onKeyDown);
+    container.addEventListener("click", onClick);
     return () => {
       container.removeEventListener("keydown", onKeyDown);
+      container.removeEventListener("click", onClick);
       // Restore items to default tab order on cleanup so the next mount
       // starts from a clean slate.
       const list = items();
