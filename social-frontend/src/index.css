@@ -472,7 +472,10 @@ summary:focus-visible,
 
 .feed-empty {
   text-align: center;
-  color: var(--color-muted);
+  /* Inherit `--color-text` (full contrast) so the empty state is
+     readable on its own. The previous `--color-muted` failed WCAG AA
+     contrast (axe color-contrast). The hint paragraph below uses an
+     explicit muted color where its parent is the sole content. */
   padding: var(--spacing-8) 0;
 }
 

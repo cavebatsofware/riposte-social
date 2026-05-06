@@ -17,8 +17,9 @@
     "lint:a11y": "eslint --rule '{ \"react/jsx-uses-vars\": \"off\", \"no-unused-vars\": \"off\" }' social-frontend",
     "a11y:smoke": "cypress run --spec cypress/e2e/a11y.cy.js",
     "a11y:smoke:strict": "A11Y_STRICTNESS=strict cypress run --spec cypress/e2e/a11y.cy.js",
-    "a11y:smoke:docker": "docker run --rm --network=host -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js",
-    "a11y:smoke:strict:docker": "docker run --rm --network=host -e A11Y_STRICTNESS=strict -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js"
+    "a11y:smoke:docker": "docker run --rm --network=host -e CYPRESS_BASE_URL=${CYPRESS_BASE_URL:-http://localhost:3001} -e TEST_ADMIN_EMAIL -e TEST_ADMIN_PASSWORD -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js",
+    "a11y:smoke:strict:docker": "docker run --rm --network=host -e A11Y_STRICTNESS=strict -e CYPRESS_BASE_URL=${CYPRESS_BASE_URL:-http://localhost:3001} -e TEST_ADMIN_EMAIL -e TEST_ADMIN_PASSWORD -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run --spec cypress/e2e/a11y.cy.js",
+    "e2e:docker": "docker run --rm --network=host -e CYPRESS_BASE_URL=${CYPRESS_BASE_URL:-http://localhost:3001} -e TEST_ADMIN_EMAIL -e TEST_ADMIN_PASSWORD -v \"$PWD\":/e2e -w /e2e cypress/included:15.14.2 cypress run"
   },
   "keywords": [],
   "author": "Grant DeFayette <grant@cavebatsofware.com>",
@@ -41,7 +42,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.4",
-    "@vitejs/plugin-react": "^5.0.4",
+    "@vitejs/plugin-react": "^6.0.0",
     "axe-core": "4.11.4",
     "cypress": "15.14.2",
     "cypress-axe": "1.7.0",

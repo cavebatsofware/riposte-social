@@ -185,7 +185,7 @@ async fn get_dashboard_metrics(
         })
         .collect();
 
-    access_codes.sort_unstable_by(|a, b| b.count.cmp(&a.count));
+    access_codes.sort_unstable_by_key(|c| std::cmp::Reverse(c.count));
     access_codes.truncate(10);
 
     Ok(Json(DashboardMetrics {

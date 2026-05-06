@@ -4,9 +4,46 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    continue-on-error: true
+    services:
+      # Mirror docker-compose.test.yml's postgres-test on port 5433 so
+      # `cargo test` can connect via the same DATABASE_URL pattern the
+      # local Makefile uses (TEST_DATABASE_URL=postgresql://.../test_db).
+      postgres-test:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: riposte_social_test
+          POSTGRES_USER: riposte_social_test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U riposte_social_test_user -d riposte_social_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://riposte_social_test_user:test_password@localhost:5433/riposte_social_test
+      TEST_DATABASE_URL: postgresql://riposte_social_test_user:test_password@localhost:5433/riposte_social_test
+      # Static test-only encryption key. Required by validate_encryption_key()
+      # at runtime; the value here is non-sensitive because it only protects
+      # transient ephemeral test rows.
+      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      # UserAuthBackend::new() and email tests panic without SITE_DOMAIN.
+      SITE_DOMAIN: test.local
+      SITE_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 25
+      # Build the social SPA bundle. `serve_invite_landing` reads
+      # `social-assets/index.html` from disk at request time, so any test
+      # that hits `/invite/{code}` (e.g. invite_public_tests.rs) needs
+      # the file present before `cargo test` runs.
+      - name: Build social frontend
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build:social
       - name: Run tests
         run: cargo test --verbose --workspace

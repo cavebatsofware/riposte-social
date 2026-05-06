@@ -24,6 +24,48 @@ services:
     networks:
       - riposte-social-test-network
 
+  # Containerized riposte-social wired to postgres-test. Runs migrations
+  # and seeds a known-credential admin on start so Cypress (and humans
+  # poking the test container) can sign in against a deterministic
+  # fixture. SEED_TEST_ADMIN=true is set here; production deployments
+  # must NOT set it. The seed-test-admin subcommand also requires the
+  # flag as a defense-in-depth gate.
+  app-test:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: riposte-social-test-app
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${TEST_POSTGRES_USER:-riposte_social_test_user}:${TEST_POSTGRES_PASSWORD:-test_password}@postgres-test:5432/${TEST_POSTGRES_DB:-riposte_social_test}
+      PORT: "3000"
+      SITE_DOMAIN: ${TEST_SITE_DOMAIN:-localhost}
+      SITE_URL: ${TEST_SITE_URL:-http://localhost:${TEST_APP_PORT:-3001}}
+      DEV_MODE: "true"
+      MIGRATE_DB: "true"
+      # Static test-only encryption key. NOT for production use; this
+      # is checked in so the test container can boot without operator
+      # provisioning.
+      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      SEED_TEST_ADMIN: "true"
+      TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-admin@test.local}
+      TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-test_admin_password}
+      # Permissive rate limits so Cypress (and humans poking the test
+      # container) don't get IP-banned mid-run. The dev environment
+      # uses the in-prod defaults.
+      RATE_LIMIT_PER_MINUTE: "10000"
+      BLOCK_DURATION_MINUTES: "1"
+      AUTH_RATE_LIMIT_PER_MINUTE: "10000"
+      AUTH_BLOCK_DURATION_MINUTES: "1"
+      RUST_LOG: ${TEST_APP_LOG_LEVEL:-warn}
+    ports:
+      - "${TEST_APP_PORT:-3001}:3000"
+    networks:
+      - riposte-social-test-network
+
 volumes:
   postgres_test_data:
     driver: local
