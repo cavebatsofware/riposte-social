@@ -302,9 +302,13 @@ export default function SettingsSecurity() {
                 />
                 <p>
                   {t("security.manualEntryLabel")}{" "}
-                  <code aria-label={t("security.manualEntryAria")}>
-                    {mfaSetupData.secret}
-                  </code>
+                  {/* The secret is rendered as the <code> element's
+                      text content so screen readers read the actual
+                      characters when the user navigates to it. The
+                      preceding label paragraph supplies context;
+                      adding aria-label here would replace the
+                      announced characters with the label string. */}
+                  <code>{mfaSetupData.secret}</code>
                 </p>
                 <form
                   onSubmit={confirmMfaSetup}

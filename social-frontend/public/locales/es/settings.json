@@ -57,7 +57,6 @@
     "qrInstruction": "Escanea este código QR con tu app de autenticación y luego introduce el código de 6 dígitos.",
     "qrAlt": "Código QR para añadir tu cuenta a la app de autenticación. Si no puedes escanearlo, introduce abajo el secreto manualmente.",
     "manualEntryLabel": "O introdúcelo manualmente:",
-    "manualEntryAria": "Secreto de configuración del autenticador. Escríbelo o pégalo en tu app si no puedes escanear el QR.",
     "totpCodeLabel": "Código de 6 dígitos",
     "verifyAndEnable": "Verificar y activar",
     "verifying": "Verificando…",

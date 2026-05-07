@@ -57,7 +57,6 @@
     "qrInstruction": "在你的验证器应用中扫描此二维码,然后在下方输入 6 位代码。",
     "qrAlt": "用于将你的帐户添加到验证器应用的二维码。如果无法扫描,请在下方手动输入密钥。",
     "manualEntryLabel": "或手动输入:",
-    "manualEntryAria": "验证器配置密钥。如果无法扫描二维码,请在你的验证器应用中输入或粘贴此密钥。",
     "totpCodeLabel": "6 位代码",
     "verifyAndEnable": "验证并启用",
     "verifying": "验证中…",

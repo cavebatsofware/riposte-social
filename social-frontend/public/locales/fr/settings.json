@@ -57,7 +57,6 @@
     "qrInstruction": "Scannez ce QR code dans votre application d'authentification, puis entrez le code à 6 chiffres ci-dessous.",
     "qrAlt": "QR code qui ajoute votre compte à l'application d'authentification. Si vous ne pouvez pas le scanner, saisissez le secret ci-dessous manuellement.",
     "manualEntryLabel": "Ou saisissez-le manuellement :",
-    "manualEntryAria": "Secret de configuration de l'authentificateur. Tapez-le ou collez-le dans votre application si vous ne pouvez pas scanner le QR code.",
     "totpCodeLabel": "Code à 6 chiffres",
     "verifyAndEnable": "Vérifier et activer",
     "verifying": "Vérification…",

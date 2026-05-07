@@ -1,12 +1,12 @@
-/// Functional spec for the Settings → Profile page. Builds on cy.login()
+/// Functional spec for the Settings, Profile page. Builds on cy.login()
 /// from the test-infra fixture. Asserts:
 ///
 /// 1. The settings tab nav announces the active tab via aria-current.
 /// 2. The form's accessible structure is intact: the avatar file input
 ///    has a label, the bio textarea is associated with its character
 ///    counter via aria-describedby.
-/// 3. After saving, the success banner renders with role=status (so a
-///    screen reader announces it without interrupting other speech).
+/// 3. Saving the bio renders the success banner with role=status, so a
+///    screen reader announces it without interrupting other speech.
 ///
 /// Anonymous viewers visiting /settings/profile are redirected to /login;
 /// the spec asserts that path too.
@@ -44,6 +44,27 @@ describe("settings/profile (seeded test admin)", () => {
         .should("have.attr", "aria-live", "polite");
     });
 
+    it("saving the bio renders a role=status success banner", () => {
+      // Type a single character into the bio so the patch has a
+      // genuine diff to send. The seed admin starts with no bio, so
+      // any non-empty value produces a state change. Submit via the
+      // form's Save button rather than Enter so we exercise the
+      // submit handler.
+      cy.get("#settings-bio").type("e2e", { delay: 0 });
+      cy.get('form.settings-form button[type="submit"]')
+        .scrollIntoView()
+        .click();
+      cy.get(".alert.alert-success", { timeout: 10000 })
+        .should("have.attr", "role", "status");
+      // Restore the bio to empty so the fixture stays clean for any
+      // subsequent run that asserts the no-bio state.
+      cy.get("#settings-bio").clear();
+      cy.get('form.settings-form button[type="submit"]')
+        .scrollIntoView()
+        .click();
+      cy.get(".alert.alert-success", { timeout: 10000 }).should("exist");
+    });
+
     it("MFA QR alt text describes the image when MFA setup is open", () => {
       // Switch to the security tab and open MFA setup. The QR image
       // should carry an informative alt text rather than a generic
@@ -51,20 +72,24 @@ describe("settings/profile (seeded test admin)", () => {
       cy.get('a.settings-tab[href="/settings/security"]').click();
       cy.location("pathname").should("equal", "/settings/security");
       cy.get("main#main-content").should("exist");
-      // If MFA is currently disabled, the Enable button is present.
-      // The seeded admin has MFA disabled by the seed-test-admin
-      // refactor (oidc_sub + totp_enabled cleared), so this branch
-      // is the deterministic one.
-      cy.contains("button", /Enable|Aktivieren|Activer|Activar|启用/, {
+      // The seeded admin has MFA disabled (seed-test-admin clears
+      // oidc_sub and totp_enabled), so the Enable button is the
+      // deterministic branch. The regex covers all five locales'
+      // verb for "enable"; the `i` flag handles the German
+      // sentence-case variant ("MFA aktivieren").
+      cy.contains("button", /Enable|Aktivieren|Activer|Activar|启用/i, {
         timeout: 10000,
       }).click();
       cy.get(".mfa-setup img", { timeout: 10000 })
         .should("have.attr", "alt")
         .and("match", /authenticator|autenticación|authentification|验证器|Authenticator/);
-      // The manual-entry secret carries an aria-label so screen
-      // readers don't read it as a single token.
+      // The manual-entry secret is rendered as the <code> element's
+      // text content so screen readers read out the actual characters
+      // when the user navigates to it. The surrounding paragraph
+      // ("Or enter manually:") provides context.
       cy.get(".mfa-setup code")
-        .should("have.attr", "aria-label");
+        .invoke("text")
+        .should("match", /^[A-Z2-7]{16,}$/i);
     });
   });
 });
