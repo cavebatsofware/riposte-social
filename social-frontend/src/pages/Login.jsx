@@ -23,11 +23,18 @@ export default function Login() {
 
   // Move focus into the email field once the password form mounts. Done
   // imperatively so the JSX does not need the `autoFocus` prop, which
-  // jsx-a11y/no-autofocus disallows. The form is the only interactive
-  // surface on the page, so landing focus there matches the user's
-  // intent without surprising other readers.
+  // jsx-a11y/no-autofocus disallows. Layout renders focusable controls
+  // (skip link, nav, theme + language pickers, hamburger) during the
+  // auth-loading window, so the focus call is gated to the body element
+  // a keyboard user who has already tabbed into the header during the
+  // load doesn't get yanked into the form.
   useEffect(() => {
-    if (!authLoading && !authConfig.oidcEnabled && emailRef.current) {
+    if (
+      !authLoading &&
+      !authConfig.oidcEnabled &&
+      emailRef.current &&
+      document.activeElement === document.body
+    ) {
       emailRef.current.focus();
     }
   }, [authLoading, authConfig.oidcEnabled]);
