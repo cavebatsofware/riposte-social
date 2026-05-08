@@ -5,8 +5,10 @@
 /// 1. The page mounts under the seeded admin with an h1 and a "New
 ///    category" button (the create-affordance the page-level role
 ///    gate exposes to admins).
-/// 2. The error and success alerts carry role="alert" / role="status"
-///    when they render after a backend round-trip.
+/// 2. After the create POST returns the success banner is rendered
+///    with role="status" so screen readers announce it without
+///    interrupting other speech, and after the delete the same
+///    banner re-renders with the same role.
 /// 3. Creating a `user_list` category and opening its Edit-members
 ///    modal produces an accessible dialog with role="dialog",
 ///    aria-modal="true", and aria-labelledby pointing at the visible
@@ -41,6 +43,12 @@ describe("browse/categories (seeded test admin)", () => {
     cy.get(".categories-form-actions button[type='submit']")
       .scrollIntoView()
       .click();
+
+    // The create POST returns; the page-level success banner renders
+    // with role="status" so screen readers announce it without
+    // interrupting other speech.
+    cy.get(".alert.alert-success", { timeout: 10000 })
+      .should("have.attr", "role", "status");
 
     // Find the row for our new category and open the member modal. The
     // manageable row renders the name inside `<input value="...">` rather
@@ -85,5 +93,8 @@ describe("browse/categories (seeded test admin)", () => {
       .click();
     cy.get(`.categories-manage-row input.categories-input-name[value="${testName}"]`)
       .should("not.exist");
+    // Delete also surfaces the same role="status" success banner.
+    cy.get(".alert.alert-success", { timeout: 10000 })
+      .should("have.attr", "role", "status");
   });
 });
