@@ -43,7 +43,7 @@ jobs:
       # the file present before `cargo test` runs.
       - name: Build social frontend
         run: |
-          npm ci --legacy-peer-deps
+          npm ci
           npm run build:social
       - name: Run tests
         run: cargo test --verbose --workspace

@@ -5,12 +5,8 @@ FROM node:25.7-alpine3.23 AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies. The project carries a
-# few intentional peer-dep mismatches (eslint 10 vs jsx-a11y peer cap
-# at 9, etc.) that legacy-peer-deps resolves. Same flag the local
-# install uses.
 COPY package*.json ./
-RUN npm ci --legacy-peer-deps
+RUN npm ci
 
 # Copy vite configs + both frontend source trees.
 COPY vite.config.js ./
