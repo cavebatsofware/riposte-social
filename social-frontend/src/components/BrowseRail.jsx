@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -31,6 +31,14 @@ export default function BrowseRail() {
   const location = useLocation();
   const [params] = useSearchParams();
   const activeCategory = params.get("category");
+  const activeQuery = params.get("q");
+  // The category-active styling and aria-current claim only apply when
+  // the user is actually on the feed route AND there is no search
+  // query. BrowseRail is rendered on many other routes (`/categories`,
+  // `/albums`, `/login`...), and clicking the rail links navigates to
+  // URLs without `q`, so a feed view filtered by `q` is a different
+  // view than what any rail link represents.
+  const onFeedRoute = location.pathname === "/" && !activeQuery;
   const { t } = useTranslation("browse");
 
   // Persist open-state on every change.
@@ -173,8 +181,9 @@ export default function BrowseRail() {
         <Link
           to="/"
           className={`browse-rail-link browse-rail-clear ${
-            !activeCategory ? "active" : ""
+            onFeedRoute && !activeCategory ? "active" : ""
           }`}
+          aria-current={onFeedRoute && !activeCategory ? "page" : undefined}
         >
           <span
             className="browse-rail-swatch"
@@ -183,24 +192,26 @@ export default function BrowseRail() {
           />
           <span className="browse-rail-label">{t("rail.allPosts")}</span>
         </Link>
-        {categoriesView.map((c) => (
-          <Link
-            key={c.id}
-            to={`/?category=${encodeURIComponent(c.slug)}`}
-            className={`browse-rail-link ${
-              activeCategory === c.slug ? "active" : ""
-            }`}
-          >
-            {c.color && (
-              <span
-                className="browse-rail-swatch"
-                style={{ backgroundColor: c.color }}
-                aria-hidden="true"
-              />
-            )}
-            <span className="browse-rail-label">{c.name}</span>
-          </Link>
-        ))}
+        {categoriesView.map((c) => {
+          const isActive = onFeedRoute && activeCategory === c.slug;
+          return (
+            <Link
+              key={c.id}
+              to={`/?category=${encodeURIComponent(c.slug)}`}
+              className={`browse-rail-link ${isActive ? "active" : ""}`}
+              aria-current={isActive ? "page" : undefined}
+            >
+              {c.color && (
+                <span
+                  className="browse-rail-swatch"
+                  style={{ backgroundColor: c.color }}
+                  aria-hidden="true"
+                />
+              )}
+              <span className="browse-rail-label">{c.name}</span>
+            </Link>
+          );
+        })}
       </Group>
 
       <Group
@@ -288,6 +299,7 @@ export default function BrowseRail() {
 }
 
 function Group({ label, open, onToggle, children }) {
+  const bodyId = useId();
   return (
     <section className="browse-rail-group" data-open={open ? "true" : "false"}>
       <button
@@ -295,13 +307,18 @@ function Group({ label, open, onToggle, children }) {
         className="browse-rail-group-header"
         onClick={onToggle}
         aria-expanded={open}
+        aria-controls={bodyId}
       >
         <span className="browse-rail-chevron" aria-hidden="true">
           {open ? "▾" : "▸"}
         </span>
         <span>{label}</span>
       </button>
-      {open && <div className="browse-rail-group-body">{children}</div>}
+      {open && (
+        <div id={bodyId} className="browse-rail-group-body">
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -312,6 +329,7 @@ function RailSearch({ placeholder, value, onChange }) {
       type="search"
       className="browse-rail-search"
       placeholder={placeholder}
+      aria-label={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />

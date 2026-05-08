@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchApi } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
+import PopoverPicker from "./PopoverPicker";
+import useRovingFocus from "../utils/useRovingFocus";
 
 /// Language picker for the social-frontend.
 ///
@@ -15,32 +17,18 @@ import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
 /// Switching always writes to localStorage (via i18next-browser-language-
 /// detector's `caches`). For authenticated users it additionally fires a
 /// fire-and-forget `PATCH /api/me/locale` so the choice follows the user
-/// to other devices (Phase 11e). Failure of the server-side persist does
-/// not undo the local switch — the active session honors the choice
-/// immediately and the next login will re-sync from server state.
+/// to other devices. Failure of the server-side persist does not undo
+/// the local switch; the active session honors the choice immediately
+/// and the next login will re-sync from server state.
 export default function LanguagePicker({ variant = "popover" }) {
   const { i18n, t } = useTranslation("common");
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const containerRef = useRef(null);
+  const popoverRef = useRef(null);
+  const inlineRef = useRef(null);
 
-  useEffect(() => {
-    if (variant !== "popover" || !open) return undefined;
-    function handleClickOutside(e) {
-      if (containerRef.current && !containerRef.current.contains(e.target)) {
-        setOpen(false);
-      }
-    }
-    function handleEsc(e) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEsc);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEsc);
-    };
-  }, [open, variant]);
+  useRovingFocus(popoverRef, variant === "popover" && open);
+  useRovingFocus(inlineRef, variant === "inline", { autoFocus: false });
 
   // i18n.language can include a region subtag (e.g. "en-US") that we
   // strip when persisting. Compare against the canonical list.
@@ -66,7 +54,7 @@ export default function LanguagePicker({ variant = "popover" }) {
           body: JSON.stringify({ locale: lng }),
         });
       } catch {
-        // ignore — local switch stands
+        // ignore; local switch stands
       }
     }
   }
@@ -99,28 +87,17 @@ export default function LanguagePicker({ variant = "popover" }) {
     </div>
   );
 
-  if (variant === "inline") {
-    return <div className="language-picker-inline">{list}</div>;
-  }
-
   return (
-    <div className="language-picker" ref={containerRef}>
-      {open && (
-        <div
-          className="language-picker-popover"
-          role="dialog"
-          aria-label={t("language.title")}
-        >
-          {list}
-        </div>
-      )}
-      <button
-        type="button"
-        className="language-picker-toggle"
-        aria-label={t("language.toggleAria")}
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-      >
+    <PopoverPicker
+      variant={variant}
+      open={open}
+      onOpenChange={setOpen}
+      className="language-picker"
+      toggleAriaLabel={t("language.toggleAria")}
+      popoverAriaLabel={t("language.title")}
+      popoverRef={popoverRef}
+      inlineRef={inlineRef}
+      toggleIcon={
         <svg
           width="20"
           height="20"
@@ -136,7 +113,9 @@ export default function LanguagePicker({ variant = "popover" }) {
           <path d="M2 12h20" />
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
-      </button>
-    </div>
+      }
+    >
+      {list}
+    </PopoverPicker>
   );
 }

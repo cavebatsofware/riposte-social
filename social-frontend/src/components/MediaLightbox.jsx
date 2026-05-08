@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import useFocusTrap from "../utils/useFocusTrap";
 import "./MediaLightbox.css";
 
 /// Full-screen lightbox / carousel for album media. Renders a single image
@@ -13,9 +14,7 @@ import "./MediaLightbox.css";
 ///   controls which item is shown.
 /// `onClose`, `onIndex`: parent-supplied callbacks.
 export default function MediaLightbox({ items, index, onClose, onIndex }) {
-  const overlayRef = useRef(null);
-  const closeBtnRef = useRef(null);
-  const lastFocusRef = useRef(null);
+  const overlayRef = useFocusTrap(true, { onEscape: onClose });
   const touchStartRef = useRef(null);
   const { t } = useTranslation("browse");
 
@@ -32,15 +31,12 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
     onIndex((index + 1) % total);
   }, [index, total, onIndex]);
 
-  // Keyboard navigation + focus management.
+  // ArrowLeft / ArrowRight cycle the carousel. Escape and focus
+  // restoration are handled by useFocusTrap; body scroll lock is the
+  // remaining concern here.
   useEffect(() => {
-    lastFocusRef.current = document.activeElement;
-    closeBtnRef.current?.focus();
     function onKey(e) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onClose();
-      } else if (e.key === "ArrowLeft") {
+      if (e.key === "ArrowLeft") {
         e.preventDefault();
         goPrev();
       } else if (e.key === "ArrowRight") {
@@ -53,14 +49,11 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
-      if (lastFocusRef.current && lastFocusRef.current.focus) {
-        lastFocusRef.current.focus();
-      }
     };
-  }, [goPrev, goNext, onClose]);
+  }, [goPrev, goNext]);
 
   function onOverlayClick(e) {
-    if (e.target === overlayRef.current) {
+    if (e.target === e.currentTarget) {
       onClose();
     }
   }
@@ -95,7 +88,6 @@ export default function MediaLightbox({ items, index, onClose, onIndex }) {
       onTouchEnd={onTouchEnd}
     >
       <button
-        ref={closeBtnRef}
         type="button"
         className="media-lightbox-close"
         aria-label={t("lightbox.close")}

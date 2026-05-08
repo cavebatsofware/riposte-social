@@ -1,17 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import useRovingFocus from "../utils/useRovingFocus";
 
 /// Avatar dropdown that replaces the bare Sign-out button in `<Layout>`.
 ///
-/// Renders the viewer's avatar (or initials fallback) as a button. Clicking
-/// it opens a small popover with profile / settings / sign-out entries.
-/// Keyboard navigation: Tab cycles through items; Escape closes; click-
-/// outside closes.
+/// Renders the viewer's avatar (or initials fallback) as a button.
+/// Clicking it opens a small popover with profile / settings / sign-out
+/// entries. Keyboard navigation: Up/Down arrows + Home/End move between
+/// items, Escape closes, click-outside closes, and focus leaving the
+/// wrapper closes too so a Tab to the next picker's trigger doesn't
+/// leave this menu open in the background. The trigger gets focus back
+/// on Escape.
 export default function UserMenu({ user, onSignOut }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
+  const popoverRef = useRef(null);
+  const triggerRef = useRef(null);
   const { t } = useTranslation("common");
+
+  useRovingFocus(popoverRef, open);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -20,13 +28,28 @@ export default function UserMenu({ user, onSignOut }) {
         setOpen(false);
       }
     }
+    // Close when focus leaves the wrapper. Without this a keyboard user
+    // can Tab from a menu item to an adjacent picker's trigger and open
+    // the second one while this menu stays open, since mousedown never
+    // fires. Mirrors the same listener PopoverPicker uses for the theme
+    // and language pickers.
+    function onFocusIn(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
     function onKey(e) {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
     }
     document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("focusin", onFocusIn);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -39,6 +62,7 @@ export default function UserMenu({ user, onSignOut }) {
   return (
     <div className="user-menu" ref={wrapperRef}>
       <button
+        ref={triggerRef}
         type="button"
         className="user-menu-trigger"
         aria-haspopup="menu"
@@ -56,7 +80,7 @@ export default function UserMenu({ user, onSignOut }) {
       </button>
 
       {open && (
-        <div className="user-menu-popover" role="menu">
+        <div ref={popoverRef} className="user-menu-popover" role="menu">
           <div className="user-menu-meta">
             <div className="user-menu-name">{display}</div>
             {user.handle && (

@@ -295,6 +295,47 @@ test: test-db-up
 	TEST_DATABASE_URL="postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:$${TEST_POSTGRES_PASSWORD:-test_password}@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}" \
 	cargo test
 
+# Bring up the containerized test stack: postgres-test + the
+# riposte-social app-test container that runs migrations and seeds a
+# known-credential admin. The app is exposed on TEST_APP_PORT (3001
+# by default) so it can run alongside `make dev` (port 3000).
+.PHONY: test-app-up
+test-app-up:
+	@echo "🚀 Starting test stack (db + app)..."
+	docker-compose -f docker-compose.test.yml --profile app up -d --build
+	@echo "⏳ Waiting for test app to be ready..."
+	@for i in $$(seq 1 30); do \
+		if curl -fs http://localhost:$${TEST_APP_PORT:-3001}/health >/dev/null 2>&1; then \
+			echo "✅ Test app is up at http://localhost:$${TEST_APP_PORT:-3001}"; \
+			exit 0; \
+		fi; \
+		sleep 2; \
+	done; \
+	echo "⚠️  Test app did not respond within 60s. See: docker logs riposte-social-test-app"; \
+	exit 1
+
+# Stop the containerized test stack.
+.PHONY: test-app-down
+test-app-down:
+	@echo "🛑 Stopping test stack..."
+	docker-compose -f docker-compose.test.yml --profile app down
+	@echo "✅ Test stack stopped"
+
+# Reset the containerized test stack to a fresh DB. Brings the stack
+# down with `-v` so the named postgres_test_data volume is destroyed,
+# then rebuilds. Use this when a previous run mutated the DB and you
+# want a deterministic seed/migration starting point.
+.PHONY: test-app-reset
+test-app-reset:
+	@echo "🗑️  Resetting test stack (drops postgres_test_data volume)..."
+	docker-compose -f docker-compose.test.yml --profile app down -v
+	@$(MAKE) test-app-up
+
+# Tail logs from the test app container.
+.PHONY: test-app-logs
+test-app-logs:
+	docker-compose -f docker-compose.test.yml --profile app logs -f app-test
+
 #
 # Development Commands
 #

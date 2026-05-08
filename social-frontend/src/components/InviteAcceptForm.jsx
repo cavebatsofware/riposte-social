@@ -63,8 +63,16 @@ function PasswordAccept({ invite, onAccepted }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="invite-splash-form">
-      {error && <div className="alert alert-error">{error}</div>}
+    <form
+      onSubmit={handleSubmit}
+      className="invite-splash-form"
+      aria-busy={submitting}
+    >
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
       <label htmlFor="invite-accept-email">{t("invite.form.emailLabel")}</label>
       <input
         id="invite-accept-email"

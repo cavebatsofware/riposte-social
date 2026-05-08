@@ -341,13 +341,20 @@
   --color-danger-border: #5e2424;
 }
 
-/* Static tokens, identical across themes. */
+/* Static tokens, identical across themes. Both stacks anchor on
+   webfonts loaded from index.html so the page renders predictably
+   regardless of what's installed locally:
+     Inter -> Latin
+     JetBrains Mono -> monospace
+     Noto Sans SC -> Simplified Chinese
+     Noto Color Emoji -> emoji glyphs
+   Each Google `@font-face` carries its own `unicode-range`, so the
+   browser picks the right family per code point. The generic family
+   at the tail is the offline / CDN-blocked catch. */
 :root {
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --font-display: ui-serif, Georgia, "Cambria", "Times New Roman", serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
-    "Courier New", monospace;
+  --font-body: 'Inter', 'Noto Sans SC', 'Noto Color Emoji', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans SC', 'Noto Color Emoji',
+    monospace;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -390,19 +397,48 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Phase 7e — visible focus rings on every interactive element. The
-   :focus-visible pseudo only triggers on keyboard focus (not on mouse
-   click), so the ring appears for keyboard users without polluting
-   pointer interactions. Per-component overrides may tighten the offset
-   or color but should preserve the basic affordance. */
+/* Visible focus rings on every interactive element. The :focus-visible
+   pseudo only triggers on keyboard focus (not on mouse click), so the
+   ring appears for keyboard users without polluting pointer
+   interactions. Per-component overrides may tighten the offset or
+   color but should preserve the basic affordance. Covers native
+   focusable elements, ARIA interactive roles, and any focusable
+   non-native element marked with [tabindex] other than -1. */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible,
-[role="button"]:focus-visible {
+summary:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[role="checkbox"]:focus-visible,
+[role="radio"]:focus-visible,
+[role="switch"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="menuitemcheckbox"]:focus-visible,
+[role="menuitemradio"]:focus-visible,
+[role="option"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="treeitem"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
+}
+
+/* Visually-hidden utility for content that should be readable by
+   assistive tech but not painted on screen (e.g. page-level <h1>s
+   that the design replaces with a logo, screen-reader-only labels). */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ==========================================================================
@@ -420,7 +456,7 @@ select:focus-visible,
 }
 
 .feed-header h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   letter-spacing: -0.01em;
   font-size: var(--font-size-3xl);
@@ -443,7 +479,10 @@ select:focus-visible,
 
 .feed-empty {
   text-align: center;
-  color: var(--color-muted);
+  /* Inherit `--color-text` (full contrast) so the empty state is
+     readable on its own. The previous `--color-muted` failed WCAG AA
+     contrast (axe color-contrast). The hint paragraph below uses an
+     explicit muted color where its parent is the sole content. */
   padding: var(--spacing-8) 0;
 }
 
@@ -538,7 +577,7 @@ select:focus-visible,
 }
 
 .invite-splash-card h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -610,7 +649,7 @@ select:focus-visible,
 }
 
 .auth-card h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -673,7 +712,7 @@ select:focus-visible,
 }
 
 .invite-accept-card h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -1168,6 +1207,49 @@ select:focus-visible,
 .visibility-badge.private {
   background-color: var(--color-overlay);
   color: var(--color-muted);
+}
+
+/* Wrapper for a `VisibilityBadge` whose effective visibility is
+   inherited from its category. Anchors the absolutely-positioned ARIA
+   tooltip beside the badge. The wrapper is `inline-flex` so it doesn't
+   change inline-flow layout for the surrounding meta line. */
+.visibility-badge-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+/* ARIA tooltip for the categorized-badge "from category" provenance.
+   Hidden by default; revealed when the sibling badge is hovered (so a
+   small mouse-out doesn't immediately yank it away) AND when the badge
+   has keyboard focus (the badge is a tab stop with `tabindex=0` so
+   keyboard users can read the same provenance). */
+.visibility-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  white-space: nowrap;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-popover, 0 4px 12px rgba(0, 0, 0, 0.15));
+  pointer-events: none;
+  transition: visibility 0s linear 0.2s, opacity 0.15s ease;
+}
+.visibility-badge-wrap:hover .visibility-tooltip,
+.visibility-badge-wrap:focus-within .visibility-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transition-delay: 0s;
 }
 
 /* Phase 9e: category chip on PostCard meta line. Links to the feed
@@ -1665,6 +1747,7 @@ select:focus-visible,
   cursor: pointer;
   padding: var(--spacing-1) var(--spacing-2);
   border-radius: var(--radius-full, 999px);
+  font-family: inherit;
   font-size: 1.25rem;
   line-height: 1;
   transition: transform 0.1s, background 0.1s;
@@ -1953,7 +2036,7 @@ select:focus-visible,
 }
 
 .compose-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--font-size-xl);
   margin: 0 0 var(--spacing-4);
   color: var(--color-text);
@@ -2198,5 +2281,28 @@ select:focus-visible,
   .compose-footer {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+/* Respect prefers-reduced-motion across the entire app. Component
+   CSS files do not need their own reduced-motion guards. This single
+   override neutralizes every transition and animation when the OS
+   preference is set.
+
+   The 0.01ms duration (vs 0) keeps `transitionend` and `animationend`
+   events firing so JS that relies on those callbacks still completes.
+   Delays are forced to 0 so users do not sit through a long wait
+   before the (already-shortened) animation fires. The !important is
+   required because per-component rules have more specific selectors. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
   }
 }

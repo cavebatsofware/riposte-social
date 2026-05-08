@@ -1,12 +1,14 @@
 {
   "fallbackAuthor": "Miembro",
   "post": {
+    "heading": "Publicación",
     "notFound": "Publicación no encontrada.",
     "loadFailed": "Error al cargar la publicación",
     "deleteConfirm": "¿Eliminar esta publicación? Esta acción es irreversible.",
     "deleteFailed": "Error al eliminar la publicación"
   },
   "feed": {
+    "heading": "Feed",
     "loadFailed": "Error al cargar el feed",
     "loadingAria": "Cargando el feed",
     "anonInviteOnly": "Este sitio es solo por invitación.",
@@ -48,6 +50,7 @@
   },
   "postCard": {
     "actionsAria": "Acciones de la publicación",
+    "articleAria": "Publicación de {{author}}, {{time}}",
     "recentCommentsAria": "Comentarios recientes",
     "videoFallback": "Tu navegador no admite la reproducción de vídeo en línea.",
     "openMediaAria": "Abrir elemento {{index}}",
@@ -60,6 +63,7 @@
     "title": "Comentarios",
     "titleWithCount": "Comentarios ({{count}})",
     "empty": "Aún no hay comentarios.",
+    "loadingAria": "Cargando comentarios",
     "loadFailed": "Error al cargar los comentarios",
     "submitFailed": "Error al publicar el comentario",
     "deleteConfirm": "¿Eliminar este comentario? Esta acción es irreversible.",

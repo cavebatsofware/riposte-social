@@ -1,12 +1,14 @@
 {
   "fallbackAuthor": "Membre",
   "post": {
+    "heading": "Publication",
     "notFound": "Publication introuvable.",
     "loadFailed": "Échec du chargement de la publication",
     "deleteConfirm": "Supprimer cette publication ? Cette action est irréversible.",
     "deleteFailed": "Échec de la suppression de la publication"
   },
   "feed": {
+    "heading": "Fil",
     "loadFailed": "Échec du chargement du fil",
     "loadingAria": "Chargement du fil",
     "anonInviteOnly": "Ce site est sur invitation uniquement.",
@@ -48,6 +50,7 @@
   },
   "postCard": {
     "actionsAria": "Actions sur la publication",
+    "articleAria": "Publication de {{author}}, {{time}}",
     "recentCommentsAria": "Commentaires récents",
     "videoFallback": "Votre navigateur ne prend pas en charge la lecture vidéo intégrée.",
     "openMediaAria": "Ouvrir l'élément {{index}}",
@@ -60,6 +63,7 @@
     "title": "Commentaires",
     "titleWithCount": "Commentaires ({{count}})",
     "empty": "Aucun commentaire pour l'instant.",
+    "loadingAria": "Chargement des commentaires",
     "loadFailed": "Échec du chargement des commentaires",
     "submitFailed": "Échec de la publication du commentaire",
     "deleteConfirm": "Supprimer ce commentaire ? Cette action est irréversible.",

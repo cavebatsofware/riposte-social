@@ -58,6 +58,7 @@
   },
   "attachments": {
     "label": "Pièces jointes",
+    "dropzoneAria": "Ajouter des pièces jointes. Déposez des fichiers ici ou activez pour ouvrir le sélecteur.",
     "dropzonePrompt": "Déposez des images ou des vidéos ici, ou cliquez pour parcourir",
     "dropzoneMeta": "Images (JPEG/PNG/GIF/WebP, 10 Mo chacune) ou vidéos (MP4/WebM, 100 Mo chacune) · jusqu'à {{max}} fichiers",
     "dropzoneMetaAlbum": "Jusqu'à {{max}} éléments par album · 10 Mo par image / 100 Mo par vidéo",

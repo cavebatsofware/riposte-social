@@ -9,16 +9,16 @@ import "./Settings.css";
 const BIO_MAX = 500;
 const PRONOUNS_MAX = 30;
 
-/// `/settings/profile` — self-service editor for the caller's profile.
+/// `/settings/profile`: self-service editor for the caller's profile.
 ///
-/// Loads `GET /api/me/profile` on mount, lets the user edit handle /
-/// display name / bio / pronouns, and posts changes via `PATCH
+/// Loads `GET /api/me/profile` on mount, lets the user edit handle,
+/// display name, bio, and pronouns, and posts changes via `PATCH
 /// /api/me/profile`. Avatar uploads use `POST /api/me/avatar` (multipart);
 /// removal uses `DELETE /api/me/avatar`.
 ///
 /// Visiting this page without an authenticated session redirects to
-/// `/login` — server-side endpoints would 401 otherwise, but redirecting
-/// up front avoids a flash of the form and the subsequent error.
+/// `/login`. Server-side endpoints would 401 otherwise; redirecting up
+/// front avoids a flash of the form and the subsequent error.
 export default function SettingsProfile() {
   const { user, loading: authLoading, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -178,7 +178,11 @@ export default function SettingsProfile() {
       <header className="settings-header">
         <h1>{t("profile.title")}</h1>
         <nav className="settings-tabs" aria-label={t("tabsAria")}>
-          <Link to="/settings/profile" className="settings-tab active">
+          <Link
+            to="/settings/profile"
+            className="settings-tab active"
+            aria-current="page"
+          >
             {t("tabProfile")}
           </Link>
           <Link to="/settings/security" className="settings-tab">
@@ -187,8 +191,16 @@ export default function SettingsProfile() {
         </nav>
       </header>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="alert alert-success" role="status">
+          {success}
+        </div>
+      )}
 
       <section className="settings-section">
         <h2>{t("profile.avatarHeading")}</h2>
@@ -205,12 +217,17 @@ export default function SettingsProfile() {
             )}
           </div>
           <div className="settings-avatar-actions">
+            <label htmlFor="settings-avatar-input" className="sr-only">
+              {t("profile.avatarUploadLabel")}
+            </label>
             <input
               ref={fileInputRef}
+              id="settings-avatar-input"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handleAvatarPick}
               disabled={uploadingAvatar}
+              aria-describedby="settings-avatar-hint"
             />
             {profile.avatar_url && (
               <button
@@ -222,12 +239,18 @@ export default function SettingsProfile() {
                 {t("profile.removeAvatar")}
               </button>
             )}
-            <p className="form-hint">{t("profile.avatarHint")}</p>
+            <p id="settings-avatar-hint" className="form-hint">
+              {t("profile.avatarHint")}
+            </p>
           </div>
         </div>
       </section>
 
-      <form className="settings-form" onSubmit={handleSubmit}>
+      <form
+        className="settings-form"
+        onSubmit={handleSubmit}
+        aria-busy={savingProfile}
+      >
         <h2>{t("profile.fieldsHeading")}</h2>
         <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
         <input
@@ -270,8 +293,13 @@ export default function SettingsProfile() {
           onChange={(e) => setBio(e.target.value)}
           rows={4}
           maxLength={BIO_MAX}
+          aria-describedby="settings-bio-count"
         />
-        <p className="form-hint">
+        <p
+          id="settings-bio-count"
+          className="form-hint"
+          aria-live="polite"
+        >
           {t("profile.bioCount", { current: bio.length, max: BIO_MAX })}
         </p>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
+import { useFocusTrap } from "../utils/useFocusTrap";
 import InviteAcceptForm from "./InviteAcceptForm";
 
 /// Welcome modal shown on the public feed (`/`) when a `pending_invite`
@@ -18,6 +19,11 @@ export default function InviteSplash() {
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState(false);
   const { t } = useTranslation("auth");
+  const open = !loading && !dismissed && invite != null && !user;
+  const trapRef = useFocusTrap(open, {
+    onEscape: () => handleDecline(),
+    restoreFocus: false,
+  });
 
   useEffect(() => {
     fetchInvite();
@@ -37,23 +43,31 @@ export default function InviteSplash() {
     }
   }
 
-  async function handleDecline() {
-    try {
-      await fetchApi("/api/auth/logout/invite", { method: "POST" });
-    } catch (err) {
-      console.error("Failed to clear invite cookie:", err);
-    }
+  function handleDecline() {
+    // Dismiss synchronously so Escape and the decline button always
+    // close the dialog immediately. The cookie-clearing POST is
+    // best-effort and runs in the background; if it hangs or fails,
+    // the splash is already gone and the user is back on the feed.
     setDismissed(true);
+    fetchApi("/api/auth/logout/invite", { method: "POST" }).catch((err) => {
+      console.error("Failed to clear invite cookie:", err);
+    });
   }
 
-  if (loading || dismissed || !invite || user) {
+  if (!open) {
     return null;
   }
 
   return (
-    <div className="invite-splash-overlay" role="dialog" aria-modal="true">
+    <div
+      className="invite-splash-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="invite-splash-title"
+      ref={trapRef}
+    >
       <div className="invite-splash-card">
-        <h2>{t("invite.splash.title")}</h2>
+        <h2 id="invite-splash-title">{t("invite.splash.title")}</h2>
         {invite.email_hint ? (
           <p>
             <Trans

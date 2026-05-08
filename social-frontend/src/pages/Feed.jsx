@@ -123,6 +123,7 @@ export default function Feed() {
 
   return (
     <Layout>
+      <h1 className="sr-only">{t("feed.heading")}</h1>
       <InviteSplash />
 
       <form className="feed-search" onSubmit={submitSearch} role="search">
@@ -146,10 +147,18 @@ export default function Feed() {
         )}
       </form>
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {loading && posts.length === 0 && (
-        <section className="feed-list" aria-label={t("feed.loadingAria")}>
+        <section
+          className="feed-list"
+          aria-label={t("feed.loadingAria")}
+          aria-busy="true"
+        >
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}

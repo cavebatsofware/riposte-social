@@ -51,7 +51,7 @@ pub fn is_valid_category_visibility(visibility: &str) -> bool {
 
 /// Caller's effective visibility tier for the feed query. Maps the user's
 /// role to the set of visibility values the caller is permitted to see by
-/// role alone — `private` is handled separately by [`can_read_post`]
+/// role alone. `private` is handled separately by [`can_read_post`]
 /// since it's author-scoped, not role-scoped.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FeedTier {
@@ -100,8 +100,8 @@ impl FeedTier {
 /// - the row is `private` and `viewer_id` is the author.
 ///
 /// Anonymous viewers (`viewer_id = None`) can never read `private` rows.
-/// Admins are NOT a special case — by explicit user direction in Phase 9,
-/// they cannot peek at other users' private rows via feed/listing
+/// Admins are NOT a special case for uncategorized private content:
+/// they cannot read other users' private rows via feed or listing
 /// surfaces. Admin moderation against a known id still works through
 /// dedicated routes that operate without the visibility filter.
 pub fn can_read_post(

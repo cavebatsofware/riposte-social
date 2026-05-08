@@ -71,4 +71,16 @@ i18n
     returnEmptyString: false,
   });
 
+// Keep `<html lang>` in sync with the active locale so the browser's
+// font shaping, hyphenation, and screen-reader pronunciation pick the
+// right script. The default `lang="en"` in index.html is the bootstrap
+// value; this updates it on init and on every `changeLanguage` call.
+function syncDocumentLang(lng) {
+  if (typeof document === "undefined") return;
+  const base = (lng || "en").split("-")[0];
+  document.documentElement.lang = SUPPORTED_LOCALES.includes(base) ? base : "en";
+}
+i18n.on("languageChanged", syncDocumentLang);
+syncDocumentLang(i18n.resolvedLanguage || i18n.language);
+
 export default i18n;

@@ -138,7 +138,9 @@ export default function ComposeAlbum() {
   ) {
     return (
       <Layout>
-        <div className="alert alert-error">{t("album.disabledShort")}</div>
+        <div className="alert alert-error" role="alert">
+          {t("album.disabledShort")}
+        </div>
       </Layout>
     );
   }
@@ -326,17 +328,32 @@ export default function ComposeAlbum() {
 
   return (
     <Layout>
+      <h1 className="sr-only">
+        {editId ? t("album.editTitle") : t("album.newTitle")}
+      </h1>
       <Link to="/" className="post-back-link">
         {t("backToFeed")}
       </Link>
 
-      <form className="compose-card" onSubmit={handleSubmit}>
+      <form
+        className="compose-card"
+        onSubmit={handleSubmit}
+        aria-busy={submitting}
+      >
         <h2 className="compose-title">
           {editId ? t("album.editTitle") : t("album.newTitle")}
         </h2>
 
-        {error && <div className="alert alert-error">{error}</div>}
-        {success && <div className="alert alert-success">{success}</div>}
+        {error && (
+          <div className="alert alert-error" role="alert">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="alert alert-success" role="status">
+            {success}
+          </div>
+        )}
 
         <div className="compose-field">
           <label htmlFor="album-name">{t("album.nameLabel")}</label>
@@ -452,6 +469,7 @@ export default function ComposeAlbum() {
             }}
             role="button"
             tabIndex={0}
+            aria-label={t("attachments.dropzoneAria")}
           >
             <p className="dropzone-prompt">
               {t("attachments.dropzonePrompt")}

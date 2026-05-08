@@ -87,9 +87,13 @@ export default function InviteAccept() {
             <h2>{t("invite.cookieNoticeTitle")}</h2>
             <p className="muted">{t("invite.cookieNoticeBody")}</p>
 
-            {error && <div className="alert alert-error">{error}</div>}
+            {error && (
+              <div className="alert alert-error" role="alert">
+                {error}
+              </div>
+            )}
 
-            <div className="invite-accept-actions">
+            <div className="invite-accept-actions" aria-busy={submitting}>
               <button
                 type="button"
                 className="btn-primary"

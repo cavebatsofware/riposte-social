@@ -5,7 +5,6 @@ FROM node:25.7-alpine3.23 AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm ci
 
@@ -20,7 +19,7 @@ COPY social-frontend ./social-frontend
 RUN npm run build
 
 # Rust build stage
-FROM rust:alpine3.23.3 AS builder
+FROM rust:alpine3.23 AS builder
 
 WORKDIR /app
 

@@ -42,7 +42,11 @@ export default function Albums() {
 
       {loading && <p className="muted">{tCommon("loading")}</p>}
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {!loading && albums.length === 0 && !error && (
         <p className="muted">{t("albums.empty")}</p>
