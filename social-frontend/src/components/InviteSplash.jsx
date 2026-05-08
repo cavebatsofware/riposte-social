@@ -43,13 +43,15 @@ export default function InviteSplash() {
     }
   }
 
-  async function handleDecline() {
-    try {
-      await fetchApi("/api/auth/logout/invite", { method: "POST" });
-    } catch (err) {
-      console.error("Failed to clear invite cookie:", err);
-    }
+  function handleDecline() {
+    // Dismiss synchronously so Escape and the decline button always
+    // close the dialog immediately. The cookie-clearing POST is
+    // best-effort and runs in the background; if it hangs or fails,
+    // the splash is already gone and the user is back on the feed.
     setDismissed(true);
+    fetchApi("/api/auth/logout/invite", { method: "POST" }).catch((err) => {
+      console.error("Failed to clear invite cookie:", err);
+    });
   }
 
   if (!open) {

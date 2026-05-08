@@ -1,8 +1,10 @@
-/// Functional spec for the password-mode Sign-in page. Builds on the
-/// shared `cy.login()` fixture to drive the success path through the
-/// real `/api/auth/login` endpoint. The test app's auth-config is
-/// password-mode (OIDC disabled), so this spec exercises the form
-/// branch of `Login.jsx`. Asserts:
+/// Functional spec for the password-mode Sign-in page. Drives the
+/// form via the UI (not `cy.login()`) so the spec exercises the
+/// component itself: focus management, aria-busy, the role="alert"
+/// failure path, and the redirect-on-success handler. The test app's
+/// auth-config is password-mode (OIDC disabled), so this spec covers
+/// the form branch of `Login.jsx`. The seeded admin credentials come
+/// from the same env vars that back `cy.login()`. Asserts:
 ///
 /// 1. The form renders with labelled email + password inputs, a
 ///    submit button, and the invite-only notice.
