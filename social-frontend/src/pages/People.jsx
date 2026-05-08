@@ -42,7 +42,11 @@ export default function People() {
 
       {loading && <p className="muted">{tCommon("loading")}</p>}
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {!loading && people.length === 0 && !error && (
         <p className="muted">{t("people.empty")}</p>

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { fetchApi } from "../utils/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
+import { useFocusTrap } from "../utils/useFocusTrap";
 import Layout from "../components/Layout";
 import "./Categories.css";
 
@@ -205,8 +206,16 @@ export default function Categories() {
         )}
       </header>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="alert alert-success" role="status">
+          {success}
+        </div>
+      )}
 
       {creating && canCreate && (
         <section className="categories-card">
@@ -431,7 +440,9 @@ function ColorInput({ value, onChange, idPrefix }) {
 
 /// Modal for managing a `user_list` category's members. Loads the
 /// current members + a list of all profiles, then issues a single
-/// `PUT /members` on Save.
+/// `PUT /members` on Save. The dialog mounts a focus trap so Tab
+/// stays inside while it's open and Escape routes through onClose;
+/// focus returns to the "Edit members" button on dismiss.
 function MemberModal({ category, onClose }) {
   const { t } = useTranslation("browse");
   const { t: tCommon } = useTranslation("common");
@@ -441,6 +452,7 @@ function MemberModal({ category, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const trapRef = useFocusTrap(true, { onEscape: onClose });
 
   useEffect(() => {
     let cancelled = false;
@@ -530,17 +542,35 @@ function MemberModal({ category, onClose }) {
     <div className="modal-backdrop" onClick={onClose}>
       <div
         className="modal categories-member-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="member-modal-title"
+        aria-busy={loading || saving}
+        ref={trapRef}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2>{t("categories.membersModalTitle", { name: category.name })}</h2>
+        <h2 id="member-modal-title">
+          {t("categories.membersModalTitle", { name: category.name })}
+        </h2>
 
-        {error && <div className="alert alert-error">{error}</div>}
+        {error && (
+          <div className="alert alert-error" role="alert">
+            {error}
+          </div>
+        )}
 
         {loading ? (
           <p className="muted">{tCommon("loading")}</p>
         ) : (
           <>
+            <label
+              htmlFor="member-modal-search"
+              className="sr-only"
+            >
+              {t("categories.membersSearchPlaceholder")}
+            </label>
             <input
+              id="member-modal-search"
               type="search"
               placeholder={t("categories.membersSearchPlaceholder")}
               value={search}
@@ -548,7 +578,11 @@ function MemberModal({ category, onClose }) {
               className="categories-input"
             />
 
-            <div className="categories-member-list">
+            <div
+              className="categories-member-list"
+              role="group"
+              aria-labelledby="member-modal-title"
+            >
               {filtered.map((p) => {
                 const checked = memberIds.has(p.user_id);
                 return (

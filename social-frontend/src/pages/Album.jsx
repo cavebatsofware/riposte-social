@@ -89,7 +89,11 @@ export default function Album() {
 
       {loading && <SkeletonCard />}
 
-      {!loading && error && <div className="alert alert-error">{error}</div>}
+      {!loading && error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       {!loading && album && (
         <>
@@ -146,7 +150,7 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
         <p className="album-description">{album.description}</p>
       )}
       {isAuthorOrAdmin && (
-        <div className="album-actions">
+        <div className="album-actions" aria-busy={deleting}>
           <Link to={`/compose-album?edit=${album.id}`} className="btn-secondary">
             {t("album.edit")}
           </Link>
