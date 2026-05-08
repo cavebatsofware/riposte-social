@@ -54,7 +54,7 @@
 }
 
 .mobile-drawer-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--font-size-lg);
   font-weight: 600;
 }

@@ -341,13 +341,20 @@
   --color-danger-border: #5e2424;
 }
 
-/* Static tokens, identical across themes. */
+/* Static tokens, identical across themes. Both stacks anchor on
+   webfonts loaded from index.html so the page renders predictably
+   regardless of what's installed locally:
+     Inter -> Latin
+     JetBrains Mono -> monospace
+     Noto Sans SC -> Simplified Chinese
+     Noto Color Emoji -> emoji glyphs
+   Each Google `@font-face` carries its own `unicode-range`, so the
+   browser picks the right family per code point. The generic family
+   at the tail is the offline / CDN-blocked catch. */
 :root {
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
-  --font-display: ui-serif, Georgia, "Cambria", "Times New Roman", serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
-    "Courier New", monospace;
+  --font-body: 'Inter', 'Noto Sans SC', 'Noto Color Emoji', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Noto Sans SC', 'Noto Color Emoji',
+    monospace;
 
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
@@ -449,7 +456,7 @@ summary:focus-visible,
 }
 
 .feed-header h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   letter-spacing: -0.01em;
   font-size: var(--font-size-3xl);
@@ -570,7 +577,7 @@ summary:focus-visible,
 }
 
 .invite-splash-card h2 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -642,7 +649,7 @@ summary:focus-visible,
 }
 
 .auth-card h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -705,7 +712,7 @@ summary:focus-visible,
 }
 
 .invite-accept-card h1 {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-weight: 600;
   margin-top: 0;
   color: var(--color-primary);
@@ -1740,6 +1747,7 @@ summary:focus-visible,
   cursor: pointer;
   padding: var(--spacing-1) var(--spacing-2);
   border-radius: var(--radius-full, 999px);
+  font-family: inherit;
   font-size: 1.25rem;
   line-height: 1;
   transition: transform 0.1s, background 0.1s;
@@ -2028,7 +2036,7 @@ summary:focus-visible,
 }
 
 .compose-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: var(--font-size-xl);
   margin: 0 0 var(--spacing-4);
   color: var(--color-text);
