@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -17,8 +17,27 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const emailRef = useRef(null);
   const { t } = useTranslation("auth");
   const { t: tCommon } = useTranslation("common");
+
+  // Move focus into the email field once the password form mounts. Done
+  // imperatively so the JSX does not need the `autoFocus` prop, which
+  // jsx-a11y/no-autofocus disallows. Layout renders focusable controls
+  // (skip link, nav, theme + language pickers, hamburger) during the
+  // auth-loading window, so the focus call is gated to the body element
+  // a keyboard user who has already tabbed into the header during the
+  // load doesn't get yanked into the form.
+  useEffect(() => {
+    if (
+      !authLoading &&
+      !authConfig.oidcEnabled &&
+      emailRef.current &&
+      document.activeElement === document.body
+    ) {
+      emailRef.current.focus();
+    }
+  }, [authLoading, authConfig.oidcEnabled]);
 
   if (user) {
     return <Navigate to="/" replace />;
@@ -53,16 +72,25 @@ export default function Login() {
             </a>
           </>
         ) : (
-          <form onSubmit={handleSubmit} className="auth-form">
-            {error && <div className="alert alert-error">{error}</div>}
+          <form
+            onSubmit={handleSubmit}
+            className="auth-form"
+            aria-busy={submitting}
+          >
+            {error && (
+              <div className="alert alert-error" role="alert">
+                {error}
+              </div>
+            )}
             <label htmlFor="login-email">{t("login.emailLabel")}</label>
             <input
+              ref={emailRef}
               id="login-email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoFocus
+              autoComplete="email"
             />
             <label htmlFor="login-password">{t("login.passwordLabel")}</label>
             <input
@@ -71,6 +99,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
             />
             <button
               type="submit"
