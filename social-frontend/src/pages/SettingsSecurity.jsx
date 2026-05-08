@@ -6,13 +6,13 @@ import { fetchApi } from "../utils/api";
 import Layout from "../components/Layout";
 import "./Settings.css";
 
-/// `/settings/security` — self-service password change + MFA management
+/// `/settings/security`: self-service password change + MFA management
 /// for non-admin users. Mirrors the admin Profile page's password and TOTP
 /// flows but lives on the social-frontend so commenters and posters don't
 /// have to touch the admin UI.
 ///
 /// OIDC-linked users see a deep-link to their identity provider's account
-/// page (Keycloak's `/account`) rather than these forms — password and MFA
+/// page (Keycloak's `/account`) rather than these forms; password and MFA
 /// are owned by the IdP in that case.
 export default function SettingsSecurity() {
   const { user, authConfig, loading: authLoading, refreshUser } = useAuth();
@@ -161,14 +161,26 @@ export default function SettingsSecurity() {
           <Link to="/settings/profile" className="settings-tab">
             {t("tabProfile")}
           </Link>
-          <Link to="/settings/security" className="settings-tab active">
+          <Link
+            to="/settings/security"
+            className="settings-tab active"
+            aria-current="page"
+          >
             {t("tabSecurity")}
           </Link>
         </nav>
       </header>
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="alert alert-success" role="status">
+          {success}
+        </div>
+      )}
 
       {authConfig.oidcEnabled ? (
         <section className="settings-section">
@@ -189,7 +201,11 @@ export default function SettingsSecurity() {
         <>
           <section className="settings-section">
             <h2>{t("security.passwordHeading")}</h2>
-            <form className="settings-form" onSubmit={handlePasswordChange}>
+            <form
+              className="settings-form"
+              onSubmit={handlePasswordChange}
+              aria-busy={pwLoading}
+            >
               <label htmlFor="security-current-password">
                 {t("security.currentPasswordLabel")}
               </label>
@@ -286,9 +302,19 @@ export default function SettingsSecurity() {
                 />
                 <p>
                   {t("security.manualEntryLabel")}{" "}
+                  {/* The secret is rendered as the <code> element's
+                      text content so screen readers read the actual
+                      characters when the user navigates to it. The
+                      preceding label paragraph supplies context;
+                      adding aria-label here would replace the
+                      announced characters with the label string. */}
                   <code>{mfaSetupData.secret}</code>
                 </p>
-                <form onSubmit={confirmMfaSetup} className="settings-form">
+                <form
+                  onSubmit={confirmMfaSetup}
+                  className="settings-form"
+                  aria-busy={mfaLoading}
+                >
                   <label htmlFor="security-totp-code">
                     {t("security.totpCodeLabel")}
                   </label>
@@ -331,7 +357,11 @@ export default function SettingsSecurity() {
             )}
 
             {showDisableConfirm && (
-              <form onSubmit={disableMfa} className="settings-form">
+              <form
+                onSubmit={disableMfa}
+                className="settings-form"
+                aria-busy={mfaLoading}
+              >
                 <p>{t("security.disableConfirmPrompt")}</p>
                 <label htmlFor="security-disable-password">
                   {t("security.disablePasswordLabel")}

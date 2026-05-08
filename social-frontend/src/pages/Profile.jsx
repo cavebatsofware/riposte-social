@@ -116,7 +116,9 @@ export default function Profile() {
       {profileLoading && <SkeletonCard />}
 
       {!profileLoading && profileError && (
-        <div className="alert alert-error">{profileError}</div>
+        <div className="alert alert-error" role="alert">
+          {profileError}
+        </div>
       )}
 
       {!profileLoading && profile && (
@@ -126,13 +128,16 @@ export default function Profile() {
           <h2 className="profile-posts-heading">{t("profile.postsHeading")}</h2>
 
           {postsError && (
-            <div className="alert alert-error">{postsError}</div>
+            <div className="alert alert-error" role="alert">
+              {postsError}
+            </div>
           )}
 
           {postsLoading && posts.length === 0 && (
             <section
               className="feed-list"
               aria-label={t("profile.loadingPostsAria")}
+              aria-busy="true"
             >
               {Array.from({ length: 2 }).map((_, i) => (
                 <SkeletonCard key={i} />
