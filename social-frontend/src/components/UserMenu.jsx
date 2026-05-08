@@ -8,8 +8,10 @@ import useRovingFocus from "../utils/useRovingFocus";
 /// Renders the viewer's avatar (or initials fallback) as a button.
 /// Clicking it opens a small popover with profile / settings / sign-out
 /// entries. Keyboard navigation: Up/Down arrows + Home/End move between
-/// items, Escape closes, click-outside closes. The trigger gets focus
-/// back when the popover closes.
+/// items, Escape closes, click-outside closes, and focus leaving the
+/// wrapper closes too so a Tab to the next picker's trigger doesn't
+/// leave this menu open in the background. The trigger gets focus back
+/// on Escape.
 export default function UserMenu({ user, onSignOut }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -26,6 +28,16 @@ export default function UserMenu({ user, onSignOut }) {
         setOpen(false);
       }
     }
+    // Close when focus leaves the wrapper. Without this a keyboard user
+    // can Tab from a menu item to an adjacent picker's trigger and open
+    // the second one while this menu stays open, since mousedown never
+    // fires. Mirrors the same listener PopoverPicker uses for the theme
+    // and language pickers.
+    function onFocusIn(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
     function onKey(e) {
       if (e.key === "Escape") {
         setOpen(false);
@@ -33,9 +45,11 @@ export default function UserMenu({ user, onSignOut }) {
       }
     }
     document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("focusin", onFocusIn);
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("focusin", onFocusIn);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
