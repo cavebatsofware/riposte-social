@@ -2,9 +2,6 @@
 /target/
 **/*.rs.bk
 
-# Cargo package files
-Cargo.lock
-
 # IDE/editor files
 .idea/
 .vscode/
