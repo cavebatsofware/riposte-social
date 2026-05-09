@@ -159,6 +159,21 @@ async fn main() -> anyhow::Result<()> {
         return seed_test_admin(email, password).await;
     }
 
+    // Print an argon2 password hash for a given plaintext and exit.
+    // Pure compute path: no database connection, no environment guards,
+    // no encryption key required. Lets an operator hand-craft a SQL
+    // insert against the dev DB without going through the seed
+    // subcommand (which connects via DATABASE_URL and may resolve to
+    // the wrong database in mixed dev / test shells).
+    if args.len() > 1 && args[1] == "hash-password" {
+        let password = args
+            .get(2)
+            .ok_or_else(|| anyhow::anyhow!("usage: cargo run -- hash-password <password>"))?;
+        let hash = riposte_social::admin::auth::hash_password_for_seed(password)?;
+        println!("{}", hash);
+        return Ok(());
+    }
+
     // Validate encryption key is configured before accepting requests
     crypto::validate_encryption_key();
 
@@ -412,7 +427,7 @@ async fn run_migrations_sync() -> Result<(), Box<dyn std::error::Error>> {
 async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
     use riposte_social::admin::auth::placeholder_password_hash;
     use riposte_social::entities::{user, User};
-    use riposte_social::invites;
+    use riposte_social::{invites, profile};
     use sea_orm::{ActiveModelTrait, EntityTrait, PaginatorTrait, Set, TransactionTrait};
     use uuid::Uuid;
 
@@ -428,6 +443,13 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
             count
         );
     }
+
+    // `handle` is NOT NULL on `users` (Phase 8 profile schema). Mint a
+    // unique handle from the email local-part the same way the test-admin
+    // seed and the regular create-user path do, so the row satisfies the
+    // constraint and the bootstrap account has a profile-URL on first sign-in.
+    let local = email.split('@').next().unwrap_or(email);
+    let handle = profile::mint_unique_handle(&db, local).await?;
 
     let txn = db.begin().await?;
     let user_id = Uuid::new_v4();
@@ -457,6 +479,7 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
         last_login_at: Set(None),
         invite_code_id: Set(None),
         activated_at: Set(None),
+        handle: Set(handle),
         ..Default::default()
     }
     .insert(&txn)

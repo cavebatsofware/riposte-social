@@ -1,10 +1,12 @@
 # Frontend build stage. Builds both the admin SPA (admin-assets/) and the
 # social SPA (social-assets/). The two share package.json + node_modules
 # and are produced from one `npm run build` call (admin then social).
-FROM node:25.7-alpine3.23 AS frontend-builder
+FROM node:25.9-trixie AS frontend-builder
 
 WORKDIR /app
 
+# Copy package files and install dependencies. Plugin peers are now
+# aligned with eslint 9.x so `npm ci` runs without --legacy-peer-deps.
 COPY package*.json ./
 RUN npm ci
 
@@ -18,52 +20,49 @@ COPY social-frontend ./social-frontend
 # per package.json scripts and emits to admin-assets/ and social-assets/.
 RUN npm run build
 
-# Rust build stage
-FROM rust:alpine3.23 AS builder
+# Rust build stage. Debian 13 (trixie) image so the runtime stage can
+# share the same glibc; default target is x86_64-unknown-linux-gnu.
+FROM rust:1.95-trixie AS builder
 
 WORKDIR /app
 
-# Install build dependencies for Alpine/musl compatibility
-RUN apk update
-RUN apk add --no-cache musl-dev
-
-# Copy manifest files
+# Copy manifest + source.
 COPY Cargo.toml Cargo.lock ./
-
-# Copy source code
 COPY src ./src
 
-# Build the release binary
+# Cargo.toml is rustls-only across sea-orm / sqlx / reqwest, so the
+# binary needs only ca-certificates at runtime — no libssl link.
 RUN cargo build --release
 
-# Runtime stage
-FROM alpine:3.23.3
+# Runtime stage. debian:trixie-slim is the minimal Debian 13 base
+# (~75MB before our additions); we install ca-certificates for
+# outbound TLS and create a dedicated non-root user.
+FROM debian:trixie-slim
 
 WORKDIR /app
 
-# Install minimal runtime dependencies
-RUN apk add --no-cache ca-certificates
+# Install ca-certificates and create the non-root runtime user in one
+# layer; clean apt caches so the final image stays small.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && groupadd --system appuser \
+ && useradd --system --gid appuser --no-create-home \
+            --shell /usr/sbin/nologin appuser
 
-# Copy the binary from builder stage
-COPY --from=builder /app/target/release/riposte-social ./riposte-social
-
-# Copy built admin and social frontends from frontend-builder stage.
-COPY --from=frontend-builder /app/admin-assets ./admin-assets
-COPY --from=frontend-builder /app/social-assets ./social-assets
-
-# Static template files (assets/, landing.html) are no longer served by
-# the SPA root; the social-frontend handles `/`. Drop the COPY lines that
-# referenced them; revisit later if a bare landing page becomes useful.
-COPY entrypoint.sh ./entrypoint.sh
-
-# Create non-root user (Alpine style)
-RUN adduser -D -s /bin/false appuser && \
-    chown -R appuser:appuser /app && \
-    chmod +x ./entrypoint.sh
+# Copy artifacts with explicit ownership + executable bits so we never
+# need a runtime chown / chmod. The binary and entrypoint must be
+# executable; the SPA assets are read-only.
+COPY --from=builder --chown=appuser:appuser --chmod=0755 \
+     /app/target/release/riposte-social ./riposte-social
+COPY --from=frontend-builder --chown=appuser:appuser \
+     /app/admin-assets ./admin-assets
+COPY --from=frontend-builder --chown=appuser:appuser \
+     /app/social-assets ./social-assets
+COPY --chown=appuser:appuser --chmod=0755 entrypoint.sh ./entrypoint.sh
 
 USER appuser
 
 EXPOSE 3000
 
-# Start the application
 ENTRYPOINT ["./entrypoint.sh"]

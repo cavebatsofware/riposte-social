@@ -8,8 +8,10 @@ jobs:
       # Mirror docker-compose.test.yml's postgres-test on port 5433 so
       # `cargo test` can connect via the same DATABASE_URL pattern the
       # local Makefile uses (TEST_DATABASE_URL=postgresql://.../test_db).
+      # paradedb is a Postgres superset shipping pg_search; CI volumes
+      # are ephemeral so no reset needed.
       postgres-test:
-        image: postgres:16-alpine
+        image: paradedb/paradedb:0.23.4-pg18
         env:
           POSTGRES_DB: riposte_social_test
           POSTGRES_USER: riposte_social_test_user
