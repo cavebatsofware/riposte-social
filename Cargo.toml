@@ -97,14 +97,14 @@ urlencoding = "2.1"
 aws-smithy-mocks = "0.2.6"
 aws-smithy-runtime-api = "1.11.6"
 aws-smithy-types = "1.4.7"
-aws-sdk-sesv2 = { version = "1.115.0", default-features = false, features = [
+aws-sdk-sesv2 = { version = "1.117.0", default-features = false, features = [
     "sigv4a",
     "default-https-client",
     "rt-tokio",
     "behavior-version-latest",
     "test-util",
 ] }
-aws-sdk-s3 = { version = "1.125.0", default-features = false, features = [
+aws-sdk-s3 = { version = "1.129.0", default-features = false, features = [
     "sigv4a",
     "http-1x",
     "default-https-client",
