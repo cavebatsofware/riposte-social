@@ -415,8 +415,7 @@ async fn run_migrations_sync() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Bootstrap the first administrator. Inserts an inert admin row plus a
 /// fresh invite, prints the invite URL. Refuses to run if any users
-/// already exist so it can't be misused to mint privileged accounts on a
-/// live system.
+/// already exist.
 ///
 /// The DB ordering inside the transaction works around the user/invite
 /// FK pair: insert the user first (no invite_code_id), insert the invite
@@ -445,9 +444,7 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
     }
 
     // `handle` is NOT NULL on `users` (Phase 8 profile schema). Mint a
-    // unique handle from the email local-part the same way the test-admin
-    // seed and the regular create-user path do, so the row satisfies the
-    // constraint and the bootstrap account has a profile-URL on first sign-in.
+    // unique handle from the email local-part
     let local = email.split('@').next().unwrap_or(email);
     let handle = profile::mint_unique_handle(&db, local).await?;
 

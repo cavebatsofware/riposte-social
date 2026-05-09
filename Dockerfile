@@ -31,7 +31,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 
 # Cargo.toml is rustls-only across sea-orm / sqlx / reqwest, so the
-# binary needs only ca-certificates at runtime — no libssl link.
+# binary needs only ca-certificates at runtime; no libssl link.
 RUN cargo build --release
 
 # Runtime stage. debian:trixie-slim is the minimal Debian 13 base
