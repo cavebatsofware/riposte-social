@@ -1,7 +1,12 @@
 services:
-  # PostgreSQL database for local development
+  # PostgreSQL database for local development. paradedb is a Postgres
+  # superset that ships pg_search; we don't use it yet but the image
+  # is in place for the planned FTS migration. Note: the on-disk format
+  # changed pg16 -> pg18, so the existing `postgres_data` volume is
+  # incompatible. Run `make db-reset` (or
+  # `docker volume rm riposte-social_postgres_data`) once after pulling.
   postgres:
-    image: postgres:16-alpine
+    image: paradedb/paradedb:0.23.4-pg18
     container_name: riposte-social-db
     restart: unless-stopped
     environment:
@@ -12,7 +17,11 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PG18+ expects the volume mount at /var/lib/postgresql so the
+      # version-specific data subdirectory (e.g. .../18/) lives inside
+      # the volume. Mounting directly at .../data is the legacy pre-18
+      # layout and refuses to start under the new image.
+      - postgres_data:/var/lib/postgresql
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:
       test:

@@ -1,6 +1,11 @@
 services:
+  # paradedb is a Postgres superset that ships pg_search; we don't use
+  # it yet but the image is in place for the planned FTS migration.
+  # Note: the on-disk format changed pg16 -> pg18, so the existing
+  # `postgres_test_data` volume is incompatible. Run `make test-app-reset`
+  # (which drops the volume via `-v`) once after pulling.
   postgres-test:
-    image: postgres:16-alpine
+    image: paradedb/paradedb:0.23.4-pg18
     container_name: riposte-social-test-db
     environment:
       POSTGRES_DB: ${TEST_POSTGRES_DB:-riposte_social_test}
@@ -10,7 +15,10 @@ services:
     ports:
       - "${TEST_POSTGRES_PORT:-5433}:5432"
     volumes:
-      - postgres_test_data:/var/lib/postgresql/data
+      # PG18+ expects the volume mount at /var/lib/postgresql so the
+      # version-specific data subdirectory (e.g. .../18/) lives inside
+      # the volume. See docker-compose.yml for the same note.
+      - postgres_test_data:/var/lib/postgresql
     healthcheck:
       test:
         [

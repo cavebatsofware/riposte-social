@@ -40,10 +40,25 @@ axum-login = { git = "https://github.com/cavebatsofware/axum-login.git" }
 tower-sessions = "0.15"
 tower-sessions-sqlx-store = { git = "https://github.com/cavebatsofware/tower-sessions-stores.git", features = ["postgres"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["runtime-tokio-rustls", "postgres"] }
-# AWS services
+# AWS services. Default features ship a `rustls` feature that pins the
+# legacy hyper-rustls 0.24 / rustls 0.21 / rustls-webpki 0.101 chain
+# (RUSTSEC-2026-0098/0099/0104). Opt it out and rely on
+# `default-https-client`, which routes through aws-smithy-http-client's
+# `rustls-aws-lc` feature for the modern rustls + aws-lc-rs backend.
 aws-config = "1.8.15"
-aws-sdk-sesv2 = "1.117.0"
-aws-sdk-s3 = "1.129.0"
+aws-sdk-sesv2 = { version = "1.117.0", default-features = false, features = [
+    "sigv4a",
+    "default-https-client",
+    "rt-tokio",
+    "behavior-version-latest",
+] }
+aws-sdk-s3 = { version = "1.129.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+    "behavior-version-latest",
+] }
 # Time for session expiry
 time = "0.3.47"
 # DOCX handling (ZIP archive manipulation)
@@ -82,6 +97,19 @@ urlencoding = "2.1"
 aws-smithy-mocks = "0.2.6"
 aws-smithy-runtime-api = "1.11.6"
 aws-smithy-types = "1.4.7"
-aws-sdk-sesv2 = { version = "1.115.0", features = ["test-util"] }
-aws-sdk-s3 = { version = "1.125.0", features = ["test-util"] }
+aws-sdk-sesv2 = { version = "1.117.0", default-features = false, features = [
+    "sigv4a",
+    "default-https-client",
+    "rt-tokio",
+    "behavior-version-latest",
+    "test-util",
+] }
+aws-sdk-s3 = { version = "1.129.0", default-features = false, features = [
+    "sigv4a",
+    "http-1x",
+    "default-https-client",
+    "rt-tokio",
+    "behavior-version-latest",
+    "test-util",
+] }
 rsa = { version = "0.9.10", features = ["pem"] }

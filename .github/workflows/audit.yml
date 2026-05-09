@@ -17,12 +17,11 @@ jobs:
         run: cargo install cargo-audit
       - name: Audit vulnerabilities
         run: |
-          # Pre-existing advisories tracked in follow-ups, not blockers for this PR:
-          #   RUSTSEC-2023-0071 (rsa): no fixed upgrade available upstream
-          #   RUSTSEC-2026-0098/0099/0104 (rustls-webpki 0.101.x): pinned by the
-          #     AWS SDK chain (rustls 0.21); needs an aws-sdk-rust bump.
+          # RUSTSEC-2023-0071 (rsa): no fixed upgrade available upstream.
+          # The previous rustls-webpki ignores (RUSTSEC-2026-0098/0099/0104)
+          # were dropped after opting out of aws-sdk-{s3,sesv2}'s default
+          # `rustls` feature, which was pinning the legacy hyper-rustls
+          # 0.24 / rustls 0.21 / rustls-webpki 0.101 chain alongside the
+          # modern `default-https-client` path.
           cargo audit \
-            --ignore RUSTSEC-2023-0071 \
-            --ignore RUSTSEC-2026-0098 \
-            --ignore RUSTSEC-2026-0099 \
-            --ignore RUSTSEC-2026-0104
+            --ignore RUSTSEC-2023-0071
