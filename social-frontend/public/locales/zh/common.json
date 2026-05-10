@@ -31,6 +31,7 @@
     "openAria": "打开账户菜单",
     "viewProfile": "查看个人资料",
     "settings": "设置",
+    "admin": "管理后台",
     "fallbackName": "账户"
   },
   "theme": {

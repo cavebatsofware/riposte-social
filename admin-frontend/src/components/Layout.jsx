@@ -110,6 +110,13 @@ function Layout({ children }) {
               onClick={go}
               label="Settings"
             />
+            <a
+              href="/"
+              className="sidebar-link"
+              onClick={() => setDrawerOpen(false)}
+            >
+              View Site
+            </a>
           </nav>
         </aside>
 
