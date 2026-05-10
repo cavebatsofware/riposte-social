@@ -981,24 +981,38 @@ pub(crate) fn wrap_bare_urls(s: &str) -> Cow<'_, str> {
 /// bracket (Wikipedia, MDN's `Array.prototype[Symbol.iterator]`, etc.)
 /// keep that final character.
 fn trim_url_punctuation(raw: &str) -> &str {
+    // Pre-count brackets in one pass so the trimming loop stays linear:
+    // each peel updates the running counter for the closer it removes
+    // instead of re-scanning the prefix.
+    let (mut opens_p, mut closes_p, mut opens_b, mut closes_b) = (0usize, 0usize, 0usize, 0usize);
+    for c in raw.chars() {
+        match c {
+            '(' => opens_p += 1,
+            ')' => closes_p += 1,
+            '[' => opens_b += 1,
+            ']' => closes_b += 1,
+            _ => {}
+        }
+    }
     let mut end = raw.len();
     while let Some(last) = raw[..end].chars().next_back() {
         let strip = match last {
             '.' | ',' | ';' | '!' | '?' => true,
-            ')' => count_char(&raw[..end], ')') > count_char(&raw[..end], '('),
-            ']' => count_char(&raw[..end], ']') > count_char(&raw[..end], '['),
+            ')' => closes_p > opens_p,
+            ']' => closes_b > opens_b,
             _ => false,
         };
         if !strip {
             break;
         }
+        match last {
+            ')' => closes_p -= 1,
+            ']' => closes_b -= 1,
+            _ => {}
+        }
         end -= last.len_utf8();
     }
     &raw[..end]
-}
-
-fn count_char(s: &str, target: char) -> usize {
-    s.chars().filter(|&c| c == target).count()
 }
 
 /// Stable dedup key. We can't use FB's internal post ids (the export does
