@@ -982,10 +982,7 @@ pub(crate) fn wrap_bare_urls(s: &str) -> Cow<'_, str> {
 /// keep that final character.
 fn trim_url_punctuation(raw: &str) -> &str {
     let mut end = raw.len();
-    loop {
-        let Some(last) = raw[..end].chars().next_back() else {
-            break;
-        };
+    while let Some(last) = raw[..end].chars().next_back() {
         let strip = match last {
             '.' | ',' | ';' | '!' | '?' => true,
             ')' => count_char(&raw[..end], ')') > count_char(&raw[..end], '('),
