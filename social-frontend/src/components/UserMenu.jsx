@@ -106,6 +106,16 @@ export default function UserMenu({ user, onSignOut }) {
           >
             {t("userMenu.settings")}
           </Link>
+          {user.role === "administrator" && (
+            <a
+              href="/admin/"
+              className="user-menu-item"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+            >
+              {t("userMenu.admin")}
+            </a>
+          )}
           <button
             type="button"
             className="user-menu-item user-menu-signout"
