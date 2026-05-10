@@ -1607,6 +1607,13 @@ summary:focus-visible,
   color: var(--color-text);
   font-size: var(--font-size-base);
   line-height: 1.65;
+  /* Imported posts can carry tracking-laden URLs (200+ char strings
+     with no whitespace) as plain text or as link text. Without this
+     they overflow the post box. `anywhere` is required (not the
+     softer `break-word`) so the unbreakable URL token actually
+     breaks; the cost is that very long natural words could also
+     break, which is acceptable for a post body. */
+  overflow-wrap: anywhere;
 }
 
 /* Phase 9f: clamp long post bodies on the feed-variant card so a single

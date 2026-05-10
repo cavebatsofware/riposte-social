@@ -4293,6 +4293,7 @@ dependencies = [
  "prometheus",
  "pulldown-cmark",
  "rand 0.10.1",
+ "regex",
  "reqwest",
  "riposte-social",
  "rsa",

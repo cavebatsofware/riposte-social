@@ -32,9 +32,16 @@
 //!    task opens its own `ZipArchive` from the local tempfile (cheap; the
 //!    central directory is small) and uploads its media to S3 in series.
 //!
-//! Mojibake. Older FB exports double-encode UTF-8 as latin1 for body text
-//! in JSON. We do not currently fix this; if real-world archives hit it,
-//! add a `latin1_to_utf8` decode pass on `body` here.
+//! Mojibake. FB exports double-encode UTF-8 as latin1 for any text field
+//! containing non-ASCII characters (curly quotes, em-dashes, accented
+//! letters, emoji). `fix_facebook_mojibake` is applied to album name,
+//! description, and post body during normalization so the database stores
+//! the correctly decoded codepoints.
+//!
+//! URL formatting. Post bodies arrive as plain text with bare http(s)
+//! URLs. `wrap_bare_urls` wraps them in markdown autolink syntax
+//! (`<https://...>`) so the social frontend renders them as clickable
+//! links rather than literal text.
 
 use crate::entities::{album, album_media, post, post_media};
 use crate::imports::{self, JobProgress};
@@ -849,7 +856,13 @@ fn normalize_post(raw: RawFacebookPost) -> Option<FacebookPost> {
         .data
         .into_iter()
         .filter_map(|d| d.post)
-        .map(|s| fix_facebook_mojibake(s.trim()).into_owned())
+        .map(|s| {
+            let fixed = fix_facebook_mojibake(s.trim());
+            match wrap_bare_urls(fixed.as_ref()) {
+                Cow::Owned(wrapped) => wrapped,
+                Cow::Borrowed(_) => fixed.into_owned(),
+            }
+        })
         .filter(|s| !s.is_empty())
         .collect();
     let mut body = body_parts.join("\n\n");
@@ -885,23 +898,32 @@ fn normalize_post(raw: RawFacebookPost) -> Option<FacebookPost> {
 
 /// Best-effort fixup for Facebook's latin1-as-UTF8 double-encoding.
 ///
-/// FB's exporter sometimes JSON-stringifies UTF-8 byte sequences as latin1
-/// codepoints, so a `«` (U+00AB, UTF-8 bytes C2 AB) lands in the JSON as
-/// the two-char string `Â«` (U+00C2 U+00AB). We detect this by:
-/// 1. Quick-rejecting strings that contain no `\u{00C2}` or `\u{00C3}`
-///    (the leading bytes of any misinterpreted UTF-8 ≥ 0xC2).
-/// 2. Re-collecting `s.chars()` as latin1 bytes; if any char is ≥ 256 the
-///    string is genuinely multi-codepoint UTF-8 and we leave it alone.
-/// 3. Decoding those bytes as UTF-8. If decoding succeeds AND the result
-///    has *strictly fewer* chars than the input (the fixup collapsed at
-///    least one C2/C3-led pair into one codepoint), return the fixed
-///    string. Otherwise return the input untouched.
+/// FB's exporter JSON-stringifies UTF-8 byte sequences as latin1
+/// codepoints, so each byte of a multi-byte UTF-8 sequence shows up as
+/// its own `\u00XX` escape. Examples:
+/// - `«` (U+00AB, UTF-8 `C2 AB`) lands as `Â«` (U+00C2 U+00AB).
+/// - `'` (U+2019, UTF-8 `E2 80 99`) lands as three chars `â\u{0080}\u{0099}`.
+/// - 🦢 (U+1F9A2, UTF-8 `F0 9F A6 A2`) lands as four chars.
 ///
-/// The strict "fewer chars" gate is important: a clean ASCII string with
-/// no real mojibake but a stray `Â` (e.g. someone literally typed it)
-/// re-decodes to the same length, and we leave it alone.
+/// Fix:
+/// 1. Quick-reject strings with no chars in the latin-1 high-byte range
+///    (U+0080..=U+00FF). Those can't be hiding misinterpreted UTF-8 since
+///    every multi-byte UTF-8 leader (C2-DF, E0-EF, F0-F4) and every
+///    continuation byte (80-BF) lands in that range when reinterpreted
+///    as a codepoint.
+/// 2. Re-collect `s.chars()` as latin1 bytes; if any char is ≥ 256 the
+///    string contains genuine multi-codepoint UTF-8 mixed in, so we
+///    leave it alone.
+/// 3. Decode those bytes as UTF-8. Accept the decoded result only if it
+///    has strictly fewer chars than the input (the fixup collapsed at
+///    least one multi-byte sequence into one codepoint). Otherwise
+///    return the input untouched.
+///
+/// The strict "fewer chars" gate prevents false positives: a clean ASCII
+/// string with a stray `Â` (someone literally typed it) re-decodes to
+/// the same length and is left alone.
 pub(crate) fn fix_facebook_mojibake(s: &str) -> Cow<'_, str> {
-    if !s.chars().any(|c| c == '\u{00C2}' || c == '\u{00C3}') {
+    if !s.chars().any(|c| ('\u{0080}'..='\u{00FF}').contains(&c)) {
         return Cow::Borrowed(s);
     }
     let mut bytes: Vec<u8> = Vec::with_capacity(s.len());
@@ -917,6 +939,37 @@ pub(crate) fn fix_facebook_mojibake(s: &str) -> Cow<'_, str> {
         Ok(decoded) if decoded.chars().count() < original_chars => Cow::Owned(decoded.to_string()),
         _ => Cow::Borrowed(s),
     }
+}
+
+/// Wraps bare http(s) URLs in markdown autolink syntax `<...>`. FB
+/// exports store URLs as plain text; without the wrap a markdown
+/// renderer either silently shows them as text or relies on a
+/// non-standard autolink extension. The autolink form is canonical
+/// markdown and works in every renderer.
+///
+/// Trailing sentence and bracket punctuation (`.,;!?)]`) is peeled off
+/// the URL so "visit https://example.com." becomes
+/// "visit <https://example.com>." rather than capturing the period as
+/// part of the link, and "(see https://example.com)" becomes
+/// "(see <https://example.com>)" instead of swallowing the paren.
+pub(crate) fn wrap_bare_urls(s: &str) -> Cow<'_, str> {
+    use std::sync::OnceLock;
+    static URL_RE: OnceLock<regex::Regex> = OnceLock::new();
+    let re =
+        URL_RE.get_or_init(|| regex::Regex::new(r"https?://[^\s<>]+").expect("valid url regex"));
+    if !re.is_match(s) {
+        return Cow::Borrowed(s);
+    }
+    let trim_chars: &[char] = &['.', ',', ';', '!', '?', ')', ']'];
+    Cow::Owned(
+        re.replace_all(s, |caps: &regex::Captures<'_>| {
+            let raw = &caps[0];
+            let trimmed = raw.trim_end_matches(trim_chars);
+            let trail = &raw[trimmed.len()..];
+            format!("<{trimmed}>{trail}")
+        })
+        .into_owned(),
+    )
 }
 
 /// Stable dedup key. We can't use FB's internal post ids (the export does
@@ -1333,6 +1386,26 @@ mod tests {
     }
 
     #[test]
+    fn test_mojibake_fixup_repairs_three_byte_utf8() {
+        // U+2019 right single quote: UTF-8 E2 80 99, latin1-mangled to
+        // three chars (â + U+0080 + U+0099).
+        let mangled = "you\u{00e2}\u{0080}\u{0099}re here";
+        assert_eq!(fix_facebook_mojibake(mangled), "you\u{2019}re here");
+
+        // U+201C left double quote: UTF-8 E2 80 9C.
+        let mangled2 = "say \u{00e2}\u{0080}\u{009c}hi\u{00e2}\u{0080}\u{009d}";
+        assert_eq!(fix_facebook_mojibake(mangled2), "say \u{201c}hi\u{201d}");
+    }
+
+    #[test]
+    fn test_mojibake_fixup_repairs_four_byte_utf8() {
+        // U+1F9A2 swan emoji: UTF-8 F0 9F A6 A2, latin1-mangled to four
+        // chars (ð + U+009F + U+00A6 + U+00A2).
+        let mangled = "two \u{00f0}\u{009f}\u{00a6}\u{00a2} watch";
+        assert_eq!(fix_facebook_mojibake(mangled), "two \u{1f9a2} watch");
+    }
+
+    #[test]
     fn test_mojibake_fixup_leaves_clean_strings_alone() {
         // Plain ASCII.
         assert_eq!(
@@ -1349,6 +1422,45 @@ mod tests {
         // The decoded result is the same length so the strict-fewer-chars
         // gate keeps the original.
         assert_eq!(fix_facebook_mojibake(stray_c2).as_ref(), stray_c2);
+    }
+
+    // ----- url auto-link -----
+
+    #[test]
+    fn test_wrap_bare_urls_basic() {
+        let input = "see https://example.com for more";
+        assert_eq!(wrap_bare_urls(input), "see <https://example.com> for more");
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_strips_trailing_punctuation() {
+        let input = "visit https://example.com.";
+        assert_eq!(wrap_bare_urls(input), "visit <https://example.com>.");
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_preserves_query_params() {
+        let url = "https://twitter.com/u/status/1?ref_src=twsrc%5Etfw&ref_url=foo";
+        let input = format!("see {url}");
+        let want = format!("see <{url}>");
+        assert_eq!(wrap_bare_urls(&input), want);
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_leaves_text_without_urls_alone() {
+        // No URL anywhere in the string; the function should short-circuit
+        // on the regex pre-check and return Borrowed unchanged.
+        let input = "no urls here";
+        assert_eq!(wrap_bare_urls(input), input);
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_multiple() {
+        let input = "first https://a.example then https://b.example end";
+        assert_eq!(
+            wrap_bare_urls(input),
+            "first <https://a.example> then <https://b.example> end"
+        );
     }
 
     // ----- album normalization (Phase 9d: FacebookAlbum, not FacebookPost) -----
