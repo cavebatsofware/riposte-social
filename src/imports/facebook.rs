@@ -947,11 +947,13 @@ pub(crate) fn fix_facebook_mojibake(s: &str) -> Cow<'_, str> {
 /// non-standard autolink extension. The autolink form is canonical
 /// markdown and works in every renderer.
 ///
-/// Trailing sentence and bracket punctuation (`.,;!?)]`) is peeled off
-/// the URL so "visit https://example.com." becomes
-/// "visit <https://example.com>." rather than capturing the period as
-/// part of the link, and "(see https://example.com)" becomes
-/// "(see <https://example.com>)" instead of swallowing the paren.
+/// Sentence punctuation (`.,;!?`) at the tail of a captured URL is
+/// always peeled off so "visit https://example.com." becomes
+/// "visit <https://example.com>.". Closing brackets (`)` `]`) are
+/// peeled only when their tally exceeds the matching opener inside
+/// the captured URL, so "(see https://example.com)" trims the trailing
+/// `)` while a Wikipedia-style permalink such as
+/// "https://en.wikipedia.org/wiki/Foo_(mathematics)" keeps it.
 pub(crate) fn wrap_bare_urls(s: &str) -> Cow<'_, str> {
     use std::sync::OnceLock;
     static URL_RE: OnceLock<regex::Regex> = OnceLock::new();
@@ -960,16 +962,46 @@ pub(crate) fn wrap_bare_urls(s: &str) -> Cow<'_, str> {
     if !re.is_match(s) {
         return Cow::Borrowed(s);
     }
-    let trim_chars: &[char] = &['.', ',', ';', '!', '?', ')', ']'];
     Cow::Owned(
         re.replace_all(s, |caps: &regex::Captures<'_>| {
             let raw = &caps[0];
-            let trimmed = raw.trim_end_matches(trim_chars);
+            let trimmed = trim_url_punctuation(raw);
             let trail = &raw[trimmed.len()..];
             format!("<{trimmed}>{trail}")
         })
         .into_owned(),
     )
+}
+
+/// Walks back from the end of `raw` peeling off characters that are
+/// almost certainly surrounding-text punctuation rather than URL
+/// content. Sentence punctuation is unconditional. A trailing `)` or
+/// `]` is peeled only when the remaining URL has more closers than
+/// matching openers, so URLs whose path legitimately ends in a
+/// bracket (Wikipedia, MDN's `Array.prototype[Symbol.iterator]`, etc.)
+/// keep that final character.
+fn trim_url_punctuation(raw: &str) -> &str {
+    let mut end = raw.len();
+    loop {
+        let Some(last) = raw[..end].chars().next_back() else {
+            break;
+        };
+        let strip = match last {
+            '.' | ',' | ';' | '!' | '?' => true,
+            ')' => count_char(&raw[..end], ')') > count_char(&raw[..end], '('),
+            ']' => count_char(&raw[..end], ']') > count_char(&raw[..end], '['),
+            _ => false,
+        };
+        if !strip {
+            break;
+        }
+        end -= last.len_utf8();
+    }
+    &raw[..end]
+}
+
+fn count_char(s: &str, target: char) -> usize {
+    s.chars().filter(|&c| c == target).count()
 }
 
 /// Stable dedup key. We can't use FB's internal post ids (the export does
@@ -1452,6 +1484,43 @@ mod tests {
         // on the regex pre-check and return Borrowed unchanged.
         let input = "no urls here";
         assert_eq!(wrap_bare_urls(input), input);
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_keeps_balanced_parens_in_url() {
+        // Wikipedia-style URL whose path legitimately ends in `)`.
+        // Closing parens inside the URL are balanced, so the trailing
+        // `)` is part of the URL and must be preserved.
+        let url = "https://en.wikipedia.org/wiki/Pi_(letter)";
+        let input = format!("see {url}");
+        let want = format!("see <{url}>");
+        assert_eq!(wrap_bare_urls(&input), want);
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_strips_unbalanced_trailing_paren() {
+        // Sentence-wrapping paren around a URL that itself has none.
+        let input = "(see https://example.com)";
+        assert_eq!(wrap_bare_urls(input), "(see <https://example.com>)");
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_strips_extra_paren_after_balanced_url() {
+        // Sentence wraps a Wikipedia URL: balanced parens stay, the
+        // extra closing paren that wraps the sentence is peeled off.
+        let url = "https://en.wikipedia.org/wiki/Pi_(letter)";
+        let input = format!("(see {url})");
+        let want = format!("(see <{url}>)");
+        assert_eq!(wrap_bare_urls(&input), want);
+    }
+
+    #[test]
+    fn test_wrap_bare_urls_keeps_balanced_brackets_in_url() {
+        // Mirror of the parens case for square brackets.
+        let url = "https://example.com/Array.prototype[Symbol.iterator]";
+        let input = format!("see {url} now");
+        let want = format!("see <{url}> now");
+        assert_eq!(wrap_bare_urls(&input), want);
     }
 
     #[test]
