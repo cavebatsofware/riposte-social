@@ -44,7 +44,10 @@
       "warm": "Warmes Editorial",
       "plum": "Pflaume und Aprikose",
       "avernus": "Avernus und Wolken",
-      "mineral": "Gestein und Mineralien"
+      "mineral": "Gestein und Mineralien",
+      "daltonia": "Rot-Grün-Filter",
+      "tritan": "Blau-Gelb-Filter",
+      "achroma": "Hoher Kontrast"
     },
     "mode": {
       "light": "Hell",
