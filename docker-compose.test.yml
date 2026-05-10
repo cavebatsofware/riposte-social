@@ -63,11 +63,19 @@ services:
       TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-test_admin_password}
       # Permissive rate limits so Cypress (and humans poking the test
       # container) don't get IP-banned mid-run. The dev environment
-      # uses the in-prod defaults.
+      # uses the in-prod defaults. Refund ratio at 1.0 and error
+      # penalty at 0 makes every request effectively free, on top of
+      # the very high request ceiling.
       RATE_LIMIT_PER_MINUTE: "10000"
       BLOCK_DURATION_MINUTES: "1"
+      RATE_LIMIT_GRACE_PERIOD_SECONDS: "0"
+      RATE_LIMIT_CACHE_REFUND_RATIO: "1.0"
+      RATE_LIMIT_ERROR_PENALTY: "0.0"
       AUTH_RATE_LIMIT_PER_MINUTE: "10000"
       AUTH_BLOCK_DURATION_MINUTES: "1"
+      AUTH_RATE_LIMIT_GRACE_PERIOD_SECONDS: "0"
+      AUTH_RATE_LIMIT_CACHE_REFUND_RATIO: "1.0"
+      AUTH_RATE_LIMIT_ERROR_PENALTY: "0.0"
       RUST_LOG: ${TEST_APP_LOG_LEVEL:-warn}
     ports:
       - "${TEST_APP_PORT:-3001}:3000"
