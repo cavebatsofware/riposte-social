@@ -136,10 +136,18 @@ Copy `.env.example` to `.env` and configure. See `.env.example` for all options 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RATE_LIMIT_PER_MINUTE` | 30 | General request rate limit per IP |
+| `RATE_LIMIT_PER_MINUTE` | 60 | General request rate limit per IP |
 | `BLOCK_DURATION_MINUTES` | 15 | Block duration after exceeding general limit |
+| `RATE_LIMIT_GRACE_PERIOD_SECONDS` | 1 | Grace period before the bucket starts charging requests |
+| `RATE_LIMIT_CACHE_REFUND_RATIO` | 0.5 | Fraction of token cost refunded for HTTP 304 NOT_MODIFIED responses (cache revalidation) |
+| `RATE_LIMIT_ERROR_PENALTY` | 2.0 | Extra tokens charged for 4xx/5xx responses on top of the base 1-token cost |
 | `AUTH_RATE_LIMIT_PER_MINUTE` | 5 | Stricter limit for auth endpoints |
 | `AUTH_BLOCK_DURATION_MINUTES` | 30 | Block duration after exceeding auth limit |
+| `AUTH_RATE_LIMIT_GRACE_PERIOD_SECONDS` | 0 | Grace period for the auth bucket (default 0 so brute-force consumes immediately) |
+| `AUTH_RATE_LIMIT_CACHE_REFUND_RATIO` | 0.0 | Refund ratio for auth 304 (default 0.0 since auth is stateful) |
+| `AUTH_RATE_LIMIT_ERROR_PENALTY` | 4.0 | Extra tokens for failed auth (a 5-req/min bucket blocks after one failed attempt at 4.0) |
+
+The general bucket follows "forgiving on cache hits, aggressive on errors": a re-poll that hits the browser cache (304 NOT_MODIFIED) refunds part of its cost, while 4xx probing depletes the bucket faster, so legitimate browsing scales while abuse gets blocked sooner. The auth bucket applies the same asymmetry to credential testing so failed logins cost much more than successful ones.
 
 ### Access Logging
 
@@ -294,65 +302,12 @@ MIGRATE_DB=true cargo run -- migrate
 - **MFA/TOTP** - Time-based one-time passwords with QR code enrollment; AES-256-GCM encrypted secrets at rest; lockout after 3 failed attempts
 - **RBAC** - Administrator and viewer roles; viewer cannot access admin CRUD endpoints
 - **Session management** - PostgreSQL-backed sessions with 1-day inactivity expiry; sessions invalidated on password change, email change, or MFA toggle via composite hash (BLAKE2b-512)
-- **Rate limiting** - Two-tier system: general limiter (30 req/min) and stricter auth limiter (5 req/min) with configurable block durations
-- **Request screening** - Blocks known attack patterns (PHP/WordPress/JNDI probes, scanner user agents) before they consume rate limit tokens
+- **Rate limiting** - Two-tier system: adjustable general limiter forgiving on success and aggressive on errors via cache refund and error penalty and stricter auth limiter, with extra penalty on failed credentials so brute-force gets blocked earlier with configurable block durations
+- **Request screening** - Blocks common noisy attack patterns (PHP/WordPress/JNDI probes, scanner user agents) before they consume rate limit tokens
 - **CSRF protection** - Token validation on all state-changing endpoints
 - **Access logging** - Full audit trail with IP, user agent, action type, and outcome; automatic cleanup with configurable retention
 - **Encryption at rest** - AES-256-GCM for TOTP secrets, verification tokens, and password reset tokens; key validated at startup
-- **Input validation** - Strict validation on all forms: email format, password strength, alphanumeric access codes, filename sanitization
-- **Prometheus metrics** - System and application metrics at `/metrics` (restricted to localhost, rejects proxied requests)
-
-## Project Structure
-
-```
-├── src/
-│   ├── main.rs              # Entry point, server setup, background tasks
-│   ├── app.rs               # AppState, router construction, access code serving
-│   ├── lib.rs               # Library root
-│   ├── database.rs          # Database connection management
-│   ├── settings.rs          # Settings service (DB-backed with env fallbacks)
-│   ├── errors.rs            # AppError types with HTTP status mapping
-│   ├── crypto.rs            # AES-256-GCM encryption/decryption
-│   ├── oidc.rs              # OIDC/Keycloak client configuration
-│   ├── email.rs             # Email service via AWS SES
-│   ├── s3.rs                # S3-compatible file storage
-│   ├── contact.rs           # Contact form handler
-│   ├── subscribe.rs         # Newsletter subscription handler
-│   ├── docx.rs              # DOCX template processing
-│   ├── metrics.rs           # Prometheus metrics collection
-│   ├── security_callbacks.rs # Rate limit callbacks and access logging
-│   ├── admin/
-│   │   ├── mod.rs           # Module exports, shared constants
-│   │   ├── auth.rs          # Auth backend (create, verify, password, MFA)
-│   │   ├── routes.rs        # Admin API endpoints (login, register, MFA, etc.)
-│   ├── auth/
-│   │   ├── mod.rs           # Auth routes shared across all user tiers
-│   │   └── oidc_routes.rs   # OIDC login/callback (admin, poster, commenter)
-│   │   ├── access_codes.rs  # Access code CRUD with S3 upload
-│   │   ├── access_logs.rs   # Access log queries and dashboard metrics
-│   │   ├── admin_users.rs   # Admin user management
-│   │   ├── settings.rs      # Settings management endpoints
-│   │   ├── totp.rs          # TOTP generation and verification
-│   │   ├── password.rs      # Password validation rules
-│   │   └── pagination.rs    # Pagination helpers
-│   ├── entities/            # SeaORM entities (admin_user, access_code,
-│   │                        #   access_log, setting, subscriber)
-│   ├── middleware/
-│   │   ├── mod.rs           # CSRF middleware wrapper
-│   │   ├── admin_auth.rs    # Auth and role enforcement middleware
-│   │   └── access_log.rs    # Access logging middleware
-│   └── migration/           # 23 SeaORM migrations
-├── admin-frontend/          # React admin SPA source
-├── admin-assets/            # Built admin frontend
-├── assets/                  # Static assets (icons, styles)
-├── tests/                   # 16 integration test files + test helpers
-│   └── common/              # Shared test utilities and mocks (SES, S3, OIDC)
-├── Cargo.toml
-├── Makefile
-├── docker-compose.yml       # Development database
-├── docker-compose.test.yml  # Test database
-└── Dockerfile
-```
+- **Prometheus metrics** - System and application metrics at `/metrics` (restricted to localhost, rejects proxied requests), should be additionally restricted at system/httpd level.
 
 ## License
 

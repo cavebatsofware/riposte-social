@@ -73,14 +73,29 @@ impl AppState {
             .map_err(|e| anyhow::anyhow!("Database connection failed: {}", e))?;
 
         let rate_limit_per_minute = env::var("RATE_LIMIT_PER_MINUTE")
-            .unwrap_or_else(|_| "30".to_string())
+            .unwrap_or_else(|_| "60".to_string())
             .parse()
-            .unwrap_or(30);
+            .unwrap_or(60);
 
         let block_duration_minutes = env::var("BLOCK_DURATION_MINUTES")
             .unwrap_or_else(|_| "15".to_string())
             .parse()
             .unwrap_or(15);
+
+        let rate_limit_grace_period_seconds = env::var("RATE_LIMIT_GRACE_PERIOD_SECONDS")
+            .unwrap_or_else(|_| "1".to_string())
+            .parse()
+            .unwrap_or(1);
+
+        let rate_limit_cache_refund_ratio = env::var("RATE_LIMIT_CACHE_REFUND_RATIO")
+            .unwrap_or_else(|_| "0.5".to_string())
+            .parse()
+            .unwrap_or(0.5);
+
+        let rate_limit_error_penalty = env::var("RATE_LIMIT_ERROR_PENALTY")
+            .unwrap_or_else(|_| "2.0".to_string())
+            .parse()
+            .unwrap_or(2.0);
 
         let enable_logging = env::var("ENABLE_ACCESS_LOGGING")
             .unwrap_or_else(|_| "true".to_string())
@@ -96,7 +111,9 @@ impl AppState {
             rate_limit_per_minute,
             std::time::Duration::from_secs(block_duration_minutes * 60),
         )
-        .with_cache_refund_ratio(0.8);
+        .with_grace_period(rate_limit_grace_period_seconds)
+        .with_cache_refund_ratio(rate_limit_cache_refund_ratio)
+        .with_error_penalty(rate_limit_error_penalty);
 
         let callbacks =
             AppRateLimitCallbacks::new(db.clone(), enable_logging, log_successful_attempts);
@@ -174,10 +191,28 @@ impl AppState {
             .parse()
             .unwrap_or(30);
 
+        let auth_rate_limit_grace_period_seconds = env::var("AUTH_RATE_LIMIT_GRACE_PERIOD_SECONDS")
+            .unwrap_or_else(|_| "0".to_string())
+            .parse()
+            .unwrap_or(0);
+
+        let auth_rate_limit_cache_refund_ratio = env::var("AUTH_RATE_LIMIT_CACHE_REFUND_RATIO")
+            .unwrap_or_else(|_| "0.0".to_string())
+            .parse()
+            .unwrap_or(0.0);
+
+        let auth_rate_limit_error_penalty = env::var("AUTH_RATE_LIMIT_ERROR_PENALTY")
+            .unwrap_or_else(|_| "4.0".to_string())
+            .parse()
+            .unwrap_or(4.0);
+
         let auth_config = RateLimitConfig::new(
             auth_rate_limit_per_minute,
             std::time::Duration::from_secs(auth_block_duration_minutes * 60),
-        );
+        )
+        .with_grace_period(auth_rate_limit_grace_period_seconds)
+        .with_cache_refund_ratio(auth_rate_limit_cache_refund_ratio)
+        .with_error_penalty(auth_rate_limit_error_penalty);
 
         let auth_rate_limiter = RateLimiter::new(auth_config, callbacks.clone());
 
@@ -189,16 +224,22 @@ impl AppState {
 
         tracing::info!("Database connected and services initialized");
         tracing::info!(
-            "Rate limit config: {}/min, block_duration={}min, logging_enabled={}, log_successful={}",
+            "Rate limit config: {}/min, block_duration={}min, grace={}s, refund={}, error_penalty={}, logging_enabled={}, log_successful={}",
             rate_limit_per_minute,
             block_duration_minutes,
+            rate_limit_grace_period_seconds,
+            rate_limit_cache_refund_ratio,
+            rate_limit_error_penalty,
             enable_logging,
             log_successful_attempts
         );
         tracing::info!(
-            "Auth rate limit config: {}/min, block_duration={}min",
+            "Auth rate limit config: {}/min, block_duration={}min, grace={}s, refund={}, error_penalty={}",
             auth_rate_limit_per_minute,
-            auth_block_duration_minutes
+            auth_block_duration_minutes,
+            auth_rate_limit_grace_period_seconds,
+            auth_rate_limit_cache_refund_ratio,
+            auth_rate_limit_error_penalty
         );
 
         Ok(AppState {

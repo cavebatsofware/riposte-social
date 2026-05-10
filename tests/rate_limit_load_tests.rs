@@ -21,6 +21,10 @@ async fn handler_not_found() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "Not Found")
 }
 
+async fn handler_not_modified() -> impl IntoResponse {
+    StatusCode::NOT_MODIFIED
+}
+
 // Helper to create test server
 fn create_test_server(config: RateLimitConfig) -> TestServer {
     let rate_limiter = RateLimiter::new(config, NoOpOnBlocked);
@@ -30,6 +34,7 @@ fn create_test_server(config: RateLimitConfig) -> TestServer {
     let app = Router::new()
         .route("/", get(handler_ok))
         .route("/notfound", get(handler_not_found))
+        .route("/notmodified", get(handler_not_modified))
         .layer(from_fn_with_state(rate_limiter, rate_limit_middleware))
         .layer(axum::middleware::from_fn(security_context_middleware))
         .layer(MockConnectInfo(socket_addr));
@@ -280,4 +285,84 @@ async fn test_load_concurrent_burst_with_grace() {
     // All requests during grace period should succeed
     assert_eq!(total_success, 3_000);
     assert_eq!(total_fail, 0);
+}
+
+// Differential cost: a successful request, a 304 cache revalidation, and a
+// 4xx error each consume different amounts of bucket capacity. Same bucket
+// (30 tokens, no grace, refund=0.5, penalty=2.0); only the response status
+// changes the per-request cost. The bucket charges 1.0 upfront and adjusts
+// the balance after the response, so the gating check is "bucket >= 1.0
+// BEFORE the request", not "net cost <= remaining":
+//
+//   200 OK            net 1.0/req  -> 30 fit (30 - 30*1.0 = 0; 31st blocked)
+//   304 NOT_MODIFIED  net 0.5/req  -> 59 fit (30 - 59*0.5 = 0.5; 60th finds
+//                                     0.5 < 1.0 upfront, blocked)
+//   4xx               net 3.0/req  -> 10 fit (30 - 10*3.0 = 0; 11th blocked)
+//
+// This is the asymmetry the bucket configuration is designed to enforce:
+// forgiving on cache hits, aggressive on errors.
+#[tokio::test]
+async fn test_differential_cost_success_vs_cache_vs_error() {
+    let make_server = || {
+        create_test_server(
+            RateLimitConfig::new(30, Duration::from_secs(60))
+                .with_grace_period(0)
+                .with_cache_refund_ratio(0.5)
+                .with_error_penalty(2.0),
+        )
+    };
+
+    // 200 OK: bucket holds 30 requests at 1.0 token each.
+    let server_ok = make_server();
+    let mut ok_delivered = 0;
+    let mut ok_blocked = 0;
+    for _ in 0..40 {
+        let r = server_ok
+            .get("/")
+            .add_header("X-Forwarded-For", "10.1.0.1")
+            .await;
+        match r.status_code() {
+            StatusCode::OK => ok_delivered += 1,
+            StatusCode::TOO_MANY_REQUESTS => ok_blocked += 1,
+            other => panic!("unexpected status on OK path: {other:?}"),
+        }
+    }
+    assert_eq!(ok_delivered, 30);
+    assert_eq!(ok_blocked, 10);
+
+    // 304 NOT_MODIFIED: upfront 1.0-token gating means only 59 requests are delivered at 0.5-token cost before blocking.
+    let server_304 = make_server();
+    let mut nm_delivered = 0;
+    let mut nm_blocked = 0;
+    for _ in 0..70 {
+        let r = server_304
+            .get("/notmodified")
+            .add_header("X-Forwarded-For", "10.1.0.2")
+            .await;
+        match r.status_code() {
+            StatusCode::NOT_MODIFIED => nm_delivered += 1,
+            StatusCode::TOO_MANY_REQUESTS => nm_blocked += 1,
+            other => panic!("unexpected status on 304 path: {other:?}"),
+        }
+    }
+    assert_eq!(nm_delivered, 59);
+    assert_eq!(nm_blocked, 11);
+
+    // 4xx: bucket holds 10 requests at 3.0 tokens each.
+    let server_404 = make_server();
+    let mut err_delivered = 0;
+    let mut err_blocked = 0;
+    for _ in 0..20 {
+        let r = server_404
+            .get("/notfound")
+            .add_header("X-Forwarded-For", "10.1.0.3")
+            .await;
+        match r.status_code() {
+            StatusCode::NOT_FOUND => err_delivered += 1,
+            StatusCode::TOO_MANY_REQUESTS => err_blocked += 1,
+            other => panic!("unexpected status on 4xx path: {other:?}"),
+        }
+    }
+    assert_eq!(err_delivered, 10);
+    assert_eq!(err_blocked, 10);
 }
