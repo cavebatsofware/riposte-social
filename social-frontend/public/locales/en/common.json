@@ -44,7 +44,10 @@
       "warm": "Warm Editorial",
       "plum": "Plum & Apricot",
       "avernus": "Avernus & Clouds",
-      "mineral": "Rocks & Minerals"
+      "mineral": "Rocks & Minerals",
+      "daltonia": "Red-Green Accessible",
+      "tritan": "Blue-Yellow Accessible",
+      "achroma": "High Contrast"
     },
     "mode": {
       "light": "Light",

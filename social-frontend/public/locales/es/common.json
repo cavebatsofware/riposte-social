@@ -44,7 +44,10 @@
       "warm": "Editorial cálido",
       "plum": "Ciruela y albaricoque",
       "avernus": "Averno y nubes",
-      "mineral": "Rocas y minerales"
+      "mineral": "Rocas y minerales",
+      "daltonia": "Modo daltónico rojo-verde",
+      "tritan": "Modo daltónico azul-amarillo",
+      "achroma": "Alto contraste"
     },
     "mode": {
       "light": "Claro",

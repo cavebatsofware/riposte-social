@@ -44,7 +44,10 @@
       "warm": "Éditorial chaleureux",
       "plum": "Prune et abricot",
       "avernus": "Averne et nuages",
-      "mineral": "Roches et minéraux"
+      "mineral": "Roches et minéraux",
+      "daltonia": "Mode daltonien rouge-vert",
+      "tritan": "Mode daltonien bleu-jaune",
+      "achroma": "Contraste élevé"
     },
     "mode": {
       "light": "Clair",

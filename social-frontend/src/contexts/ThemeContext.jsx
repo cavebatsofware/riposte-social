@@ -2,10 +2,12 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 /// Available colorways. Each one has a light and a dark variant in
 /// `index.css` under `[data-theme="<id>"]` and `[data-theme="<id>-dark"]`.
-/// The theme id stored in localStorage is one of:
-///   forest, forest-dark, warm, warm-dark, plum, plum-dark
-/// The picker UI splits this into two axes: colorway (3 options) and
-/// mode (light/dark).
+/// The picker UI splits this into two axes: colorway and mode (light/dark).
+///
+/// The catalog mixes evocative aesthetic colorways with descriptive
+/// accessibility colorways. The accessibility entries are named after
+/// the deficiency they target so users can pick the right one without
+/// having to learn the project's poetic naming.
 export const COLORWAYS = [
   { id: "forest", label: "Forest & Cream", swatch: "#2d4a37" },
   { id: "warm", label: "Warm Editorial", swatch: "#1d3557" },
@@ -16,9 +18,22 @@ export const COLORWAYS = [
   {
     id: "avernus",
     label: "Avernus & Clouds",
-    swatch: "linear-gradient(135deg, #4f6dab 50%, #d4452b 50%)",
+    swatch: "linear-gradient(135deg, #4f6dab 50%, #ed5e3a 50%)",
   },
-  { id: "mineral", label: "Rocks & Minerals", swatch: "#a05a2c" },
+  { id: "mineral", label: "Rocks & Minerals", swatch: "#8e4a1f" },
+  // Accessibility colorways. Each swatch shows the theme's signature
+  // accent so the picker telegraphs the palette's actual aesthetic.
+  // Daltonia is "vintage parchment + golden lamplight" so its swatch
+  // is amber gold; tritan is "autumn forest + ember" so its swatch
+  // is coral. Achroma keeps a black-and-white split because "both
+  // extremes" is the actual design intent of a high-contrast theme.
+  { id: "daltonia", label: "Red-Green Accessible", swatch: "#d4a334" },
+  { id: "tritan", label: "Blue-Yellow Accessible", swatch: "#c25d4a" },
+  {
+    id: "achroma",
+    label: "High Contrast",
+    swatch: "linear-gradient(135deg, #000000 50%, #ffffff 50%)",
+  },
 ];
 
 const STORAGE_KEY = "rs_theme_v1";
