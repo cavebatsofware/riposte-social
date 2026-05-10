@@ -330,7 +330,7 @@ async fn test_differential_cost_success_vs_cache_vs_error() {
     assert_eq!(ok_delivered, 30);
     assert_eq!(ok_blocked, 10);
 
-    // 304 NOT_MODIFIED: bucket holds 60 requests at 0.5 token each.
+    // 304 NOT_MODIFIED: upfront 1.0-token gating means only 59 requests are delivered at 0.5-token cost before blocking.
     let server_304 = make_server();
     let mut nm_delivered = 0;
     let mut nm_blocked = 0;
