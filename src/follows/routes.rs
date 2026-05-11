@@ -341,9 +341,9 @@ async fn ensure_target_visible(db: &DatabaseConnection, target_id: Uuid) -> AppR
     let row = User::find_by_id(target_id)
         .one(db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
     if !row.active {
-        return Err(AppError::AuthError("User not found".to_string()));
+        return Err(AppError::NotFound("User not found".to_string()));
     }
     Ok(())
 }

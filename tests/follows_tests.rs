@@ -15,10 +15,9 @@
  */
 //! Integration tests for the follower / followed graph.
 //!
-//! Covers idempotent add / remove, self-follow rejection, inactive-target
-//! refusal (returned as 401 by the existing `AppError::AuthError` path,
-//! same shape the public profile fetch uses to avoid disclosing
-//! existence), the two-layer visibility filter on listings, the
+//! Covers idempotent add / remove, self-follow rejection, missing /
+//! inactive-target 404 (same response for both so existence isn't
+//! disclosed), the two-layer visibility filter on listings, the
 //! bulk-state lookup, and the profile-extension fields.
 
 mod common;
@@ -116,7 +115,7 @@ async fn test_follow_unknown_user_returns_not_found(pool: sqlx::PgPool) {
     login_as(&server, &email, TEST_PASSWORD).await;
 
     let response = follow(&server, Uuid::new_v4()).await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -129,7 +128,7 @@ async fn test_follow_inactive_target_returns_not_found(pool: sqlx::PgPool) {
 
     login_as(&server, &me_email, TEST_PASSWORD).await;
     let response = follow(&server, target.id).await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -296,7 +295,7 @@ async fn test_followers_not_found_when_target_inactive(pool: sqlx::PgPool) {
     let r = server
         .get(&format!("/api/users/{}/followers", target.id))
         .await;
-    assert_eq!(r.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(r.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
