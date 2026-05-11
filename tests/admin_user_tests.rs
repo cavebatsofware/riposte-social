@@ -123,7 +123,7 @@ async fn test_get_user_returns_response(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_get_user_not_found_returns_401(pool: sqlx::PgPool) {
+async fn test_get_user_not_found_returns_404(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("au-get-404");
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -132,7 +132,7 @@ async fn test_get_user_not_found_returns_401(pool: sqlx::PgPool) {
     let fake_id = Uuid::new_v4();
     let response = server.get(&format!("/api/admin/users/{}", fake_id)).await;
 
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
     let json: serde_json::Value = response.json();
     assert_eq!(json["error"].as_str().unwrap(), "User not found");
 }
@@ -140,7 +140,7 @@ async fn test_get_user_not_found_returns_401(pool: sqlx::PgPool) {
 // ==================== Update admin user ====================
 
 #[sqlx::test(migrations = false)]
-async fn test_update_user_self_edit_returns_401(pool: sqlx::PgPool) {
+async fn test_update_user_self_edit_returns_400(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("au-self-edit");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -153,7 +153,7 @@ async fn test_update_user_self_edit_returns_401(pool: sqlx::PgPool) {
         .json(&serde_json::json!({"role": "viewer"}))
         .await;
 
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
     let json: serde_json::Value = response.json();
     assert!(json["error"]
         .as_str()
@@ -310,7 +310,7 @@ async fn test_update_user_disable_mfa(pool: sqlx::PgPool) {
 // ==================== Resend verification ====================
 
 #[sqlx::test(migrations = false)]
-async fn test_resend_verification_self_returns_401(pool: sqlx::PgPool) {
+async fn test_resend_verification_self_returns_400(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("au-resend-self");
     let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -325,7 +325,7 @@ async fn test_resend_verification_self_returns_401(pool: sqlx::PgPool) {
         .add_header("x-csrf-token", &csrf)
         .await;
 
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
     let json: serde_json::Value = response.json();
     assert!(json["error"]
         .as_str()

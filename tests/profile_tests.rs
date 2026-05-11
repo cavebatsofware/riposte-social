@@ -263,7 +263,7 @@ async fn test_public_profile_blocked_when_public_feed_disabled(pool: sqlx::PgPoo
 
     // Anonymous: blocked.
     let response = server.get(&format!("/api/profiles/{}", row.handle)).await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 
     // Authed: still allowed (the gate is anonymous-only).
     login_as(&server, &email, TEST_PASSWORD).await;

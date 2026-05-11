@@ -89,9 +89,9 @@ async fn test_public_feed_gate_blocks_anon_when_disabled(pool: sqlx::PgPool) {
 
     // Anon: blocked.
     let resp = server.get("/api/feed").await;
-    assert_eq!(resp.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(resp.status_code(), StatusCode::NOT_FOUND);
     let resp = server.get(&format!("/api/posts/{}", p.id)).await;
-    assert_eq!(resp.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(resp.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -136,7 +136,7 @@ async fn test_poster_posting_gate_blocks_poster_when_disabled(pool: sqlx::PgPool
                 .add_text("visibility", "public"),
         )
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[sqlx::test(migrations = false)]
@@ -186,7 +186,7 @@ async fn test_commenter_invites_gate_blocks_when_disabled(pool: sqlx::PgPool) {
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "email_hint": "x@example.com" }))
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[sqlx::test(migrations = false)]
@@ -312,7 +312,7 @@ async fn test_fb_import_gate_blocks_when_disabled(pool: sqlx::PgPool) {
         .add_header("x-csrf-token", &csrf)
         .multipart(MultipartForm::new().add_text("visibility", "public"))
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 // ===== /api/site/config role-tailored shape =====

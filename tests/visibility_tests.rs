@@ -280,7 +280,7 @@ async fn test_get_post_404_for_non_member(pool: sqlx::PgPool) {
 
     login_as(&server, &outsider_email, TEST_PASSWORD).await;
     let response = server.get(&format!("/api/posts/{}", post.id)).await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -356,7 +356,7 @@ async fn test_compose_post_into_user_list_category_rejected_when_author_not_memb
                 .add_text("category_id", cat.id.to_string()),
         )
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -459,7 +459,7 @@ async fn test_engagement_react_blocked_when_category_user_list_excludes_viewer(p
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({"kind": "like"}))
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
@@ -490,7 +490,7 @@ async fn test_engagement_comment_blocked_when_category_user_list_excludes_viewer
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({"body": "hi"}))
         .await;
-    assert_eq!(response.status_code(), StatusCode::UNAUTHORIZED);
+    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
 }
 
 #[sqlx::test(migrations = false)]
