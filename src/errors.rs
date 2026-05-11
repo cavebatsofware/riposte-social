@@ -37,6 +37,14 @@ pub enum AppError {
     #[error("Authentication error: {0}")]
     AuthError(String),
 
+    /// 404 for missing or hidden domain entities. Use this when a row
+    /// doesn't exist OR exists but the caller isn't permitted to see it,
+    /// returning the same response in both cases so existence isn't
+    /// disclosed. Distinct from `AuthError` (401), which belongs to
+    /// credential-verification flows (login, MFA, password reset).
+    #[error("Not found: {0}")]
+    NotFound(String),
+
     #[error("Validation error: {0}")]
     ValidationError(String),
 
@@ -70,6 +78,10 @@ impl IntoResponse for AppError {
             AppError::AuthError(msg) => {
                 tracing::warn!("Authentication error: {}", msg);
                 (StatusCode::UNAUTHORIZED, msg)
+            }
+            AppError::NotFound(msg) => {
+                tracing::debug!("Not found: {}", msg);
+                (StatusCode::NOT_FOUND, msg)
             }
             AppError::ValidationError(msg) => {
                 tracing::debug!("Validation error: {}", msg);

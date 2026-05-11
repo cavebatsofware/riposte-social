@@ -58,7 +58,15 @@
   "people": {
     "pageTitle": "Personnes",
     "loadFailed": "Échec du chargement des personnes",
-    "empty": "Aucun autre membre pour l'instant."
+    "empty": "Aucun autre membre pour l'instant.",
+    "tabs": {
+      "discover": "Découvrir",
+      "following": "Abonnements",
+      "followers": "Abonnés"
+    },
+    "yourFollowingEmpty": "Vous ne suivez encore personne.",
+    "yourFollowersEmpty": "Personne ne vous suit encore.",
+    "signInPrompt": "Connectez-vous pour voir vos abonnements."
   },
   "album": {
     "notFound": "Album introuvable.",
@@ -77,7 +85,19 @@
     "postsLoadFailed": "Échec du chargement des publications",
     "postsEmpty": "Rien à afficher.",
     "loadingPostsAria": "Chargement des publications",
-    "edit": "Modifier le profil"
+    "edit": "Modifier le profil",
+    "follow": "Suivre",
+    "followBack": "Suivre en retour",
+    "signInToFollow": "Connectez-vous pour suivre",
+    "following": "Abonné",
+    "unfollow": "Se désabonner",
+    "followsYou": "Vous suit",
+    "mutual": "Vous suivez mutuellement",
+    "followFailed": "Impossible de mettre à jour l'abonnement",
+    "followerCount_one": "{{count}} abonné",
+    "followerCount_other": "{{count}} abonnés",
+    "followingCount_one": "{{count}} abonnement",
+    "followingCount_other": "{{count}} abonnements"
   },
   "lightbox": {
     "viewerAria": "Visionneuse de médias",
