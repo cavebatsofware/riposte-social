@@ -208,7 +208,7 @@ async fn get_me_profile(
     let model = User::find_by_id(user_auth.id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     let follower_count = crate::follows::count_followers(&state.db, model.id).await? as i64;
     let following_count = crate::follows::count_following(&state.db, model.id).await? as i64;
@@ -246,7 +246,7 @@ async fn patch_me_locale(
     let model = User::find_by_id(user_auth.id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     // No-op when the value hasn't changed: avoids touching `updated_at`
     // on every page-load that fires a redundant PATCH.
@@ -268,7 +268,7 @@ async fn patch_me_profile(
     let model = User::find_by_id(user_auth.id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     // Validate up front so we don't half-apply changes.
     if let Some(ref h) = req.handle {
@@ -402,12 +402,12 @@ async fn get_profile_by_handle(
         .filter(user::Column::Handle.eq(&handle))
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Profile not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))?;
 
     // Inactive users disappear from the public profile surface (same as
     // login is rejected for them). Soft-delete equivalent.
     if !model.active {
-        return Err(AppError::AuthError("Profile not found".to_string()));
+        return Err(AppError::NotFound("Profile not found".to_string()));
     }
 
     let follower_count = crate::follows::count_followers(&state.db, model.id).await? as i64;
@@ -506,7 +506,7 @@ async fn post_me_avatar(
         let model = User::find_by_id(user_auth.id)
             .one(&state.db)
             .await?
-            .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+            .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
         let prev = model.avatar_s3_key.clone();
         let mut active: user::ActiveModel = model.into();
         active.avatar_s3_key = Set(Some(new_key.clone()));
@@ -533,7 +533,7 @@ async fn delete_me_avatar(
     let model = User::find_by_id(user_auth.id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     let prev = model.avatar_s3_key.clone();
     if prev.is_none() {
@@ -567,13 +567,13 @@ async fn serve_avatar(
     let model = User::find_by_id(user_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Avatar not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Avatar not found".to_string()))?;
     if !model.active {
-        return Err(AppError::AuthError("Avatar not found".to_string()));
+        return Err(AppError::NotFound("Avatar not found".to_string()));
     }
     let key = model
         .avatar_s3_key
-        .ok_or_else(|| AppError::AuthError("Avatar not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Avatar not found".to_string()))?;
 
     let (bytes, _stored_type) = state
         .s3
@@ -616,7 +616,7 @@ async fn enforce_public_profile_gate(
     if enabled {
         return Ok(());
     }
-    Err(AppError::AuthError("Profile not found".to_string()))
+    Err(AppError::NotFound("Profile not found".to_string()))
 }
 
 /// Decode arbitrary input bytes, center-crop to a square, resize to
