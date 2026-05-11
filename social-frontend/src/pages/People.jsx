@@ -118,8 +118,10 @@ function DiscoverTab({ t, tCommon }) {
   );
 }
 
-/// Graph tabs (Following/Followers) — both paginate through the follows API
-/// against the viewer's own user_id.
+/// Graph tabs (Following/Followers) both paginate through the follows API
+/// against the viewer's own user_id. When `viewerId` is missing (anonymous
+/// viewer or auth still resolving) the tab renders a sign-in prompt
+/// instead of leaving the spinner stuck on.
 function GraphTab({ viewerId, variant, t, tCommon }) {
   const [people, setPeople] = useState([]);
   const [cursor, setCursor] = useState(null);
@@ -128,7 +130,13 @@ function GraphTab({ viewerId, variant, t, tCommon }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!viewerId) return undefined;
+    if (!viewerId) {
+      setLoading(false);
+      setPeople([]);
+      setCursor(null);
+      setHasMore(false);
+      return undefined;
+    }
     let cancelled = false;
     async function load() {
       setLoading(true);
@@ -154,6 +162,14 @@ function GraphTab({ viewerId, variant, t, tCommon }) {
       cancelled = true;
     };
   }, [viewerId, variant, t]);
+
+  if (!viewerId) {
+    return (
+      <p className="muted">
+        <Link to="/login">{t("people.signInPrompt")}</Link>
+      </p>
+    );
+  }
 
   async function loadMore() {
     if (!cursor) return;
@@ -208,7 +224,7 @@ function GraphTab({ viewerId, variant, t, tCommon }) {
 }
 
 /// `/api/users/{id}/{followers,following}` returns `UserSummary` rows
-/// shaped slightly differently than `/api/profiles` — normalize them to
+/// shaped slightly differently than `/api/profiles`. Normalize them to
 /// the same `{handle, display_name, avatar_url}` shape that PeopleList
 /// renders.
 function toProfiles(users) {

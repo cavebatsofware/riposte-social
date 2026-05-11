@@ -27,7 +27,7 @@
 use crate::admin::UserAuth;
 use crate::entities::{follow, user, Follow, User};
 use crate::errors::{AppError, AppResult};
-use crate::follows::{fetch_follow_states, visible_user_ids};
+use crate::follows::fetch_follow_states;
 use crate::profile::avatar_url_for;
 use axum::{
     extract::{Path, Query, State},
@@ -38,7 +38,8 @@ use axum::{
 use chrono::Utc;
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, QueryOrder, QuerySelect, Set,
+    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, JoinType, QueryFilter, QueryOrder,
+    QuerySelect, RelationTrait, Set,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -187,7 +188,10 @@ async fn delete_follow(
 
 /// Cursor format `{created_at_rfc3339}_{follower_id}`, sorted descending
 /// by `(created_at, follower_id)` so newest follower appears first and
-/// ties don't lose rows.
+/// ties don't lose rows. The active-user gate is pushed into the SQL
+/// query via an INNER JOIN so paginated counts stay consistent across
+/// pages; post-filtering after LIMIT would let cursors terminate early
+/// when soft-deleted rows fall inside the fetched window.
 async fn list_followers(
     State(state): State<FollowsState>,
     Extension(_user): Extension<UserAuth>,
@@ -202,6 +206,8 @@ async fn list_followers(
 
     let mut q = Follow::find()
         .filter(follow::Column::FollowedId.eq(target_id))
+        .join(JoinType::InnerJoin, follow::Relation::Follower.def())
+        .filter(user::Column::Active.eq(true))
         .order_by_desc(follow::Column::CreatedAt)
         .order_by_desc(follow::Column::FollowerId);
 
@@ -217,34 +223,17 @@ async fn list_followers(
         );
     }
 
-    // Fetch limit+1 to detect a next page without a count query. The
-    // visibility filter today degenerates to "user.active = true"; we
-    // post-filter rather than push the join down because the typical case
-    // has zero soft-deleted rows and the post-filter saves a join hop.
+    // Fetch limit+1 to detect a next page without a count query.
     let rows = q.limit(limit + 1).all(&state.db).await?;
-    let candidates: Vec<Uuid> = rows.iter().map(|r| r.follower_id).collect();
-    let visible = visible_user_ids(&state.db, &candidates).await?;
-
-    let mut taken = 0u64;
-    let mut last_kept: Option<&follow::Model> = None;
-    let mut kept_ids: Vec<Uuid> = Vec::with_capacity(rows.len());
-    for row in rows.iter() {
-        if taken >= limit {
-            break;
-        }
-        if visible.contains(&row.follower_id) {
-            kept_ids.push(row.follower_id);
-            last_kept = Some(row);
-            taken += 1;
-        }
-    }
-    let has_more = taken == limit && rows.len() as u64 > limit;
+    let has_more = rows.len() as u64 > limit;
+    let page: Vec<&follow::Model> = rows.iter().take(limit as usize).collect();
     let next_cursor = if has_more {
-        last_kept.map(|r| format_cursor(r.created_at, r.follower_id))
+        page.last()
+            .map(|r| format_cursor(r.created_at, r.follower_id))
     } else {
         None
     };
-
+    let kept_ids: Vec<Uuid> = page.iter().map(|r| r.follower_id).collect();
     let users = fetch_user_summaries(&state.db, &kept_ids).await?;
     Ok(Json(FollowsListResponse { users, next_cursor }))
 }
@@ -263,6 +252,8 @@ async fn list_following(
 
     let mut q = Follow::find()
         .filter(follow::Column::FollowerId.eq(target_id))
+        .join(JoinType::InnerJoin, follow::Relation::Followed.def())
+        .filter(user::Column::Active.eq(true))
         .order_by_desc(follow::Column::CreatedAt)
         .order_by_desc(follow::Column::FollowedId);
 
@@ -279,29 +270,15 @@ async fn list_following(
     }
 
     let rows = q.limit(limit + 1).all(&state.db).await?;
-    let candidates: Vec<Uuid> = rows.iter().map(|r| r.followed_id).collect();
-    let visible = visible_user_ids(&state.db, &candidates).await?;
-
-    let mut taken = 0u64;
-    let mut last_kept: Option<&follow::Model> = None;
-    let mut kept_ids: Vec<Uuid> = Vec::with_capacity(rows.len());
-    for row in rows.iter() {
-        if taken >= limit {
-            break;
-        }
-        if visible.contains(&row.followed_id) {
-            kept_ids.push(row.followed_id);
-            last_kept = Some(row);
-            taken += 1;
-        }
-    }
-    let has_more = taken == limit && rows.len() as u64 > limit;
+    let has_more = rows.len() as u64 > limit;
+    let page: Vec<&follow::Model> = rows.iter().take(limit as usize).collect();
     let next_cursor = if has_more {
-        last_kept.map(|r| format_cursor(r.created_at, r.followed_id))
+        page.last()
+            .map(|r| format_cursor(r.created_at, r.followed_id))
     } else {
         None
     };
-
+    let kept_ids: Vec<Uuid> = page.iter().map(|r| r.followed_id).collect();
     let users = fetch_user_summaries(&state.db, &kept_ids).await?;
     Ok(Json(FollowsListResponse { users, next_cursor }))
 }

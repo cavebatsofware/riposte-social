@@ -65,7 +65,8 @@
       "followers": "粉丝"
     },
     "yourFollowingEmpty": "你还没有关注任何人。",
-    "yourFollowersEmpty": "还没有人关注你。"
+    "yourFollowersEmpty": "还没有人关注你。",
+    "signInPrompt": "请登录以查看你的关注。"
   },
   "album": {
     "notFound": "找不到该相册。",
@@ -87,6 +88,7 @@
     "edit": "编辑资料",
     "follow": "关注",
     "followBack": "回关",
+    "signInToFollow": "登录后关注",
     "following": "已关注",
     "unfollow": "取消关注",
     "followsYou": "关注了你",

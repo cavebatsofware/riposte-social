@@ -65,7 +65,8 @@
       "followers": "Abonnés"
     },
     "yourFollowingEmpty": "Vous ne suivez encore personne.",
-    "yourFollowersEmpty": "Personne ne vous suit encore."
+    "yourFollowersEmpty": "Personne ne vous suit encore.",
+    "signInPrompt": "Connectez-vous pour voir vos abonnements."
   },
   "album": {
     "notFound": "Album introuvable.",
@@ -87,6 +88,7 @@
     "edit": "Modifier le profil",
     "follow": "Suivre",
     "followBack": "Suivre en retour",
+    "signInToFollow": "Connectez-vous pour suivre",
     "following": "Abonné",
     "unfollow": "Se désabonner",
     "followsYou": "Vous suit",

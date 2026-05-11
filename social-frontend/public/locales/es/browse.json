@@ -65,7 +65,8 @@
       "followers": "Seguidores"
     },
     "yourFollowingEmpty": "Aún no sigues a nadie.",
-    "yourFollowersEmpty": "Todavía no te sigue nadie."
+    "yourFollowersEmpty": "Todavía no te sigue nadie.",
+    "signInPrompt": "Inicia sesión para ver tus seguimientos."
   },
   "album": {
     "notFound": "Álbum no encontrado.",
@@ -87,6 +88,7 @@
     "edit": "Editar perfil",
     "follow": "Seguir",
     "followBack": "Seguir también",
+    "signInToFollow": "Inicia sesión para seguir",
     "following": "Siguiendo",
     "unfollow": "Dejar de seguir",
     "followsYou": "Te sigue",

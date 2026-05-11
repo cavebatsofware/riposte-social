@@ -26,21 +26,21 @@
 
 pub mod routes;
 
-use crate::entities::{follow, user, Follow, User};
+use crate::entities::{follow, user, Follow};
 use sea_orm::{
     ColumnTrait, ConnectionTrait, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QuerySelect,
     RelationTrait,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use uuid::Uuid;
 
-/// Bulk follower-state lookup. Returns one entry per user_id in `targets`
-/// (including ones that don't exist or aren't active — caller still gets
-/// the false/false default so the UI can render a no-op CTA without a
-/// second round trip).
+/// Bulk follower-state lookup. Returns one entry per user_id in `targets`,
+/// including ones that don't exist or aren't active. The unknown / inactive
+/// case still receives the false/false default so the UI can render a
+/// no-op CTA without a second round trip.
 ///
-/// Two queries against the `follows` table — one for "viewer follows
-/// target" and one for "target follows viewer" — both bounded by the
+/// Runs two queries against the `follows` table (one for "viewer follows
+/// target", one for "target follows viewer"), both bounded by the
 /// composite PK or `idx_follows_followed_id`.
 pub(crate) async fn fetch_follow_states<C>(
     db: &C,
@@ -124,29 +124,4 @@ where
         .filter(user::Column::Active.eq(true))
         .count(db)
         .await
-}
-
-/// Filter a candidate set of user_ids down to those that are active. Used
-/// by the listing endpoints' two-layer visibility filter (caller can see
-/// target → response includes only followers/followees the caller can also
-/// see). Today "visible" = active; richer per-user gates plug in here.
-pub(crate) async fn visible_user_ids<C>(
-    db: &C,
-    candidates: &[Uuid],
-) -> Result<HashSet<Uuid>, sea_orm::DbErr>
-where
-    C: ConnectionTrait,
-{
-    if candidates.is_empty() {
-        return Ok(HashSet::new());
-    }
-    let rows: Vec<Uuid> = User::find()
-        .filter(user::Column::Id.is_in(candidates.iter().copied()))
-        .filter(user::Column::Active.eq(true))
-        .all(db)
-        .await?
-        .into_iter()
-        .map(|u| u.id)
-        .collect();
-    Ok(rows.into_iter().collect())
 }

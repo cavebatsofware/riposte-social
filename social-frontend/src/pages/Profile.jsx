@@ -126,6 +126,7 @@ export default function Profile() {
         <>
           <ProfileCard
             profile={profile}
+            viewer={viewer}
             isSelf={isSelf}
             onProfileChange={setProfile}
           />
@@ -178,7 +179,7 @@ export default function Profile() {
   );
 }
 
-function ProfileCard({ profile, isSelf, onProfileChange }) {
+function ProfileCard({ profile, viewer, isSelf, onProfileChange }) {
   const { t } = useTranslation("browse");
   const display = profile.display_name || profile.handle;
 
@@ -232,17 +233,23 @@ function ProfileCard({ profile, isSelf, onProfileChange }) {
         </div>
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
         <div className="profile-card-actions">
-          {isSelf ? (
+          {isSelf && (
             <Link to="/settings/profile" className="btn-secondary">
               {t("profile.edit")}
             </Link>
-          ) : (
+          )}
+          {!isSelf && viewer && (
             <FollowButton
               userId={profile.user_id}
               youFollow={!!profile.you_follow}
               followsYou={!!profile.follows_you}
               onChange={onFollowChange}
             />
+          )}
+          {!isSelf && !viewer && (
+            <Link to="/login" className="btn-secondary">
+              {t("profile.signInToFollow")}
+            </Link>
           )}
         </div>
       </div>

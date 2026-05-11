@@ -16,8 +16,10 @@
 //! Integration tests for the follower / followed graph.
 //!
 //! Covers idempotent add / remove, self-follow rejection, inactive-target
-//! 404, the two-layer visibility filter on listings, the bulk-state
-//! lookup, and the profile-extension fields.
+//! refusal (returned as 401 by the existing `AppError::AuthError` path,
+//! same shape the public profile fetch uses to avoid disclosing
+//! existence), the two-layer visibility filter on listings, the
+//! bulk-state lookup, and the profile-extension fields.
 
 mod common;
 
@@ -107,7 +109,7 @@ async fn test_self_unfollow_rejected(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_follow_unknown_user_returns_404(pool: sqlx::PgPool) {
+async fn test_follow_unknown_user_returns_not_found(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let email = test_email("follows-unknown");
     make_user(&backend, &db, &email).await;
@@ -118,7 +120,7 @@ async fn test_follow_unknown_user_returns_404(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_follow_inactive_target_returns_404(pool: sqlx::PgPool) {
+async fn test_follow_inactive_target_returns_not_found(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let me_email = test_email("follows-inactive-me");
     make_user(&backend, &db, &me_email).await;
@@ -191,10 +193,7 @@ async fn test_mutual_state_surfaced(pool: sqlx::PgPool) {
     // A logs in and sees follows_you=true, you_follow=false against B.
     login_as(&server, &a_email, TEST_PASSWORD).await;
     let r = server
-        .get(&format!(
-            "/api/me/follows/state?user_ids={}",
-            b.id
-        ))
+        .get(&format!("/api/me/follows/state?user_ids={}", b.id))
         .await;
     assert_eq!(r.status_code(), StatusCode::OK);
     let body: serde_json::Value = r.json();
@@ -273,9 +272,7 @@ async fn test_following_list_filters_inactive(pool: sqlx::PgPool) {
     deactivate(&db, inactive.id).await;
 
     login_as(&server, &viewer_email, TEST_PASSWORD).await;
-    let r = server
-        .get(&format!("/api/users/{}/following", me.id))
-        .await;
+    let r = server.get(&format!("/api/users/{}/following", me.id)).await;
     assert_eq!(r.status_code(), StatusCode::OK);
     let body: serde_json::Value = r.json();
     let users = body["users"].as_array().unwrap();
@@ -288,7 +285,7 @@ async fn test_following_list_filters_inactive(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_followers_404_when_target_inactive(pool: sqlx::PgPool) {
+async fn test_followers_not_found_when_target_inactive(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let me_email = test_email("flw-tgt-me");
     make_user(&backend, &db, &me_email).await;

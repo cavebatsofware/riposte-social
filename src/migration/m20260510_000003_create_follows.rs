@@ -17,9 +17,9 @@
 //!
 //! One row per (follower, followed) pair. Composite PK enforces "you can
 //! only follow someone once". A CHECK constraint blocks self-follow rows
-//! at the storage layer in addition to the route-handler 400 — defense in
-//! depth so a future code path that bypasses the handler can't corrupt
-//! the graph.
+//! at the storage layer in addition to the route-handler 400, defending
+//! in depth so a future code path that bypasses the handler can't
+//! corrupt the graph.
 //!
 //! `idx_follows_followed_id` keeps the "who follows me" lookup O(log n)
 //! since the composite PK leads with `follower_id` and so doesn't help
@@ -46,9 +46,7 @@ impl MigrationTrait for Migration {
                             .col(Follows::FollowerId)
                             .col(Follows::FollowedId),
                     )
-                    .check(
-                        Expr::col(Follows::FollowerId).ne(Expr::col(Follows::FollowedId)),
-                    )
+                    .check(Expr::col(Follows::FollowerId).ne(Expr::col(Follows::FollowedId)))
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_follows_follower_id")
