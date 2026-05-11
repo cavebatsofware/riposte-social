@@ -154,17 +154,17 @@ async fn ensure_visible_comment(
         .filter(comment::Column::DeletedAt.is_null())
         .one(db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
 
     if row.post_id != post_id {
-        return Err(AppError::AuthError("Comment not found".to_string()));
+        return Err(AppError::NotFound("Comment not found".to_string()));
     }
 
     let parent = Post::find_by_id(row.post_id)
         .filter(post::Column::DeletedAt.is_null())
         .one(db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
     let parent_cat = if let Some(cid) = parent.category_id {
         crate::entities::Category::find_by_id(cid).one(db).await?
     } else {
@@ -175,7 +175,7 @@ async fn ensure_visible_comment(
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
-        return Err(AppError::AuthError("Comment not found".to_string()));
+        return Err(AppError::NotFound("Comment not found".to_string()));
     }
     Ok(row)
 }
