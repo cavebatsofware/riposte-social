@@ -288,18 +288,28 @@ async fn get_follow_state(
     Extension(user): Extension<UserAuth>,
     Query(query): Query<BulkStateQuery>,
 ) -> AppResult<Json<BulkStateResponse>> {
-    let ids: Vec<Uuid> = query
+    // Cap on segment count first so a caller can't defeat BULK_STATE_MAX
+    // by padding the param with thousands of invalid tokens. Empty
+    // segments (trailing comma, double comma) are tolerated and skipped
+    // before counting.
+    let segments: Vec<&str> = query
         .user_ids
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .filter_map(|s| Uuid::parse_str(s).ok())
         .collect();
-    if ids.len() > BULK_STATE_MAX {
+    if segments.len() > BULK_STATE_MAX {
         return Err(AppError::ValidationError(format!(
             "At most {} user_ids per request",
             BULK_STATE_MAX
         )));
+    }
+    let mut ids: Vec<Uuid> = Vec::with_capacity(segments.len());
+    for s in segments {
+        let parsed = Uuid::parse_str(s).map_err(|_| {
+            AppError::ValidationError("user_ids must be comma-separated UUIDs".to_string())
+        })?;
+        ids.push(parsed);
     }
 
     let mut deduped: Vec<Uuid> = ids;

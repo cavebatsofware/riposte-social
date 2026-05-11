@@ -456,6 +456,40 @@ async fn test_followers_pagination_cursor(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_bulk_state_rejects_invalid_uuid(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let me_email = test_email("flw-bulk-bad-uuid");
+    make_user(&backend, &db, &me_email).await;
+    login_as(&server, &me_email, TEST_PASSWORD).await;
+
+    let valid = Uuid::new_v4();
+    let r = server
+        .get(&format!(
+            "/api/me/follows/state?user_ids={},not-a-uuid",
+            valid
+        ))
+        .await;
+    assert_eq!(r.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_bulk_state_rejects_oversize_segment_count(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let me_email = test_email("flw-bulk-oversize");
+    make_user(&backend, &db, &me_email).await;
+    login_as(&server, &me_email, TEST_PASSWORD).await;
+
+    // 201 invalid tokens still trigger the segment-count cap before any
+    // UUID parsing happens — the cap is on input segments, not on
+    // successfully-parsed ids.
+    let bad_segments = vec!["x"; 201].join(",");
+    let r = server
+        .get(&format!("/api/me/follows/state?user_ids={}", bad_segments))
+        .await;
+    assert_eq!(r.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_follow_requires_auth(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let target = make_user(&backend, &db, &test_email("flw-auth")).await;
