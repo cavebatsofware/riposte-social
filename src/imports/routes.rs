@@ -140,7 +140,7 @@ async fn get_import(
     let row = ImportJob::find_by_id(id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Import job not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Import job not found".to_string()))?;
     Ok(Json(row.into()))
 }
 
@@ -161,7 +161,7 @@ async fn create_facebook_import(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !fb_import_enabled {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Facebook imports are currently disabled by an administrator".to_string(),
         ));
     }
