@@ -58,7 +58,14 @@
   "people": {
     "pageTitle": "Mitglieder",
     "loadFailed": "Mitglieder konnten nicht geladen werden",
-    "empty": "Noch keine weiteren Mitglieder."
+    "empty": "Noch keine weiteren Mitglieder.",
+    "tabs": {
+      "discover": "Entdecken",
+      "following": "Folge ich",
+      "followers": "Follower"
+    },
+    "yourFollowingEmpty": "Du folgst noch niemandem.",
+    "yourFollowersEmpty": "Dir folgt noch niemand."
   },
   "album": {
     "notFound": "Album nicht gefunden.",
@@ -77,7 +84,17 @@
     "postsLoadFailed": "Beiträge konnten nicht geladen werden",
     "postsEmpty": "Nichts zu zeigen.",
     "loadingPostsAria": "Beiträge werden geladen",
-    "edit": "Profil bearbeiten"
+    "edit": "Profil bearbeiten",
+    "follow": "Folgen",
+    "followBack": "Zurückfolgen",
+    "following": "Folge ich",
+    "unfollow": "Entfolgen",
+    "followsYou": "Folgt dir",
+    "mutual": "Ihr folgt euch",
+    "followFailed": "Folgen konnte nicht aktualisiert werden",
+    "followerCount_one": "{{count}} Follower",
+    "followerCount_other": "{{count}} Follower",
+    "followingCount": "Folgt {{count}}"
   },
   "lightbox": {
     "viewerAria": "Medienbetrachter",

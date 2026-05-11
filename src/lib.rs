@@ -29,6 +29,7 @@ pub mod email;
 pub mod engagement;
 pub mod entities;
 pub mod errors;
+pub mod follows;
 pub mod imports;
 pub mod invites;
 pub mod metrics;

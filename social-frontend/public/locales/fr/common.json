@@ -32,6 +32,8 @@
     "viewProfile": "Voir le profil",
     "settings": "Paramètres",
     "admin": "Administration",
+    "following": "Abonnements",
+    "followers": "Abonnés",
     "fallbackName": "Compte"
   },
   "theme": {

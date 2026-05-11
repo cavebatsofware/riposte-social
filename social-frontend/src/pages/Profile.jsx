@@ -7,6 +7,7 @@ import { recordPersonVisit } from "../utils/browseHistory";
 import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
 import SkeletonCard from "../components/SkeletonCard";
+import FollowButton from "../components/FollowButton";
 import "./Profile.css";
 
 const FEED_LIMIT = 20;
@@ -123,7 +124,11 @@ export default function Profile() {
 
       {!profileLoading && profile && (
         <>
-          <ProfileCard profile={profile} isSelf={isSelf} />
+          <ProfileCard
+            profile={profile}
+            isSelf={isSelf}
+            onProfileChange={setProfile}
+          />
 
           <h2 className="profile-posts-heading">{t("profile.postsHeading")}</h2>
 
@@ -173,9 +178,28 @@ export default function Profile() {
   );
 }
 
-function ProfileCard({ profile, isSelf }) {
+function ProfileCard({ profile, isSelf, onProfileChange }) {
   const { t } = useTranslation("browse");
   const display = profile.display_name || profile.handle;
+
+  const onFollowChange = useCallback(
+    ({ you_follow, follows_you }) => {
+      onProfileChange((prev) => {
+        if (!prev) return prev;
+        const wasFollowing = prev.you_follow;
+        const willFollow = you_follow;
+        const delta = wasFollowing === willFollow ? 0 : willFollow ? 1 : -1;
+        return {
+          ...prev,
+          you_follow,
+          follows_you,
+          follower_count: Math.max(0, (prev.follower_count ?? 0) + delta),
+        };
+      });
+    },
+    [onProfileChange],
+  );
+
   return (
     <article className="profile-card">
       <div className="profile-avatar-large" aria-hidden={!profile.avatar_url}>
@@ -192,15 +216,35 @@ function ProfileCard({ profile, isSelf }) {
           {profile.pronouns && (
             <span className="profile-pronouns">· {profile.pronouns}</span>
           )}
+          {!isSelf && profile.follows_you && (
+            <span className="profile-pill">{t("profile.followsYou")}</span>
+          )}
+        </div>
+        <div className="profile-counts">
+          <span className="profile-count">
+            {t("profile.followerCount", { count: profile.follower_count ?? 0 })}
+          </span>
+          <span className="profile-count">
+            {t("profile.followingCount", {
+              count: profile.following_count ?? 0,
+            })}
+          </span>
         </div>
         {profile.bio && <p className="profile-bio">{profile.bio}</p>}
-        {isSelf && (
-          <div className="profile-card-actions">
+        <div className="profile-card-actions">
+          {isSelf ? (
             <Link to="/settings/profile" className="btn-secondary">
               {t("profile.edit")}
             </Link>
-          </div>
-        )}
+          ) : (
+            <FollowButton
+              userId={profile.user_id}
+              youFollow={!!profile.you_follow}
+              followsYou={!!profile.follows_you}
+              onChange={onFollowChange}
+            />
+          )}
+        </div>
       </div>
     </article>
   );

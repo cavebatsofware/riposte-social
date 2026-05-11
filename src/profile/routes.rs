@@ -118,11 +118,17 @@ pub struct MeProfileResponse {
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
     pub role: String,
+    pub follower_count: i64,
+    pub following_count: i64,
 }
 
 /// Response shape for public profile reads. Email is intentionally omitted:
 /// public profiles are visible to anyone who can reach the page; the
 /// recipient's email is not.
+///
+/// `follows_you` and `you_follow` are populated for authenticated viewers
+/// only; they're both `false` for anonymous reads since the relationship
+/// has no defined viewer.
 #[derive(Serialize)]
 pub struct PublicProfileResponse {
     pub user_id: Uuid,
@@ -132,6 +138,10 @@ pub struct PublicProfileResponse {
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
     pub role: String,
+    pub follower_count: i64,
+    pub following_count: i64,
+    pub follows_you: bool,
+    pub you_follow: bool,
 }
 
 /// Compact profile shape used by the list endpoint. Drops `bio` and
@@ -200,6 +210,9 @@ async fn get_me_profile(
         .await?
         .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
 
+    let follower_count = crate::follows::count_followers(&state.db, model.id).await? as i64;
+    let following_count = crate::follows::count_following(&state.db, model.id).await? as i64;
+
     Ok(Json(MeProfileResponse {
         user_id: model.id,
         handle: model.handle.clone(),
@@ -209,6 +222,8 @@ async fn get_me_profile(
         pronouns: model.pronouns.clone(),
         avatar_url: avatar_url_for(&model),
         role: model.role.clone(),
+        follower_count,
+        following_count,
     }))
 }
 
@@ -321,6 +336,9 @@ async fn patch_me_profile(
     }
     let updated = active.update(&state.db).await?;
 
+    let follower_count = crate::follows::count_followers(&state.db, updated.id).await? as i64;
+    let following_count = crate::follows::count_following(&state.db, updated.id).await? as i64;
+
     Ok(Json(MeProfileResponse {
         user_id: updated.id,
         handle: updated.handle.clone(),
@@ -330,6 +348,8 @@ async fn patch_me_profile(
         pronouns: updated.pronouns.clone(),
         avatar_url: avatar_url_for(&updated),
         role: updated.role.clone(),
+        follower_count,
+        following_count,
     }))
 }
 
@@ -390,6 +410,21 @@ async fn get_profile_by_handle(
         return Err(AppError::AuthError("Profile not found".to_string()));
     }
 
+    let follower_count = crate::follows::count_followers(&state.db, model.id).await? as i64;
+    let following_count = crate::follows::count_following(&state.db, model.id).await? as i64;
+    let viewer_id = auth_session.user().await.map(|u| u.id);
+    let (follows_you, you_follow) = if let Some(vid) = viewer_id {
+        if vid == model.id {
+            (false, false)
+        } else {
+            let states = crate::follows::fetch_follow_states(&state.db, vid, &[model.id]).await?;
+            let s = states.get(&model.id).copied().unwrap_or_default();
+            (s.follows_you, s.you_follow)
+        }
+    } else {
+        (false, false)
+    };
+
     Ok(Json(PublicProfileResponse {
         user_id: model.id,
         handle: model.handle.clone(),
@@ -398,6 +433,10 @@ async fn get_profile_by_handle(
         pronouns: model.pronouns.clone(),
         avatar_url: avatar_url_for(&model),
         role: model.role.clone(),
+        follower_count,
+        following_count,
+        follows_you,
+        you_follow,
     }))
 }
 

@@ -58,7 +58,14 @@
   "people": {
     "pageTitle": "People",
     "loadFailed": "Failed to load people",
-    "empty": "No other members yet."
+    "empty": "No other members yet.",
+    "tabs": {
+      "discover": "Discover",
+      "following": "Following",
+      "followers": "Followers"
+    },
+    "yourFollowingEmpty": "You're not following anyone yet.",
+    "yourFollowersEmpty": "No one follows you yet."
   },
   "album": {
     "notFound": "Album not found.",
@@ -77,7 +84,17 @@
     "postsLoadFailed": "Failed to load posts",
     "postsEmpty": "Nothing to show.",
     "loadingPostsAria": "Loading posts",
-    "edit": "Edit profile"
+    "edit": "Edit profile",
+    "follow": "Follow",
+    "followBack": "Follow back",
+    "following": "Following",
+    "unfollow": "Unfollow",
+    "followsYou": "Follows you",
+    "mutual": "Mutual",
+    "followFailed": "Couldn't update follow",
+    "followerCount_one": "{{count}} follower",
+    "followerCount_other": "{{count}} followers",
+    "followingCount": "{{count}} following"
   },
   "lightbox": {
     "viewerAria": "Media viewer",

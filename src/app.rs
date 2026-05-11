@@ -21,6 +21,7 @@ use crate::email::EmailService;
 use crate::engagement;
 use crate::entities::{access_code, AccessCode};
 use crate::errors::{AppError, AppResult};
+use crate::follows;
 use crate::imports;
 use crate::invites;
 use crate::middleware::{
@@ -612,6 +613,22 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(profile_state)
         .layer(auth_layer.clone());
 
+    // Follows: directed follower-graph edges. Writes are CSRF-gated and
+    // require authentication. Reads are auth-only too because the graph
+    // isn't part of the public-feed surface today.
+    let follows_state = follows::routes::FollowsState {
+        db: state.db.clone(),
+    };
+    let follows_write_routes = follows::routes::follows_write_routes()
+        .with_state(follows_state.clone())
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    let follows_read_routes = follows::routes::follows_read_routes()
+        .with_state(follows_state)
+        .layer(from_fn(require_authenticated))
+        .layer(auth_layer.clone());
+
     // Engagement: reactions and comments. Writes require authentication
     // (any tier — commenter, poster, administrator). Reads are public; the
     // visibility-tier check against the parent post happens inline.
@@ -690,6 +707,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(category_management_routes)
         .merge(me_profile_routes)
         .merge(public_profile_routes)
+        .merge(follows_write_routes)
+        .merge(follows_read_routes)
         .merge(engagement_write_routes)
         .merge(engagement_read_routes)
         .merge(settings_routes)

@@ -32,6 +32,8 @@
     "viewProfile": "查看个人资料",
     "settings": "设置",
     "admin": "管理后台",
+    "following": "关注",
+    "followers": "粉丝",
     "fallbackName": "账户"
   },
   "theme": {

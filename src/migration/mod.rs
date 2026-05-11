@@ -60,6 +60,7 @@ mod m20260508_000002_create_category_member;
 mod m20260508_000003_seed_category_mgmt_gate;
 mod m20260510_000001_add_comment_edited_at;
 mod m20260510_000002_create_comment_reactions;
+mod m20260510_000003_create_follows;
 
 pub struct Migrator;
 
@@ -111,6 +112,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260508_000003_seed_category_mgmt_gate::Migration),
             Box::new(m20260510_000001_add_comment_edited_at::Migration),
             Box::new(m20260510_000002_create_comment_reactions::Migration),
+            Box::new(m20260510_000003_create_follows::Migration),
         ]
     }
 }

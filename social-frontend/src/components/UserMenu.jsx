@@ -99,6 +99,22 @@ export default function UserMenu({ user, onSignOut }) {
             </Link>
           )}
           <Link
+            to="/people/following"
+            className="user-menu-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            {t("userMenu.following")}
+          </Link>
+          <Link
+            to="/people/followers"
+            className="user-menu-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            {t("userMenu.followers")}
+          </Link>
+          <Link
             to="/settings/profile"
             className="user-menu-item"
             role="menuitem"

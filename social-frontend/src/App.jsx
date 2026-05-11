@@ -34,6 +34,8 @@ export default function App() {
         <Route path="/albums" element={<Albums />} />
         <Route path="/categories" element={<Categories />} />
         <Route path="/people" element={<People />} />
+        <Route path="/people/following" element={<People />} />
+        <Route path="/people/followers" element={<People />} />
         <Route path="/compose-album" element={<ComposeAlbum />} />
       </Routes>
       <CookieBanner />

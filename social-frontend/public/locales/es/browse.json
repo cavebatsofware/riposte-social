@@ -58,7 +58,14 @@
   "people": {
     "pageTitle": "Personas",
     "loadFailed": "Error al cargar las personas",
-    "empty": "Aún no hay otros miembros."
+    "empty": "Aún no hay otros miembros.",
+    "tabs": {
+      "discover": "Descubrir",
+      "following": "Siguiendo",
+      "followers": "Seguidores"
+    },
+    "yourFollowingEmpty": "Aún no sigues a nadie.",
+    "yourFollowersEmpty": "Todavía no te sigue nadie."
   },
   "album": {
     "notFound": "Álbum no encontrado.",
@@ -77,7 +84,17 @@
     "postsLoadFailed": "Error al cargar las publicaciones",
     "postsEmpty": "Nada que mostrar.",
     "loadingPostsAria": "Cargando publicaciones",
-    "edit": "Editar perfil"
+    "edit": "Editar perfil",
+    "follow": "Seguir",
+    "followBack": "Seguir también",
+    "following": "Siguiendo",
+    "unfollow": "Dejar de seguir",
+    "followsYou": "Te sigue",
+    "mutual": "Os seguís",
+    "followFailed": "No se pudo actualizar el seguimiento",
+    "followerCount_one": "{{count}} seguidor",
+    "followerCount_other": "{{count}} seguidores",
+    "followingCount": "Sigue a {{count}}"
   },
   "lightbox": {
     "viewerAria": "Visor de medios",

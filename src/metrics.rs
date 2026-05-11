@@ -120,6 +120,15 @@ pub static IMPORTS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
     )
     .unwrap()
 });
+pub static FOLLOWS_TOTAL: LazyLock<IntCounterVec> = LazyLock::new(|| {
+    register_int_counter_vec_with_registry!(
+        "follows_total",
+        "Total follow add / remove events",
+        &["op"],
+        prometheus::default_registry()
+    )
+    .unwrap()
+});
 
 /// Register all metrics with the default prometheus registry.
 /// Called once at startup to ensure metrics are initialized.
@@ -143,6 +152,7 @@ pub fn register_metrics() {
     let _ = COMMENTS_TOTAL.with_label_values(&["create"]);
     let _ = LOGINS_TOTAL.with_label_values(&["administrator"]);
     let _ = IMPORTS_TOTAL.with_label_values(&["started"]);
+    let _ = FOLLOWS_TOTAL.with_label_values(&["add"]);
 }
 
 /// Read RSS memory from /proc/self/status.
