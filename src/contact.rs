@@ -109,7 +109,7 @@ async fn submit_contact_form(
         .parse::<std::net::IpAddr>()
         .map_err(|e| {
             tracing::error!("Failed to parse IP address: {}", e);
-            crate::errors::AppError::AuthError("Invalid IP address".to_string())
+            crate::errors::AppError::InternalError("Invalid IP address".to_string())
         })?;
 
     let has_recent_submission = state
