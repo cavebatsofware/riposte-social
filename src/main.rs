@@ -145,10 +145,12 @@ async fn main() -> anyhow::Result<()> {
 
     // Seed an activated admin row with a known password for end-to-end
     // tests. Idempotent on email: existing rows are upserted to a known
-    // password + activated state; missing rows are inserted. Refuses to
-    // run unless `SEED_TEST_ADMIN=true` so the subcommand cannot
-    // accidentally provision a known-credential admin in a production
-    // container.
+    // password + activated state; missing rows are inserted. Compiled
+    // only when the `e2e_testing` feature is enabled so the subcommand
+    // cannot exist in the production binary at all; the runtime
+    // `SEED_TEST_ADMIN=true` env guard remains for defense in depth
+    // when the feature is on.
+    #[cfg(feature = "e2e_testing")]
     if args.len() > 1 && args[1] == "seed-test-admin" {
         let email = args.get(2).ok_or_else(|| {
             anyhow::anyhow!("usage: cargo run -- seed-test-admin <email> <password>")
@@ -163,8 +165,9 @@ async fn main() -> anyhow::Result<()> {
     // Pure compute path: no database connection, no environment guards,
     // no encryption key required. Lets an operator hand-craft a SQL
     // insert against the dev DB without going through the seed
-    // subcommand (which connects via DATABASE_URL and may resolve to
-    // the wrong database in mixed dev / test shells).
+    // subcommand. Gated behind `e2e_testing` so the production binary
+    // doesn't ship a tool that produces valid auth hashes.
+    #[cfg(feature = "e2e_testing")]
     if args.len() > 1 && args[1] == "hash-password" {
         let password = args
             .get(2)
@@ -289,16 +292,17 @@ async fn main() -> anyhow::Result<()> {
         // Router handles client-side routing.
         .fallback(serve_social_spa);
 
-    // Configure IP extraction strategy based on environment
-    // DEV_MODE=true uses socket address (direct connections without proxy)
-    // Production (default) expects X-Forwarded-For from a single proxy
-    let ip_strategy = if env::var("DEV_MODE").unwrap_or_default() == "true" {
-        tracing::info!("DEV_MODE enabled: using socket address for IP extraction");
-        IpExtractionStrategy::SocketAddr
-    } else {
-        tracing::info!("Production mode: using X-Forwarded-For header");
-        IpExtractionStrategy::default()
-    };
+    // Configure IP extraction strategy. Production builds always use
+    // the reverse-proxy strategy: a release binary cannot honor a
+    // DEV_MODE=true env var to fall back to socket-address extraction,
+    // which would otherwise let an operator with env access neuter
+    // the IP-based rate limiter and access logging by masking every
+    // request behind the proxy IP.
+    //
+    // Under the `e2e_testing` feature the override is restored so the
+    // test container (which doesn't run behind a proxy) can still use
+    // socket-address extraction.
+    let ip_strategy = ip_extraction_strategy();
     let security_config = SecurityContextConfig::new().with_ip_extraction(ip_strategy);
 
     let app = app.layer(
@@ -413,6 +417,22 @@ async fn run_migrations_sync() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Returns the reverse-proxy strategy in production builds. Under the
+/// `e2e_testing` feature, honors `DEV_MODE=true` to fall back to
+/// socket-address extraction so the test container (which doesn't run
+/// behind a proxy) can still attribute requests to the calling host.
+fn ip_extraction_strategy() -> IpExtractionStrategy {
+    #[cfg(feature = "e2e_testing")]
+    {
+        if env::var("DEV_MODE").unwrap_or_default() == "true" {
+            tracing::info!("DEV_MODE enabled: using socket address for IP extraction");
+            return IpExtractionStrategy::SocketAddr;
+        }
+    }
+    tracing::info!("Using X-Forwarded-For header for IP extraction");
+    IpExtractionStrategy::default()
+}
+
 /// Bootstrap the first administrator. Inserts an inert admin row plus a
 /// fresh invite, prints the invite URL. Refuses to run if any users
 /// already exist.
@@ -519,10 +539,10 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
 /// service after migrations so Cypress (and humans poking the test
 /// container) can sign in against a deterministic fixture.
 ///
-/// Refuses to run unless `SEED_TEST_ADMIN=true` is set in the
-/// environment. The compose file sets it; production deployments do
-/// not. Defense-in-depth: the entrypoint script also only invokes
-/// this subcommand when the flag is true.
+/// Compiled only when the `e2e_testing` feature is enabled so the
+/// function is absent from the production binary. The runtime
+/// `SEED_TEST_ADMIN=true` env guard remains as defense in depth when
+/// the feature is on.
 ///
 /// Behavior:
 /// - If a `users` row with this email exists, update it: rehash the
@@ -531,6 +551,7 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
 ///   and active=true.
 /// - Otherwise insert a fresh row with handle derived from the email
 ///   local-part.
+#[cfg(feature = "e2e_testing")]
 async fn seed_test_admin(email: &str, password: &str) -> anyhow::Result<()> {
     use chrono::Utc;
     use riposte_social::admin::auth;

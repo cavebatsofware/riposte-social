@@ -398,11 +398,20 @@ async fn serve_invite_landing() -> AppResult<Response> {
         .into_response())
 }
 
-/// Cookie `Secure` flag follows the same DEV_MODE convention as tower-sessions.
+/// Cookie `Secure` flag. Production builds always return true so a
+/// release binary cannot be coerced into emitting non-Secure auth
+/// cookies via a `DEV_MODE=true` env var. Under the `e2e_testing`
+/// feature the override is restored so the test container (which
+/// serves over plain HTTP locally) can set non-Secure cookies for
+/// Cypress and hand-testing.
 fn is_cookie_secure() -> bool {
-    std::env::var("DEV_MODE")
-        .map(|v| v != "true")
-        .unwrap_or(true)
+    #[cfg(feature = "e2e_testing")]
+    {
+        if std::env::var("DEV_MODE").as_deref() == Ok("true") {
+            return false;
+        }
+    }
+    true
 }
 
 #[derive(Serialize)]

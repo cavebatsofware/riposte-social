@@ -1216,6 +1216,11 @@ fn hash_password(password: &str) -> Result<String> {
 /// Public re-export of the password hashing routine used by the test
 /// admin seed in `main.rs`. Lives on the auth module so that the seed
 /// path uses the exact same hash format the runtime auth flow expects.
+///
+/// Compiled only under the `e2e_testing` feature so the production
+/// binary cannot reach a path that produces valid auth hashes from
+/// arbitrary plaintext.
+#[cfg(feature = "e2e_testing")]
 pub fn hash_password_for_seed(password: &str) -> Result<String> {
     hash_password(password)
 }

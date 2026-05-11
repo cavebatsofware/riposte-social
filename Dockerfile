@@ -26,13 +26,23 @@ FROM rust:1.95-trixie AS builder
 
 WORKDIR /app
 
+# Optional cargo features. Empty in production builds (no dev / test
+# code compiled in). The test compose sets this to `e2e_testing` so
+# the `seed-test-admin` and `hash-password` subcommands and the
+# `DEV_MODE` runtime overrides are available in the test container.
+ARG CARGO_FEATURES=""
+
 # Copy manifest + source.
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 
 # Cargo.toml is rustls-only across sea-orm / sqlx / reqwest, so the
 # binary needs only ca-certificates at runtime; no libssl link.
-RUN cargo build --release
+RUN if [ -n "$CARGO_FEATURES" ]; then \
+        cargo build --release --features "$CARGO_FEATURES"; \
+    else \
+        cargo build --release; \
+    fi
 
 # Runtime stage. debian:trixie-slim is the minimal Debian 13 base
 # (~75MB before our additions); we install ca-certificates for
