@@ -155,7 +155,7 @@ async fn get_admin_user(
     let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     Ok(Json(admin.into()))
 }
@@ -168,7 +168,7 @@ async fn update_admin_user(
 ) -> AppResult<Json<AdminUserResponse>> {
     // Prevent self-editing
     if current_user.id == user_id {
-        return Err(AppError::AuthError(
+        return Err(AppError::ValidationError(
             "Cannot edit yourself. Use the Profile page instead.".to_string(),
         ));
     }
@@ -177,7 +177,7 @@ async fn update_admin_user(
     let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     let target_email = admin.email.clone();
 
@@ -237,7 +237,7 @@ async fn update_admin_user(
     let admin = User::find_by_id(user_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("User not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
     let mut admin_active: user::ActiveModel = admin.into();
 
@@ -286,7 +286,7 @@ async fn resend_verification_email(
 ) -> AppResult<Json<AdminUserResponse>> {
     // Prevent self-action
     if current_user.id == user_id {
-        return Err(AppError::AuthError(
+        return Err(AppError::ValidationError(
             "Cannot resend verification email to yourself".to_string(),
         ));
     }
