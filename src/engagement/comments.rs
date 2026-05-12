@@ -311,7 +311,7 @@ async fn edit_comment(
     let is_author = row.user_id == user.id;
     let is_admin = user.role == user::ROLE_ADMINISTRATOR;
     if !is_author && !is_admin {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the comment author or an administrator can edit this comment".to_string(),
         ));
     }
@@ -353,7 +353,7 @@ async fn delete_comment(
     let is_author = row.user_id == user.id;
     let is_admin = user.role == user::ROLE_ADMINISTRATOR;
     if !is_author && !is_admin {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the comment author or an administrator can delete this comment".to_string(),
         ));
     }

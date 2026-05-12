@@ -692,7 +692,7 @@ async fn update_album(
         .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this album".to_string(),
         ));
     }
@@ -779,7 +779,7 @@ async fn delete_album(
         .await?
         .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete this album".to_string(),
         ));
     }
@@ -801,7 +801,7 @@ async fn append_album_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can add to this album".to_string(),
         ));
     }
@@ -970,7 +970,7 @@ async fn update_album_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this album".to_string(),
         ));
     }
@@ -1007,7 +1007,7 @@ async fn delete_album_media(
         .await?
         .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete from this album".to_string(),
         ));
     }

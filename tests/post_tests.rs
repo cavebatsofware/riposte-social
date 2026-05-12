@@ -342,7 +342,7 @@ async fn test_update_post_other_poster_forbidden(pool: sqlx::PgPool) {
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({"body": "hijack"}))
         .await;
-    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[sqlx::test(migrations = false)]
@@ -410,7 +410,7 @@ async fn test_delete_post_other_poster_forbidden(pool: sqlx::PgPool) {
         .delete(&format!("/api/posts/{}", p.id))
         .add_header("x-csrf-token", &csrf)
         .await;
-    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
     // Row was NOT deleted.
     let row = Post::find_by_id(p.id).one(&db).await.unwrap().unwrap();

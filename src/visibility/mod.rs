@@ -438,7 +438,7 @@ where
                 .await?
                 .is_some();
             if !is_member {
-                return Err(AppError::NotFound(
+                return Err(AppError::Forbidden(
                     "You aren't a member of that category".to_string(),
                 ));
             }
@@ -448,7 +448,7 @@ where
             if cat.created_by == Some(user.id) {
                 Ok(())
             } else {
-                Err(AppError::NotFound(
+                Err(AppError::Forbidden(
                     "Only the category owner may post into a private category".to_string(),
                 ))
             }

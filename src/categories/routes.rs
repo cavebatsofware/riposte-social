@@ -331,7 +331,7 @@ async fn update_category(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(&user, &row, gate_enabled) {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Not allowed to modify this category".to_string(),
         ));
     }
@@ -483,7 +483,7 @@ async fn delete_category(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(&user, &row, gate_enabled) {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Not allowed to delete this category".to_string(),
         ));
     }
@@ -509,7 +509,7 @@ async fn ensure_can_manage(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(user, &row, gate_enabled) {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Not allowed to manage this category".to_string(),
         ));
     }

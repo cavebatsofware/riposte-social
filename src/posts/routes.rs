@@ -741,7 +741,7 @@ async fn update_post(
         .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this post".to_string(),
         ));
     }
@@ -844,7 +844,7 @@ async fn delete_post(
         .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::NotFound(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete this post".to_string(),
         ));
     }

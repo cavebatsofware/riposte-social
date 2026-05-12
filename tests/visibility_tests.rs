@@ -356,7 +356,7 @@ async fn test_compose_post_into_user_list_category_rejected_when_author_not_memb
                 .add_text("category_id", cat.id.to_string()),
         )
         .await;
-    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 }
 
 #[sqlx::test(migrations = false)]

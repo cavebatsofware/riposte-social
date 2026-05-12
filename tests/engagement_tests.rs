@@ -511,7 +511,7 @@ async fn test_delete_comment_other_user_forbidden(pool: sqlx::PgPool) {
         .delete(&format!("/api/posts/{}/comments/{}", p.id, c.id))
         .add_header("x-csrf-token", &csrf)
         .await;
-    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
     let row = Comment::find_by_id(c.id).one(&db).await.unwrap().unwrap();
     assert!(
@@ -821,7 +821,7 @@ async fn test_edit_comment_other_user_forbidden(pool: sqlx::PgPool) {
         .add_header("x-csrf-token", &csrf)
         .json(&serde_json::json!({ "body": "tampered" }))
         .await;
-    assert_eq!(response.status_code(), StatusCode::NOT_FOUND);
+    assert_eq!(response.status_code(), StatusCode::FORBIDDEN);
 
     let row = Comment::find_by_id(c.id).one(&db).await.unwrap().unwrap();
     assert_eq!(row.body, "not yours");
