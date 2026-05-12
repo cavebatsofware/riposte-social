@@ -1113,6 +1113,8 @@ async fn import_one_post(
             updated_at: Set(now),
             category_id: Set(None),
             content_lang: Set(post::CONTENT_LANG_ENGLISH.to_string()),
+            kind: Set(post::KIND_POST.to_string()),
+            slug: Set(None),
         }
         .insert(&txn)
         .await?;
