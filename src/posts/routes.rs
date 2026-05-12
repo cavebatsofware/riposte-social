@@ -578,7 +578,10 @@ async fn create_post(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::InternalError(format!("Failed to create post: {}", e)));
+            return Err(AppError::InternalError(format!(
+                "Failed to create post: {}",
+                e
+            )));
         }
     };
 
