@@ -217,7 +217,7 @@ async fn create_category(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_create_category(&user, gate_enabled) {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Not allowed to create categories".to_string(),
         ));
     }
@@ -323,7 +323,7 @@ async fn update_category(
     let row = Category::find_by_id(id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Category not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
 
     let gate_enabled = state
         .settings
@@ -331,7 +331,7 @@ async fn update_category(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(&user, &row, gate_enabled) {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Not allowed to modify this category".to_string(),
         ));
     }
@@ -475,7 +475,7 @@ async fn delete_category(
     let row = Category::find_by_id(id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Category not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
 
     let gate_enabled = state
         .settings
@@ -483,7 +483,7 @@ async fn delete_category(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(&user, &row, gate_enabled) {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Not allowed to delete this category".to_string(),
         ));
     }
@@ -502,14 +502,14 @@ async fn ensure_can_manage(
     let row = Category::find_by_id(id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Category not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
     let gate_enabled = state
         .settings
         .get_poster_category_management_enabled()
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !can_manage_category(user, &row, gate_enabled) {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Not allowed to manage this category".to_string(),
         ));
     }

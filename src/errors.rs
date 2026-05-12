@@ -37,6 +37,14 @@ pub enum AppError {
     #[error("Authentication error: {0}")]
     AuthError(String),
 
+    /// 403 for requests that are well-formed and authenticated but denied
+    /// by policy. Use this for feature flags ("X is currently disabled by
+    /// an administrator"), role/permission gates that reject the request
+    /// rather than hide the resource, and any other authorization-level
+    /// denial that is not a credential-verification failure.
+    #[error("Forbidden: {0}")]
+    Forbidden(String),
+
     /// 404 for missing or hidden domain entities. Use this when a row
     /// doesn't exist OR exists but the caller isn't permitted to see it,
     /// returning the same response in both cases so existence isn't
@@ -78,6 +86,10 @@ impl IntoResponse for AppError {
             AppError::AuthError(msg) => {
                 tracing::warn!("Authentication error: {}", msg);
                 (StatusCode::UNAUTHORIZED, msg)
+            }
+            AppError::Forbidden(msg) => {
+                tracing::debug!("Forbidden: {}", msg);
+                (StatusCode::FORBIDDEN, msg)
             }
             AppError::NotFound(msg) => {
                 tracing::debug!("Not found: {}", msg);

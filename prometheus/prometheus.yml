@@ -1,0 +1,20 @@
+## Prometheus scrape config for the local dev `riposte-social` app.
+##
+## The `/metrics` handler at src/metrics.rs:metrics_handler rejects any
+## non-loopback peer and any request carrying `x-forwarded-for`. The
+## Prometheus container therefore must share the host network namespace
+## (`--network=host`) so its scrape originates from real loopback.
+
+global:
+  ## App gauges are refreshed every 15s by refresh_system_metrics, so
+  ## scraping more often wastes work; less often would alias the gauge
+  ## refresh and produce visibly stair-stepped graphs.
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: riposte-social
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - localhost:3000

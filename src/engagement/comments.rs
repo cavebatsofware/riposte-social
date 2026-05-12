@@ -211,7 +211,7 @@ async fn list_comments(
             .await
             .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !enabled {
-            return Err(AppError::AuthError("Post not found".to_string()));
+            return Err(AppError::NotFound("Post not found".to_string()));
         }
     }
 
@@ -219,7 +219,7 @@ async fn list_comments(
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
     let parent_cat = if let Some(cid) = parent.category_id {
         crate::entities::Category::find_by_id(cid)
             .one(&state.db)
@@ -231,7 +231,7 @@ async fn list_comments(
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
-        return Err(AppError::AuthError("Post not found".to_string()));
+        return Err(AppError::NotFound("Post not found".to_string()));
     }
 
     let rows = Comment::find()
@@ -300,18 +300,18 @@ async fn edit_comment(
         .filter(comment::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
 
     if row.post_id != post_id {
         // Mirror the delete-side response: don't leak existence of a
         // comment whose post_id doesn't match the route.
-        return Err(AppError::AuthError("Comment not found".to_string()));
+        return Err(AppError::NotFound("Comment not found".to_string()));
     }
 
     let is_author = row.user_id == user.id;
     let is_admin = user.role == user::ROLE_ADMINISTRATOR;
     if !is_author && !is_admin {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the comment author or an administrator can edit this comment".to_string(),
         ));
     }
@@ -342,18 +342,18 @@ async fn delete_comment(
         .filter(comment::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Comment not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
 
     if row.post_id != post_id {
         // Comment exists but belongs to a different post; treat as not
         // found so callers can't probe for ownership.
-        return Err(AppError::AuthError("Comment not found".to_string()));
+        return Err(AppError::NotFound("Comment not found".to_string()));
     }
 
     let is_author = row.user_id == user.id;
     let is_admin = user.role == user::ROLE_ADMINISTRATOR;
     if !is_author && !is_admin {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the comment author or an administrator can delete this comment".to_string(),
         ));
     }

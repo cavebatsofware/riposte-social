@@ -363,18 +363,22 @@ social-watch:
 	@echo "⚛️  Starting Social frontend in watch mode..."
 	@npm run build:watch:social
 
-# Rust watch mode (auto-reload on changes using cargo-watch)
+# Rust watch mode (auto-reload on changes using cargo-watch). Builds
+# with the `e2e_testing` feature so the DEV_MODE runtime override
+# (socket-address IP extraction, non-Secure invite cookies) is
+# compiled in. Production release builds intentionally strip those
+# overrides; a localhost dev server needs them.
 .PHONY: rust-watch
 rust-watch:
 	@echo "🦀 Starting Rust in watch mode..."
 	@command -v cargo-watch >/dev/null 2>&1 || { echo "Installing cargo-watch..."; cargo install cargo-watch; }
-	@cargo watch -x 'run --release'
+	@cargo watch -x 'run --release --features e2e_testing'
 
 # Run Rust server without watching
 .PHONY: rust-run
 rust-run:
 	@echo "🦀 Starting Rust server..."
-	@cargo run --release
+	@cargo run --release --features e2e_testing
 
 # Development without watch (manual restart required for changes)
 .PHONY: dev-no-watch
@@ -382,7 +386,7 @@ dev-no-watch: db-up frontend-build
 	@echo "🔧 Starting development server (no watch)..."
 	@echo "📝 Logs will appear below. Press Ctrl+C to stop."
 	@echo ""
-	cargo run
+	cargo run --features e2e_testing
 
 # Tail development logs
 .PHONY: dev-logs

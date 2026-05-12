@@ -172,7 +172,7 @@ pub async fn mark_used(db: &DatabaseConnection, invite_id: Uuid, user_id: Uuid) 
     let row = InviteCode::find_by_id(invite_id)
         .one(db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Invite not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Invite not found".to_string()))?;
 
     if row.used_at.is_some() {
         return Ok(());
@@ -301,7 +301,7 @@ async fn create_invite(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
     if !invites_enabled {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Invite creation is currently disabled by an administrator".to_string(),
         ));
     }
@@ -362,7 +362,7 @@ async fn revoke_invite(
     let row = InviteCode::find_by_id(id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Invite not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Invite not found".to_string()))?;
 
     // If already used, revocation is a no-op; the commenter is already onboarded.
     if row.used_at.is_some() {
@@ -398,11 +398,20 @@ async fn serve_invite_landing() -> AppResult<Response> {
         .into_response())
 }
 
-/// Cookie `Secure` flag follows the same DEV_MODE convention as tower-sessions.
+/// Cookie `Secure` flag. Production builds always return true so a
+/// release binary cannot be coerced into emitting non-Secure auth
+/// cookies via a `DEV_MODE=true` env var. Under the `e2e_testing`
+/// feature the override is restored so the test container (which
+/// serves over plain HTTP locally) can set non-Secure cookies for
+/// Cypress and hand-testing.
 fn is_cookie_secure() -> bool {
-    std::env::var("DEV_MODE")
-        .map(|v| v != "true")
-        .unwrap_or(true)
+    #[cfg(feature = "e2e_testing")]
+    {
+        if std::env::var("DEV_MODE").as_deref() == Ok("true") {
+            return false;
+        }
+    }
+    true
 }
 
 #[derive(Serialize)]

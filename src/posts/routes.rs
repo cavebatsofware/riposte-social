@@ -351,7 +351,7 @@ async fn create_post(
             .await
             .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !enabled {
-            return Err(AppError::AuthError(
+            return Err(AppError::Forbidden(
                 "Posting is currently disabled by an administrator".to_string(),
             ));
         }
@@ -520,7 +520,7 @@ async fn create_post(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
+            return Err(AppError::InternalError(format!(
                 "Failed to upload media: {}",
                 e
             )));
@@ -578,7 +578,10 @@ async fn create_post(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!("Failed to create post: {}", e)));
+            return Err(AppError::InternalError(format!(
+                "Failed to create post: {}",
+                e
+            )));
         }
     };
 
@@ -616,18 +619,18 @@ async fn serve_media(
     let tier = caller_tier(&auth_session).await;
     enforce_public_feed_gate(&state.settings, tier)
         .await
-        .map_err(|_| AppError::AuthError("Media not found".to_string()))?;
+        .map_err(|_| AppError::NotFound("Media not found".to_string()))?;
 
     let media = PostMedia::find_by_id(media_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
 
     let parent = Post::find_by_id(media.post_id)
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
 
     let parent_cat = if let Some(cid) = parent.category_id {
         Category::find_by_id(cid).one(&state.db).await?
@@ -638,14 +641,14 @@ async fn serve_media(
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
-        return Err(AppError::AuthError("Media not found".to_string()));
+        return Err(AppError::NotFound("Media not found".to_string()));
     }
 
     let (bytes, stored_type) = state
         .s3
         .get_object_at(&media.s3_key)
         .await
-        .map_err(|e| AppError::AuthError(format!("Failed to load media: {}", e)))?;
+        .map_err(|e| AppError::InternalError(format!("Failed to load media: {}", e)))?;
 
     // Effective visibility (category-driven if categorized) decides cache
     // policy. Public goes to a shared cache; everything else stays private.
@@ -687,7 +690,7 @@ async fn get_post(
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     let parent_cat = if let Some(cid) = row.category_id {
         Category::find_by_id(cid).one(&state.db).await?
@@ -701,7 +704,7 @@ async fn get_post(
     if !ctx.can_view_post(&row, parent_cat.as_ref()) {
         // Don't disclose existence to under-tier callers. Same error as
         // missing post.
-        return Err(AppError::AuthError("Post not found".to_string()));
+        return Err(AppError::NotFound("Post not found".to_string()));
     }
 
     let media = PostMedia::find()
@@ -735,10 +738,10 @@ async fn update_post(
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this post".to_string(),
         ));
     }
@@ -838,10 +841,10 @@ async fn delete_post(
         .filter(post::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete this post".to_string(),
         ));
     }
@@ -1121,7 +1124,7 @@ async fn enforce_public_feed_gate(
     }
     // Same surface as missing-post: don't disclose whether anything
     // exists to a caller who shouldn't see anything.
-    Err(AppError::AuthError("Not found".to_string()))
+    Err(AppError::NotFound("Not found".to_string()))
 }
 
 fn parse_cursor(cursor: &str) -> Option<(chrono::DateTime<chrono::FixedOffset>, Uuid)> {

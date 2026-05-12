@@ -43,6 +43,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Compile in the e2e_testing feature so seed-test-admin,
+        # hash-password, and the DEV_MODE runtime overrides exist in
+        # the test binary. The production compose builds without this
+        # arg and gets none of those code paths.
+        CARGO_FEATURES: e2e_testing
     container_name: riposte-social-test-app
     depends_on:
       postgres-test:

@@ -438,7 +438,7 @@ where
                 .await?
                 .is_some();
             if !is_member {
-                return Err(AppError::AuthError(
+                return Err(AppError::Forbidden(
                     "You aren't a member of that category".to_string(),
                 ));
             }
@@ -448,7 +448,7 @@ where
             if cat.created_by == Some(user.id) {
                 Ok(())
             } else {
-                Err(AppError::AuthError(
+                Err(AppError::Forbidden(
                     "Only the category owner may post into a private category".to_string(),
                 ))
             }
@@ -477,7 +477,7 @@ where
         .filter(post::Column::DeletedAt.is_null())
         .one(db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Post not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
 
     let cat = if let Some(cid) = parent.category_id {
         Category::find_by_id(cid).one(db).await?
@@ -489,7 +489,7 @@ where
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_post(&parent, cat.as_ref()) {
-        return Err(AppError::AuthError("Post not found".to_string()));
+        return Err(AppError::NotFound("Post not found".to_string()));
     }
     Ok(parent)
 }

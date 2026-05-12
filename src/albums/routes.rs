@@ -229,7 +229,7 @@ async fn create_album(
             .await
             .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
         if !enabled {
-            return Err(AppError::AuthError(
+            return Err(AppError::Forbidden(
                 "Posting is currently disabled by an administrator".to_string(),
             ));
         }
@@ -384,7 +384,7 @@ async fn create_album(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
+            return Err(AppError::InternalError(format!(
                 "Failed to upload media: {}",
                 e
             )));
@@ -441,7 +441,7 @@ async fn create_album(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
+            return Err(AppError::InternalError(format!(
                 "Failed to create album: {}",
                 e
             )));
@@ -655,14 +655,14 @@ async fn get_album(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
 
     let cat = load_album_category(&state.db, &row).await?;
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_album(&row, cat.as_ref()) {
-        return Err(AppError::AuthError("Album not found".to_string()));
+        return Err(AppError::NotFound("Album not found".to_string()));
     }
 
     let media = AlbumMedia::find()
@@ -689,10 +689,10 @@ async fn update_album(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
 
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this album".to_string(),
         ));
     }
@@ -777,9 +777,9 @@ async fn delete_album(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete this album".to_string(),
         ));
     }
@@ -799,9 +799,9 @@ async fn append_album_media(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can add to this album".to_string(),
         ));
     }
@@ -889,7 +889,7 @@ async fn append_album_media(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
+            return Err(AppError::InternalError(format!(
                 "Failed to upload media: {}",
                 e
             )));
@@ -934,7 +934,7 @@ async fn append_album_media(
             for k in &uploaded_keys {
                 let _ = state.s3.delete_object_at(k).await;
             }
-            return Err(AppError::AuthError(format!(
+            return Err(AppError::InternalError(format!(
                 "Failed to append media: {}",
                 e
             )));
@@ -968,9 +968,9 @@ async fn update_album_media(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can edit this album".to_string(),
         ));
     }
@@ -978,7 +978,7 @@ async fn update_album_media(
         .filter(album_media::Column::AlbumId.eq(album_id))
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
 
     let mut active: album_media::ActiveModel = media.into();
     if let Some(c) = req.caption {
@@ -1005,9 +1005,9 @@ async fn delete_album_media(
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Album not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Album not found".to_string()))?;
     if album_row.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-        return Err(AppError::AuthError(
+        return Err(AppError::Forbidden(
             "Only the author or an administrator can delete from this album".to_string(),
         ));
     }
@@ -1015,7 +1015,7 @@ async fn delete_album_media(
         .filter(album_media::Column::AlbumId.eq(album_id))
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
     let s3_key = media.s3_key.clone();
     let was_cover = album_row.cover_media_id == Some(media.id);
     let media_id_val = media.id;
@@ -1051,30 +1051,30 @@ async fn serve_album_media(
     let tier = caller_tier(&auth_session).await;
     enforce_public_feed_gate(&state.settings, tier)
         .await
-        .map_err(|_| AppError::AuthError("Media not found".to_string()))?;
+        .map_err(|_| AppError::NotFound("Media not found".to_string()))?;
 
     let media = AlbumMedia::find_by_id(media_id)
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
     let parent = Album::find_by_id(media.album_id)
         .filter(album::Column::DeletedAt.is_null())
         .one(&state.db)
         .await?
-        .ok_or_else(|| AppError::AuthError("Media not found".to_string()))?;
+        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
     let parent_cat = load_album_category(&state.db, &parent).await?;
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     if !ctx.can_view_album(&parent, parent_cat.as_ref()) {
-        return Err(AppError::AuthError("Media not found".to_string()));
+        return Err(AppError::NotFound("Media not found".to_string()));
     }
 
     let (bytes, stored_type) = state
         .s3
         .get_object_at(&media.s3_key)
         .await
-        .map_err(|e| AppError::AuthError(format!("Failed to load media: {}", e)))?;
+        .map_err(|e| AppError::InternalError(format!("Failed to load media: {}", e)))?;
 
     let effective_vis = parent_cat
         .as_ref()
@@ -1119,7 +1119,7 @@ async fn enforce_public_feed_gate(
     if enabled {
         return Ok(());
     }
-    Err(AppError::AuthError("Not found".to_string()))
+    Err(AppError::NotFound("Not found".to_string()))
 }
 
 fn parse_cursor(cursor: &str) -> Option<(chrono::DateTime<chrono::FixedOffset>, Uuid)> {
