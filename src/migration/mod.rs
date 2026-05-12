@@ -61,6 +61,12 @@ mod m20260508_000003_seed_category_mgmt_gate;
 mod m20260510_000001_add_comment_edited_at;
 mod m20260510_000002_create_comment_reactions;
 mod m20260510_000003_create_follows;
+mod m20260512_000001_add_kind_slug_to_posts;
+mod m20260512_000002_migrate_albums_to_posts;
+mod m20260512_000003_migrate_album_media_to_post_media;
+mod m20260512_000004_drop_albums_tables;
+mod m20260512_000005_create_post_media_reaction;
+mod m20260512_000006_create_post_media_comment;
 
 pub struct Migrator;
 
@@ -113,6 +119,12 @@ impl MigratorTrait for Migrator {
             Box::new(m20260510_000001_add_comment_edited_at::Migration),
             Box::new(m20260510_000002_create_comment_reactions::Migration),
             Box::new(m20260510_000003_create_follows::Migration),
+            Box::new(m20260512_000001_add_kind_slug_to_posts::Migration),
+            Box::new(m20260512_000002_migrate_albums_to_posts::Migration),
+            Box::new(m20260512_000003_migrate_album_media_to_post_media::Migration),
+            Box::new(m20260512_000004_drop_albums_tables::Migration),
+            Box::new(m20260512_000005_create_post_media_reaction::Migration),
+            Box::new(m20260512_000006_create_post_media_comment::Migration),
         ]
     }
 }
