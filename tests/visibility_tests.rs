@@ -938,4 +938,3 @@ async fn test_author_sees_own_post_in_user_list_category_after_revocation(pool: 
         "post author should see their own post even after losing category membership"
     );
 }
-

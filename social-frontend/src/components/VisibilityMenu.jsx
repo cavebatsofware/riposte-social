@@ -5,20 +5,11 @@ import useRovingFocus from "../utils/useRovingFocus";
 
 const OPTION_IDS = ["private", "public", "commenters", "posters"];
 
-/// Inline dropdown that lets a post's author or an administrator change
-/// the post's visibility from anywhere it's rendered (feed card, permalink,
-/// etc.) without entering the Compose edit flow. The trigger is the
-/// existing `<VisibilityBadge>`, just with an added chevron and click
-/// handler.
-///
-/// Backend: PATCH /api/posts/{id} accepts a partial body of just
-/// `{visibility: "..."}`; the change is applied transactionally and the
-/// updated post is returned. We update local state on success and call
-/// `onChange(newVisibility)` so the parent can sync any cached copy.
-///
-/// Wrapped in `e.stopPropagation()` calls because the parent PostCard
-/// renders the whole card inside a `<Link>` to the permalink on the feed
-/// variant; without stopPropagation, opening the menu would navigate.
+/// Inline visibility dropdown for the post-meta line. Author or admin
+/// only; the parent decides whether to render this or the read-only
+/// `<VisibilityBadge>`. Selecting an option PATCHes
+/// `/api/posts/{id}` and calls `onChange(newVisibility)` so the parent
+/// can sync any cached copy.
 export default function VisibilityMenu({ post, onChange }) {
   const { t } = useTranslation("feed");
   const [open, setOpen] = useState(false);
@@ -42,9 +33,6 @@ export default function VisibilityMenu({ post, onChange }) {
         setOpen(false);
       }
     }
-    // Close when keyboard focus leaves the menu (e.g. user Tabs out
-    // without selecting). Mirrors the behavior of the chrome pickers
-    // so adjacent affordances cannot stay open simultaneously.
     function onFocusOut(e) {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setOpen(false);
@@ -66,10 +54,8 @@ export default function VisibilityMenu({ post, onChange }) {
     };
   }, [open]);
 
-  async function selectOption(e, id) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (id === current || submitting) {
+  async function selectOption(id) {
+    if (submitting) {
       setOpen(false);
       return;
     }
@@ -99,7 +85,10 @@ export default function VisibilityMenu({ post, onChange }) {
   const label = t(`visibility.${labelKey}.name`);
 
   return (
-    <span className="visibility-menu" ref={wrapperRef}>
+    <div
+      className={`visibility-menu ${open ? "menu-open" : ""}`}
+      ref={wrapperRef}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -107,40 +96,34 @@ export default function VisibilityMenu({ post, onChange }) {
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={submitting}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setOpen((v) => !v);
-        }}
+        onClick={() => setOpen((v) => !v)}
       >
         {label}
         <span className="visibility-menu-chevron" aria-hidden="true">
           ▾
         </span>
       </button>
-      {open && (
-        <div ref={popoverRef} className="visibility-menu-popover" role="menu">
-          {OPTION_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              role="menuitem"
-              className={`visibility-menu-item ${id === current ? "active" : ""}`}
-              disabled={submitting}
-              onClick={(e) => selectOption(e, id)}
-            >
-              <span className={`visibility-menu-swatch ${id}`} aria-hidden="true" />
-              {t(`visibility.${id}.name`)}
-              {id === current && (
-                <span className="visibility-menu-check" aria-hidden="true">
-                  ✓
-                </span>
-              )}
-            </button>
-          ))}
-          {error && <div className="visibility-menu-error">{error}</div>}
-        </div>
-      )}
-    </span>
+      <div ref={popoverRef} className="visibility-menu-popover" role="menu">
+        {OPTION_IDS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="menuitem"
+            className={`visibility-menu-item ${id === current ? "active" : ""}`}
+            disabled={submitting}
+            onClick={() => selectOption(id)}
+          >
+            <span className={`visibility-menu-swatch ${id}`} aria-hidden="true" />
+            {t(`visibility.${id}.name`)}
+            {id === current && (
+              <span className="visibility-menu-check" aria-hidden="true">
+                ✓
+              </span>
+            )}
+          </button>
+        ))}
+        {error && <div className="visibility-menu-error">{error}</div>}
+      </div>
+    </div>
   );
 }

@@ -232,7 +232,7 @@ pub(crate) async fn lookup_media(
         pm_ordinal: i32,
         pm_caption: Option<String>,
         pm_created_at: DateTimeWithTimeZone,
-        // post columns (slim — id is implied by pm_post_id under the
+        // post columns (slim, id is implied by pm_post_id under the
         // JOIN condition, so we don't reselect it).
         p_author_id: Uuid,
         p_visibility: String,

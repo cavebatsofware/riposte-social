@@ -57,7 +57,8 @@
     "commentCount_one": "{{count}} Kommentar",
     "commentCount_other": "{{count}} Kommentare",
     "viewMore_one": "{{count}} weiteren Kommentar anzeigen",
-    "viewMore_other": "{{count}} weitere Kommentare anzeigen"
+    "viewMore_other": "{{count}} weitere Kommentare anzeigen",
+    "openPost": "Beitrag öffnen"
   },
   "comments": {
     "title": "Kommentare",
