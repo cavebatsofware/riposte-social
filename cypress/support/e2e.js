@@ -2,9 +2,12 @@
 // `cypress-axe` adds `cy.injectAxe()` and `cy.checkA11y()` commands
 // that the a11y smoke spec relies on. `auth.js` adds `cy.login()`
 // for authed-route specs that want to skip the UI sign-in flow.
+// `api.js` adds `cy.createPost()` / `cy.createAlbum()` for feature
+// specs that need to seed rows via the API.
 
 import "cypress-axe";
 import "./auth.js";
+import "./api.js";
 
 // Pre-acknowledge the cookie consent banner before any spec mounts
 // the SPA. Otherwise the banner overlays the bottom of the viewport
