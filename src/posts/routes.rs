@@ -383,11 +383,19 @@ async fn append_post_media(
     Path(id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> AppResult<Json<Vec<PostMediaResponse>>> {
-    let rows =
-        shared::append_media(&state.db, &state.s3, &user, id, post::KIND_POST, &mut multipart)
-            .await?;
+    let rows = shared::append_media(
+        &state.db,
+        &state.s3,
+        &user,
+        id,
+        post::KIND_POST,
+        &mut multipart,
+    )
+    .await?;
     Ok(Json(
-        rows.into_iter().map(PostMediaResponse::from_model).collect(),
+        rows.into_iter()
+            .map(PostMediaResponse::from_model)
+            .collect(),
     ))
 }
 

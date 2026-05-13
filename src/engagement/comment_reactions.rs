@@ -71,7 +71,7 @@ async fn create_comment_reaction(
         )));
     }
 
-    let parent = ensure_visible_comment(&state.db, post_id, comment_id, &user).await?;
+    let parent = load_visible_comment(&state.db, post_id, comment_id, &user).await?;
 
     let am = comment_reaction::ActiveModel {
         id: Set(Uuid::new_v4()),
@@ -121,7 +121,7 @@ async fn delete_comment_reaction(
         )));
     }
 
-    let parent = ensure_visible_comment(&state.db, post_id, comment_id, &user).await?;
+    let parent = load_visible_comment(&state.db, post_id, comment_id, &user).await?;
 
     let result = CommentReaction::delete_many()
         .filter(comment_reaction::Column::CommentId.eq(parent.id))
@@ -140,11 +140,11 @@ async fn delete_comment_reaction(
     ))
 }
 
-/// Look up the comment, confirm it belongs to the path's post, and verify
-/// the caller has read access to the parent post. Returns the comment row
-/// when authorized; same `Comment not found` error for any failure mode
-/// so callers cannot probe for ownership or visibility.
-async fn ensure_visible_comment(
+/// Load the comment after confirming it belongs to the path's post and
+/// the caller can read the parent post. Returns the comment row when
+/// authorized; same `Comment not found` error for any failure mode so
+/// callers cannot probe for ownership or visibility.
+async fn load_visible_comment(
     db: &DatabaseConnection,
     post_id: Uuid,
     comment_id: Uuid,

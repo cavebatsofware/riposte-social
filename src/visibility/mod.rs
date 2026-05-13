@@ -437,19 +437,15 @@ where
     }
 }
 
-/// Fetch a live (non-deleted) post and confirm the caller can read it.
-/// Returns the same "Post not found" error for both missing rows and
-/// under-tier calls so existence isn't disclosed. Used by write paths
-/// (engagement, compose-time checks) that already extract a `UserAuth`.
+/// Load a live (non-deleted) post if the caller can read it. Returns the
+/// same "Post not found" error for both missing rows and under-tier calls
+/// so existence isn't disclosed. Used by write paths (engagement,
+/// compose-time checks) that already extract a `UserAuth`.
 ///
 /// Loads the parent category (when set) so the visibility check honors
 /// category-driven access. One extra round trip per write path; tolerable
 /// at engagement scale.
-pub async fn ensure_visible_post_for_user<C>(
-    db: &C,
-    post_id: Uuid,
-    user: &UserAuth,
-) -> AppResult<post::Model>
+pub async fn load_visible_post<C>(db: &C, post_id: Uuid, user: &UserAuth) -> AppResult<post::Model>
 where
     C: ConnectionTrait,
 {

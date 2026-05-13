@@ -237,9 +237,8 @@ pub async fn parse_compose_multipart(
             .ok_or_else(|| AppError::ValidationError("Missing required field: name".to_string()))?;
         (body.unwrap_or_default(), Some(n))
     } else {
-        let b = body.ok_or_else(|| {
-            AppError::ValidationError("Missing required field: body".to_string())
-        })?;
+        let b = body
+            .ok_or_else(|| AppError::ValidationError("Missing required field: body".to_string()))?;
         if b.trim().is_empty() {
             return Err(AppError::ValidationError(
                 "Body cannot be empty".to_string(),
@@ -302,9 +301,7 @@ async fn parse_media_only_multipart(
     Ok(media)
 }
 
-async fn next_field<'a>(
-    multipart: &'a mut Multipart,
-) -> AppResult<Option<Field<'a>>> {
+async fn next_field<'a>(multipart: &'a mut Multipart) -> AppResult<Option<Field<'a>>> {
     multipart
         .next_field()
         .await
@@ -338,9 +335,10 @@ async fn consume_media_field(
             mime
         )));
     }
-    let bytes = field.bytes().await.map_err(|e| {
-        AppError::ValidationError(format!("Failed to read media bytes: {}", e))
-    })?;
+    let bytes = field
+        .bytes()
+        .await
+        .map_err(|e| AppError::ValidationError(format!("Failed to read media bytes: {}", e)))?;
     let cap_bytes = max_bytes_for_mime(&mime);
     if bytes.len() > cap_bytes {
         return Err(AppError::ValidationError(format!(
@@ -408,7 +406,11 @@ async fn upload_media(s3: &S3Service, plan: &[PlannedUpload]) -> AppResult<Vec<S
     let mut uploaded: Vec<String> = Vec::new();
     for item in plan {
         if let Err(e) = s3
-            .put_object_at(&item.s3_key, item.media.bytes.clone(), &item.media.mime_type)
+            .put_object_at(
+                &item.s3_key,
+                item.media.bytes.clone(),
+                &item.media.mime_type,
+            )
             .await
         {
             rollback_uploads(s3, &uploaded).await;

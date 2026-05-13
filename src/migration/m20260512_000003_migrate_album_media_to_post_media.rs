@@ -124,7 +124,8 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
         Err(DbErr::Custom(
-            "album_media-to-post_media migration cannot be rolled back; restore from backup".to_string(),
+            "album_media-to-post_media migration cannot be rolled back; restore from backup"
+                .to_string(),
         ))
     }
 }

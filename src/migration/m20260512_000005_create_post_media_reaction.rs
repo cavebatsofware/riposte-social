@@ -42,10 +42,7 @@ impl MigrationTrait for Migration {
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_post_media_reactions_post_media_id")
-                            .from(
-                                PostMediaReactions::Table,
-                                PostMediaReactions::PostMediaId,
-                            )
+                            .from(PostMediaReactions::Table, PostMediaReactions::PostMediaId)
                             .to(PostMedia::Table, PostMedia::Id)
                             .on_delete(ForeignKeyAction::Cascade),
                     )

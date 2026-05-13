@@ -33,10 +33,8 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        db.execute_unprepared(
-            "ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'post'",
-        )
-        .await?;
+        db.execute_unprepared("ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'post'")
+            .await?;
 
         db.execute_unprepared("ALTER TABLE posts ADD COLUMN slug TEXT")
             .await?;
