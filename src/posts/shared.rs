@@ -20,8 +20,6 @@
 //! S3 upload + DB insert with rollback, kind-checked media manipulation,
 //! authorship checks) lives here so both modules call the same code.
 
-#![allow(dead_code)]
-
 use crate::admin::UserAuth;
 use crate::entities::{category, post, post_media, user, Category, Post, PostMedia};
 use crate::errors::{AppError, AppResult};

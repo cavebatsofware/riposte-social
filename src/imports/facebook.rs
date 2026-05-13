@@ -43,7 +43,7 @@
 //! (`<https://...>`) so the social frontend renders them as clickable
 //! links rather than literal text.
 
-use crate::entities::{album, album_media, post, post_media};
+use crate::entities::{post, post_media};
 use crate::imports::{self, JobProgress};
 use crate::s3::S3Service;
 use blake2::{Blake2b512, Digest};
@@ -280,14 +280,17 @@ pub async fn run_facebook_import(
         .await;
     }
 
-    // Albums dedup: separate table, separate import-key query.
+    // Albums dedup: scope the lookup to `kind='album'` so it rides the
+    // `idx_posts_kind` index and only scans the album rows rather than
+    // the full post table.
     let album_candidate_ids: Vec<String> = albums.iter().map(|a| a.external_id.clone()).collect();
     let albums_already: HashSet<String> = if album_candidate_ids.is_empty() {
         HashSet::new()
     } else {
-        album::Entity::find()
-            .filter(album::Column::ImportSource.eq("facebook"))
-            .filter(album::Column::ImportExternalId.is_in(album_candidate_ids))
+        post::Entity::find()
+            .filter(post::Column::Kind.eq(post::KIND_ALBUM))
+            .filter(post::Column::ImportSource.eq("facebook"))
+            .filter(post::Column::ImportExternalId.is_in(album_candidate_ids))
             .all(&db)
             .await?
             .into_iter()
@@ -1149,11 +1152,13 @@ async fn import_one_post(
     Ok(())
 }
 
-/// Phase 9d: import one FB album as an `albums` row plus an ordered
-/// set of `album_media` rows. Mirrors `import_one_post` structurally —
-/// stage media off the zip, upload to S3, then insert in a transaction.
-/// On any failure after S3 upload, all uploaded objects are best-effort
-/// deleted so a failed run doesn't leave orphans.
+/// Import one FB album as a `post` row with `kind='album'` plus its
+/// ordered `post_media` rows. The album name lives in `slug`, the
+/// description in `body`, and the implicit cover (`min(ordinal)`) lands
+/// at ordinal 0 by virtue of insertion order. Mirrors `import_one_post`
+/// structurally: stage media off the zip, upload to S3, then insert in a
+/// transaction. On any failure after S3 upload, uploaded objects are
+/// best-effort deleted so a failed run doesn't leave orphans.
 async fn import_one_album(
     db: &DatabaseConnection,
     s3: &S3Service,
@@ -1162,7 +1167,7 @@ async fn import_one_album(
     visibility: &str,
     created_by: Uuid,
 ) -> Result<(), anyhow::Error> {
-    let album_id = Uuid::new_v4();
+    let post_id = Uuid::new_v4();
 
     let uris: Vec<String> = fb_album
         .attachments
@@ -1201,15 +1206,13 @@ async fn import_one_album(
         .map(|(_, c)| c.clone())
         .collect();
 
-    // Upload supported items to S3 in series. Each (media_id, s3_key,
-    // mime, original_index, caption) entry is queued for the DB insert.
     let mut uploaded: Vec<(Uuid, String, String, Option<String>)> =
         Vec::with_capacity(supported_indices.len());
     for (out_idx, src_idx) in supported_indices.iter().enumerate() {
         let (filename, bytes) = &staged_media[*src_idx];
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(filename);
-        let key = format!("albums/{}/{}", album_id, media_id);
+        let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes.clone(), &mime).await {
             for (_, prior_key, _, _) in &uploaded {
                 let _ = s3.delete_object_at(prior_key).await;
@@ -1228,8 +1231,6 @@ async fn import_one_album(
         ));
     }
 
-    let cover_media_id = uploaded.first().map(|(id, _, _, _)| *id);
-
     let txn_result: Result<(), sea_orm::DbErr> = async {
         let txn = db.begin().await?;
         let now: sea_orm::prelude::DateTimeWithTimeZone = chrono::Utc::now().into();
@@ -1238,12 +1239,10 @@ async fn import_one_album(
             .single()
             .unwrap_or_else(chrono::Utc::now);
 
-        album::ActiveModel {
-            id: Set(album_id),
+        post::ActiveModel {
+            id: Set(post_id),
             author_id: Set(created_by),
-            name: Set(fb_album.name.clone()),
-            description: Set(fb_album.description.clone()),
-            cover_media_id: Set(cover_media_id),
+            body: Set(fb_album.description.clone().unwrap_or_default()),
             visibility: Set(visibility.to_string()),
             published_at: Set(published.into()),
             import_source: Set(Some("facebook".to_string())),
@@ -1252,14 +1251,17 @@ async fn import_one_album(
             created_at: Set(now),
             updated_at: Set(now),
             category_id: Set(None),
+            content_lang: Set(post::CONTENT_LANG_ENGLISH.to_string()),
+            kind: Set(post::KIND_ALBUM.to_string()),
+            slug: Set(Some(fb_album.name.clone())),
         }
         .insert(&txn)
         .await?;
 
         for (i, (media_id, key, mime, caption)) in uploaded.iter().enumerate() {
-            album_media::ActiveModel {
+            post_media::ActiveModel {
                 id: Set(*media_id),
-                album_id: Set(album_id),
+                post_id: Set(post_id),
                 s3_key: Set(key.clone()),
                 mime_type: Set(mime.clone()),
                 width: Set(None),

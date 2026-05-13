@@ -294,26 +294,6 @@ impl ViewerCtx {
         can_read_post(self.tier, &post.visibility, post.author_id, self.viewer_id)
     }
 
-    /// Same shape as `can_view_post` but for albums.
-    pub fn can_view_album(
-        &self,
-        album: &crate::entities::album::Model,
-        category: Option<&category::Model>,
-    ) -> bool {
-        if let Some(cat) = category {
-            if self.viewer_id == Some(album.author_id) {
-                return true;
-            }
-            return self.can_view_category(cat);
-        }
-        can_read_post(
-            self.tier,
-            &album.visibility,
-            album.author_id,
-            self.viewer_id,
-        )
-    }
-
     /// Whether this viewer can read into the given category. Admins
     /// always can (moderation access); otherwise the accessible set is
     /// the source of truth.
