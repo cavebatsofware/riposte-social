@@ -88,6 +88,9 @@
       "previewEmpty": "Nothing to preview yet."
     }
   },
+  "mediaEngagement": {
+    "panelAria": "Reactions and comments on this item"
+  },
   "reactions": {
     "react": "React",
     "reactedWith": "Reacted with {{kind}}",

@@ -140,6 +140,7 @@ export default function PostCard({ post, variant = "feed" }) {
     <MediaLightbox
       items={post.media}
       index={lightboxIndex}
+      postId={post.id}
       onIndex={setLightboxIndex}
       onClose={() => setLightboxIndex(null)}
     />

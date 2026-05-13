@@ -88,6 +88,9 @@
       "previewEmpty": "暂时没有可预览的内容。"
     }
   },
+  "mediaEngagement": {
+    "panelAria": "对此项的反应和评论"
+  },
   "reactions": {
     "react": "反应",
     "reactedWith": "已用 {{kind}} 反应",

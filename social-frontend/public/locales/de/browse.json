@@ -102,6 +102,9 @@
     "viewerAria": "Medienbetrachter",
     "close": "Betrachter schließen",
     "prev": "Vorheriges",
-    "next": "Nächstes"
+    "next": "Nächstes",
+    "imageWithoutCaption": "Bild {{index}} von {{total}}",
+    "indexAnnouncement": "Bild {{index}} von {{total}}",
+    "indexAnnouncementWithCaption": "Bild {{index}} von {{total}}: {{caption}}"
   }
 }

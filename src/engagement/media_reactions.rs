@@ -23,10 +23,12 @@ use crate::entities::{
     post, post_media, post_media_reaction, reaction, PostMedia, PostMediaReaction,
 };
 use crate::errors::{AppError, AppResult};
+use crate::middleware::admin_auth::UserAuthSession;
+use crate::posts::FeedTier;
 use axum::{
     extract::{Path, State},
     response::Json,
-    routing::{delete, post},
+    routing::{delete, get, post},
     Extension, Router,
 };
 use sea_orm::sea_query::OnConflict;
@@ -47,6 +49,13 @@ pub fn media_reaction_routes() -> Router<EngagementState> {
         )
 }
 
+pub fn media_engagement_read_routes() -> Router<EngagementState> {
+    Router::new().route(
+        "/api/posts/{post_id}/media/{media_id}/engagement",
+        get(get_media_engagement),
+    )
+}
+
 #[derive(Deserialize)]
 pub struct CreateMediaReactionRequest {
     pub kind: String,
@@ -56,6 +65,63 @@ pub struct CreateMediaReactionRequest {
 pub struct MediaReactionStateResponse {
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
+}
+
+#[derive(Serialize)]
+pub struct MediaEngagementResponse {
+    pub reaction_counts: HashMap<String, i64>,
+    pub viewer_reaction_kinds: Vec<String>,
+    pub comment_count: i64,
+}
+
+/// `GET /api/posts/{post_id}/media/{media_id}/engagement`. Lazy-loaded by
+/// the lightbox on open so the engagement panel can render reaction
+/// counts and comment count without that data riding the post / album
+/// payload (which would balloon proportional to media count).
+async fn get_media_engagement(
+    State(state): State<EngagementState>,
+    auth_session: UserAuthSession,
+    Path((post_id, media_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<MediaEngagementResponse>> {
+    let viewer = auth_session.user().await;
+    let tier = FeedTier::from_role(viewer.as_ref().map(|u| u.role.as_str()));
+
+    if matches!(tier, FeedTier::Anonymous) {
+        let enabled = state
+            .settings
+            .get_public_feed_enabled()
+            .await
+            .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+        if !enabled {
+            return Err(AppError::NotFound("Media not found".to_string()));
+        }
+    }
+
+    let (media, parent) = lookup_media(&state.db, post_id, media_id).await?;
+    let parent_cat = if let Some(cid) = parent.category_id {
+        crate::entities::Category::find_by_id(cid)
+            .one(&state.db)
+            .await?
+    } else {
+        None
+    };
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+        return Err(AppError::NotFound("Media not found".to_string()));
+    }
+
+    let viewer_id = viewer.as_ref().map(|u| u.id);
+    let mut map =
+        crate::engagement::aggregate::fetch_engagement_for_media(&state.db, &[media.id], viewer_id)
+            .await?;
+    let entry = map.remove(&media.id).unwrap_or_default();
+    Ok(Json(MediaEngagementResponse {
+        reaction_counts: entry.reaction_counts,
+        viewer_reaction_kinds: entry.viewer_reaction_kinds,
+        comment_count: entry.comment_count,
+    }))
 }
 
 async fn create_media_reaction(

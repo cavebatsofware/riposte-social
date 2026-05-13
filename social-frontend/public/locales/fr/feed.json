@@ -88,6 +88,9 @@
       "previewEmpty": "Rien à prévisualiser pour l'instant."
     }
   },
+  "mediaEngagement": {
+    "panelAria": "Réactions et commentaires sur cet élément"
+  },
   "reactions": {
     "react": "Réagir",
     "reactedWith": "Réagi avec {{kind}}",

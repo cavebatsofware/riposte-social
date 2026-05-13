@@ -103,6 +103,9 @@
     "viewerAria": "Visionneuse de médias",
     "close": "Fermer la visionneuse",
     "prev": "Précédent",
-    "next": "Suivant"
+    "next": "Suivant",
+    "imageWithoutCaption": "Image {{index}} sur {{total}}",
+    "indexAnnouncement": "Image {{index}} sur {{total}}",
+    "indexAnnouncementWithCaption": "Image {{index}} sur {{total}} : {{caption}}"
   }
 }

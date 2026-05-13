@@ -59,11 +59,13 @@ pub fn engagement_write_routes() -> Router<EngagementState> {
         .merge(media_comments::media_comment_write_routes())
 }
 
-/// Public read routes: list comments on a post or one of its media items.
-/// Visibility is filtered against the parent post so under-tier callers
-/// see the same 404 as missing-post.
+/// Public read routes: list comments on a post or one of its media items,
+/// plus the media engagement summary (reaction counts + comment count)
+/// the lightbox lazy-loads on open. Visibility is filtered against the
+/// parent post so under-tier callers see the same 404 as missing-post.
 pub fn engagement_read_routes() -> Router<EngagementState> {
     Router::new()
         .merge(comments::comment_read_routes())
         .merge(media_comments::media_comment_read_routes())
+        .merge(media_reactions::media_engagement_read_routes())
 }
