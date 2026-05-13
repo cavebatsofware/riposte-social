@@ -26,7 +26,7 @@
 //!   posts.content_lang  ← 'english' (default; albums have no FTS lang)
 //! Other columns copy 1:1 (author, visibility, timestamps, category, import flags).
 //!
-//! `down()` is intentionally non-reversible — the data lives only in
+//! `down()` is intentionally non-reversible; the data lives only in
 //! posts after this migration. Recovery is from a DB backup, not by
 //! rolling back the migration.
 

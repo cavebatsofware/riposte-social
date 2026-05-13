@@ -15,13 +15,13 @@
  */
 //! Add `visibility` and `created_by` to `categories`.
 //!
-//! `visibility` defaults to `public` (existing rows match the legacy "no
+//! `visibility` defaults to `public` (existing rows match the previous "no
 //! access control" behavior). The application accepts the four post-level
 //! tiers plus a fifth `user_list` tier; validation lives in the
 //! visibility module.
 //!
 //! `created_by` is a nullable FK to `users.id` with `ON DELETE SET NULL`.
-//! NULL means "legacy / system-created" — only admins can manage those
+//! NULL means "system-owned" — only admins can manage those
 //! rows. New categories created via the API populate it from the caller.
 
 use sea_orm_migration::{prelude::*, schema::*};

@@ -174,7 +174,7 @@ async fn load_visible_comment(
     let ctx = crate::visibility::ViewerCtx::from_user_auth_async(db, user)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Comment not found".to_string()));
     }
     Ok(row)

@@ -46,13 +46,24 @@ use axum::{
 };
 use axum_login::AuthSession;
 use chrono::Utc;
+use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, FromQueryResult, QueryFilter,
+    QueryOrder, QuerySelect, Set,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Per-album aggregate row used by `list_albums`. Computed in a single
+/// GROUP BY against `post_media` so the list endpoint doesn't load every
+/// media row just to surface count + cover.
+#[derive(FromQueryResult)]
+struct AlbumStatsRow {
+    post_id: Uuid,
+    photo_count: i64,
+    cover_id: Option<Uuid>,
+}
 
 #[derive(Clone)]
 pub struct AlbumsState {
@@ -367,42 +378,45 @@ async fn list_albums(
     };
 
     let author_ids: Vec<Uuid> = page.iter().map(|a| a.author_id).collect();
-    let authors = if author_ids.is_empty() {
-        vec![]
-    } else {
-        User::find()
-            .filter(user::Column::Id.is_in(author_ids))
-            .all(&state.db)
-            .await?
-    };
-    let authors_by_id: HashMap<Uuid, user::Model> =
-        authors.into_iter().map(|a| (a.id, a)).collect();
+    let authors_by_id: HashMap<Uuid, user::Model> = User::find()
+        .filter(user::Column::Id.is_in(author_ids))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|a| (a.id, a))
+        .collect();
 
-    // Fetch every page-album's media in one query so cover (lowest
-    // ordinal) and photo_count both come from the same data without an
-    // extra GROUP BY round trip.
+    // Aggregate per album in one round trip: photo_count via COUNT(*)
+    // and the implicit cover (lowest-ordinal media id) via Postgres'
+    // ARRAY_AGG ordered subscript. Avoids loading every post_media row
+    // for every album in the page just to read count + cover.
     let album_ids: Vec<Uuid> = page.iter().map(|a| a.id).collect();
-    let media_rows: Vec<post_media::Model> = if album_ids.is_empty() {
-        vec![]
-    } else {
-        PostMedia::find()
-            .filter(post_media::Column::PostId.is_in(album_ids))
-            .order_by_asc(post_media::Column::Ordinal)
-            .all(&state.db)
-            .await?
-    };
-    let mut media_by_album: HashMap<Uuid, Vec<post_media::Model>> = HashMap::new();
-    for m in media_rows {
-        media_by_album.entry(m.post_id).or_default().push(m);
-    }
+    let stats_by_album: HashMap<Uuid, AlbumStatsRow> = PostMedia::find()
+        .select_only()
+        .column(post_media::Column::PostId)
+        .column_as(post_media::Column::Id.count(), "photo_count")
+        .column_as(
+            Expr::cust("(ARRAY_AGG(id ORDER BY ordinal ASC))[1]"),
+            "cover_id",
+        )
+        .filter(post_media::Column::PostId.is_in(album_ids))
+        .group_by(post_media::Column::PostId)
+        .into_model::<AlbumStatsRow>()
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|s| (s.post_id, s))
+        .collect();
 
     let albums: Vec<AlbumSummary> = page
         .into_iter()
         .map(|row| {
             let author = authors_by_id.get(&row.author_id);
-            let media = media_by_album.remove(&row.id).unwrap_or_default();
-            let cover_url =
-                shared::implicit_cover_id(&media).map(|id| format!("/album-media/{}", id));
+            let stat = stats_by_album.get(&row.id);
+            let cover_url = stat
+                .and_then(|s| s.cover_id)
+                .map(|id| format!("/album-media/{}", id));
+            let photo_count = stat.map(|s| s.photo_count).unwrap_or(0);
             let description = if row.body.is_empty() {
                 None
             } else {
@@ -418,7 +432,7 @@ async fn list_albums(
                 description,
                 visibility: row.visibility,
                 published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
-                photo_count: media.len() as i64,
+                photo_count,
             }
         })
         .collect();
@@ -443,7 +457,7 @@ async fn get_album(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&row, cat.as_ref()) {
+    if !ctx.permits_read(row.author_id, &row.visibility, cat.as_ref()) {
         return Err(AppError::NotFound("Album not found".to_string()));
     }
 
@@ -682,7 +696,7 @@ async fn serve_album_media(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Media not found".to_string()));
     }
 

@@ -32,7 +32,10 @@ use axum::{
     Extension, Router,
 };
 use sea_orm::sea_query::OnConflict;
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    prelude::DateTimeWithTimeZone, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
+    FromQueryResult, JoinType, QueryFilter, QuerySelect, RelationTrait, Set,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -108,7 +111,7 @@ async fn get_media_engagement(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Media not found".to_string()));
     }
 
@@ -206,64 +209,144 @@ async fn delete_media_reaction(
     ))
 }
 
-/// Load the media row keyed by `(post_id, media_id)` after confirming
-/// the caller can read the parent post. Returns a uniform `Media not
-/// found` for missing rows, mismatched ids, and under-tier callers so
-/// the endpoint can't be probed for existence or visibility.
+/// Single INNER JOIN that fetches the media row alongside the few
+/// parent-post columns the visibility check actually reads. The post
+/// `body` and `body_tsv` are intentionally not selected: they're large
+/// (potentially KB per row) and irrelevant to every caller of this
+/// helper. Returns `Media not found` for missing rows, mismatched ids,
+/// or a soft-deleted parent so the endpoint surface stays uniform.
+pub(crate) async fn lookup_media(
+    db: &DatabaseConnection,
+    post_id: Uuid,
+    media_id: Uuid,
+) -> AppResult<(post_media::Model, crate::visibility::PostVisibilityCols)> {
+    #[derive(FromQueryResult)]
+    struct Row {
+        // post_media columns (full row).
+        pm_id: Uuid,
+        pm_post_id: Uuid,
+        pm_s3_key: String,
+        pm_mime_type: String,
+        pm_width: Option<i32>,
+        pm_height: Option<i32>,
+        pm_ordinal: i32,
+        pm_caption: Option<String>,
+        pm_created_at: DateTimeWithTimeZone,
+        // post columns (slim — id is implied by pm_post_id under the
+        // JOIN condition, so we don't reselect it).
+        p_author_id: Uuid,
+        p_visibility: String,
+        p_category_id: Option<Uuid>,
+    }
+
+    let row: Option<Row> = PostMedia::find_by_id(media_id)
+        .select_only()
+        .column_as(post_media::Column::Id, "pm_id")
+        .column_as(post_media::Column::PostId, "pm_post_id")
+        .column_as(post_media::Column::S3Key, "pm_s3_key")
+        .column_as(post_media::Column::MimeType, "pm_mime_type")
+        .column_as(post_media::Column::Width, "pm_width")
+        .column_as(post_media::Column::Height, "pm_height")
+        .column_as(post_media::Column::Ordinal, "pm_ordinal")
+        .column_as(post_media::Column::Caption, "pm_caption")
+        .column_as(post_media::Column::CreatedAt, "pm_created_at")
+        .column_as(post::Column::AuthorId, "p_author_id")
+        .column_as(post::Column::Visibility, "p_visibility")
+        .column_as(post::Column::CategoryId, "p_category_id")
+        .filter(post_media::Column::PostId.eq(post_id))
+        .filter(post::Column::DeletedAt.is_null())
+        .join(JoinType::InnerJoin, post_media::Relation::Post.def())
+        .into_model::<Row>()
+        .one(db)
+        .await?;
+    let row = row.ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
+
+    let media = post_media::Model {
+        id: row.pm_id,
+        post_id: row.pm_post_id,
+        s3_key: row.pm_s3_key,
+        mime_type: row.pm_mime_type,
+        width: row.pm_width,
+        height: row.pm_height,
+        ordinal: row.pm_ordinal,
+        caption: row.pm_caption,
+        created_at: row.pm_created_at,
+    };
+    let parent = crate::visibility::PostVisibilityCols {
+        id: row.pm_post_id,
+        author_id: row.p_author_id,
+        visibility: row.p_visibility,
+        category_id: row.p_category_id,
+    };
+    Ok((media, parent))
+}
+
+/// Load the media + slim parent visibility columns in one query, then
+/// apply the visibility gate. Returns a uniform `Media not found` for
+/// missing rows, mismatched ids, soft-deleted parents, and under-tier
+/// callers so the endpoint can't be probed for existence or visibility.
 pub(crate) async fn load_visible_media(
     db: &DatabaseConnection,
     post_id: Uuid,
     media_id: Uuid,
     user: &UserAuth,
 ) -> AppResult<post_media::Model> {
-    let media = PostMedia::find_by_id(media_id)
-        .filter(post_media::Column::PostId.eq(post_id))
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
+    let (media, parent) = lookup_media(db, post_id, media_id).await?;
 
-    crate::visibility::load_visible_post(db, post_id, user)
+    let parent_cat = match parent.category_id {
+        Some(cid) => crate::entities::Category::find_by_id(cid).one(db).await?,
+        None => None,
+    };
+    let ctx = crate::visibility::ViewerCtx::from_user_auth_async(db, user)
         .await
-        .map_err(|_| AppError::NotFound("Media not found".to_string()))?;
-
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
+        return Err(AppError::NotFound("Media not found".to_string()));
+    }
     Ok(media)
 }
 
-/// Look up media without requiring a `UserAuth`. Used by the read path
-/// in `media_comments` so anonymous callers can fetch comments on a
-/// publicly-visible media item. The visibility gate is applied at the
-/// caller using `ViewerCtx::can_view_post`; this helper only asserts the
-/// `(post_id, media_id)` pair exists and the parent post isn't soft-
-/// deleted.
-pub(crate) async fn lookup_media(
-    db: &DatabaseConnection,
-    post_id: Uuid,
-    media_id: Uuid,
-) -> AppResult<(post_media::Model, post::Model)> {
-    let media = PostMedia::find_by_id(media_id)
-        .filter(post_media::Column::PostId.eq(post_id))
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
-    let parent = crate::entities::Post::find_by_id(post_id)
-        .filter(post::Column::DeletedAt.is_null())
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Media not found".to_string()))?;
-    Ok((media, parent))
-}
-
+/// Reaction-only state used as the response body for add / remove.
+/// Specialized rather than calling the full `fetch_engagement_for_media`
+/// because the reaction handlers don't read the comment count and have
+/// no reason to pay for that aggregation on every interaction.
 async fn media_reaction_state(
     db: &DatabaseConnection,
     media_id: Uuid,
     viewer_id: Uuid,
 ) -> Result<MediaReactionStateResponse, DbErr> {
-    let mut map =
-        crate::engagement::aggregate::fetch_engagement_for_media(db, &[media_id], Some(viewer_id))
-            .await?;
-    let entry = map.remove(&media_id).unwrap_or_default();
+    use sea_orm::{FromQueryResult, QuerySelect};
+
+    #[derive(FromQueryResult)]
+    struct CountRow {
+        kind: String,
+        count: i64,
+    }
+    #[derive(FromQueryResult)]
+    struct ViewerRow {
+        kind: String,
+    }
+
+    let counts: Vec<CountRow> = PostMediaReaction::find()
+        .select_only()
+        .column(post_media_reaction::Column::Kind)
+        .column_as(post_media_reaction::Column::Id.count(), "count")
+        .filter(post_media_reaction::Column::PostMediaId.eq(media_id))
+        .group_by(post_media_reaction::Column::Kind)
+        .into_model::<CountRow>()
+        .all(db)
+        .await?;
+    let mine: Vec<ViewerRow> = PostMediaReaction::find()
+        .select_only()
+        .column(post_media_reaction::Column::Kind)
+        .filter(post_media_reaction::Column::PostMediaId.eq(media_id))
+        .filter(post_media_reaction::Column::UserId.eq(viewer_id))
+        .into_model::<ViewerRow>()
+        .all(db)
+        .await?;
+
     Ok(MediaReactionStateResponse {
-        reaction_counts: entry.reaction_counts,
-        viewer_reaction_kinds: entry.viewer_reaction_kinds,
+        reaction_counts: counts.into_iter().map(|r| (r.kind, r.count)).collect(),
+        viewer_reaction_kinds: mine.into_iter().map(|r| r.kind).collect(),
     })
 }

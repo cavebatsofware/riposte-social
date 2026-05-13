@@ -336,7 +336,7 @@ fn build_post_response(
 /// - `body` (text, required): markdown source.
 /// - `slug` (text, optional): short title. Capped at `SLUG_MAX_LEN` chars.
 /// - `visibility` (text, optional): one of public|commenters|posters|private.
-///   Defaults to private (draft-leak protection — author has to opt in to
+///   Defaults to private (draft-leak protection: author has to opt in to
 ///   public visibility).
 /// - `category_id` (text, optional): UUID. Caller must be allowed to
 ///   compose into that category.
@@ -485,7 +485,7 @@ async fn serve_media(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Media not found".to_string()));
     }
 
@@ -542,7 +542,7 @@ async fn get_post(
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
     let viewer_id = ctx.viewer_id;
-    if !ctx.can_view_post(&row, parent_cat.as_ref()) {
+    if !ctx.permits_read(row.author_id, &row.visibility, parent_cat.as_ref()) {
         // Don't disclose existence to under-tier callers. Same error as
         // missing post.
         return Err(AppError::NotFound("Post not found".to_string()));

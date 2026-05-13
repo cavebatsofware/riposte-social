@@ -165,7 +165,7 @@ struct CommentCountRow {
 /// Engagement summary for one media item: per-kind reaction counts, the
 /// caller's own reactions, and a live comment count. Mirrors
 /// `PostEngagement` but keyed by `post_media_id` and without the
-/// `top_comments` field — media-level conversation is loaded lazily by
+/// `top_comments` field, since media-level conversation is loaded lazily by
 /// the lightbox rather than eagerly with the post payload.
 #[derive(Default, Debug, Clone)]
 pub struct MediaEngagement {

@@ -4,7 +4,7 @@
 // Two text-only fixtures are seeded via the API: one regular post and
 // one album. The album row exists in the same `posts` table but with
 // `kind = 'album'`. The feed handler hard-filters to `kind = 'post'`
-// (we deliberately dropped the `?kinds=` override — the album surface
+// (we deliberately dropped the `?kinds=` override, since the album surface
 // has its own discovery path on the left rail and `/albums`).
 //
 // S3-free: both fixtures are text-only so this spec runs in the CI

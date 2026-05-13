@@ -22,7 +22,6 @@ function Layout({ children }) {
   }
 
   // Keep the access-codes nav entry only when the feature flag enables it
-  // (legacy template feature; off by default in newer deployments).
   const showAccessCodes = user?.features?.access_codes_enabled !== false;
 
   return (

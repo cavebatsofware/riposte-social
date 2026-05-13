@@ -17,7 +17,7 @@ import "./SkeletonCard.css";
 ///   `{ kind: "media", postId, mediaId }` →
 ///       `/api/posts/{postId}/media/{mediaId}/comments`
 ///
-/// - Fetches the list on mount (and again when `target` changes — the
+/// - Fetches the list on mount (and again when `target` changes, since the
 ///   lightbox swaps `mediaId` as the user pages through items).
 /// - Authenticated callers get a textarea + Post button. Anonymous
 ///   callers see the list and a "Sign in to comment" pointer.
@@ -225,7 +225,7 @@ export default function CommentThread({ target }) {
 /// if a future caller forgets the upstream sanitization step.
 ///
 /// Inline ReactionBar renders only for post comments. Media-comment rows
-/// (target.kind === "media") skip the bar — the backend has no
+/// (target.kind === "media") skip the bar; the backend has no
 /// `/comments/{id}/reactions` route under the media path, and the
 /// `MediaCommentResponse` payload doesn't carry the reaction-count
 /// fields anyway.

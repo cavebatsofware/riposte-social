@@ -357,7 +357,7 @@ test-app-logs:
 #   CYPRESS_VIDEO=true make cypress-feature         (per-spec mp4)
 # Artifacts land in cypress/{screenshots,videos}/ (both gitignored).
 
-# Run the feature-track Cypress specs (text-only, S3-free) — currently
+# Run the feature-track Cypress specs (text-only, S3-free). Currently
 # the unified posts/albums kind discriminator coverage. Use this for
 # fast feedback on backend route behavior without spinning up MinIO.
 .PHONY: cypress-feature

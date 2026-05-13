@@ -19,8 +19,7 @@ services:
     volumes:
       # PG18+ expects the volume mount at /var/lib/postgresql so the
       # version-specific data subdirectory (e.g. .../18/) lives inside
-      # the volume. Mounting directly at .../data is the legacy pre-18
-      # layout and refuses to start under the new image.
+      # the volume.
       - postgres_data:/var/lib/postgresql
       - ./scripts/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
     healthcheck:

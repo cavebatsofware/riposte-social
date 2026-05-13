@@ -37,7 +37,7 @@ function nextRadioIndex(key, currentIndex, length) {
 /// The grid renders the user's current colorway and offers (a) a
 /// colorway switch and (b) a light/dark mode toggle as two adjacent
 /// rows. The underlying state is a single id of the form
-/// "<colorway>-<mode>" or just "<colorway>" for legacy light-mode values
+/// "<colorway>-<mode>" or just "<colorway>" for light-mode values
 /// (both forms handled by `ThemeContext.setTheme`).
 ///
 /// Each row is an ARIA radiogroup with roving tabindex: only the active

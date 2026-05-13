@@ -3,7 +3,7 @@
 // `/api/posts/{album_id}` and `/api/albums/{post_id}` both filter on
 // `kind` in the WHERE clause, so a wrong-kind row produces the same
 // NotFound surface as a missing row. That's the existence-non-disclosure
-// guarantee — a probe can't distinguish "doesn't exist" from "exists as
+// guarantee: a probe can't distinguish "doesn't exist" from "exists as
 // the other kind".
 //
 // S3-free: text-only fixtures so the spec runs without an object store.

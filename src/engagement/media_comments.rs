@@ -15,7 +15,7 @@
  */
 //! Per-media-item comment endpoints. Mirror of `comments.rs` keyed by a
 //! `(post_id, media_id)` pair. Visibility is gated against the parent
-//! post — seeing the post implies seeing its media's conversation.
+//! post: seeing the post implies seeing its media's conversation.
 
 use crate::admin::UserAuth;
 use crate::engagement::media_reactions::{load_visible_media, lookup_media};
@@ -182,7 +182,7 @@ async fn list_media_comments(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Media not found".to_string()));
     }
 
@@ -195,16 +195,13 @@ async fn list_media_comments(
         .await?;
 
     let author_ids: Vec<Uuid> = rows.iter().map(|r| r.user_id).collect();
-    let authors = if author_ids.is_empty() {
-        vec![]
-    } else {
-        User::find()
-            .filter(user::Column::Id.is_in(author_ids))
-            .all(&state.db)
-            .await?
-    };
-    let authors_by_id: HashMap<Uuid, user::Model> =
-        authors.into_iter().map(|a| (a.id, a)).collect();
+    let authors_by_id: HashMap<Uuid, user::Model> = User::find()
+        .filter(user::Column::Id.is_in(author_ids))
+        .all(&state.db)
+        .await?
+        .into_iter()
+        .map(|a| (a.id, a))
+        .collect();
 
     let comments = rows
         .into_iter()
@@ -220,7 +217,7 @@ async fn list_media_comments(
 async fn edit_media_comment(
     State(state): State<EngagementState>,
     Extension(user): Extension<UserAuth>,
-    Path((post_id, media_id, comment_id)): Path<(Uuid, Uuid, Uuid)>,
+    Path((_post_id, media_id, comment_id)): Path<(Uuid, Uuid, Uuid)>,
     Json(req): Json<EditMediaCommentRequest>,
 ) -> AppResult<Json<MediaCommentResponse>> {
     let body = req.body.trim().to_string();
@@ -236,33 +233,7 @@ async fn edit_media_comment(
         )));
     }
 
-    let row = crate::entities::PostMediaComment::find_by_id(comment_id)
-        .filter(post_media_comment::Column::DeletedAt.is_null())
-        .one(&state.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
-
-    if row.post_media_id != media_id {
-        return Err(AppError::NotFound("Comment not found".to_string()));
-    }
-
-    // Confirm the (post_id, media_id) URL pair matches the row's actual
-    // parent post so the URL prefix can't be spoofed to a different post.
-    let media = crate::entities::PostMedia::find_by_id(row.post_media_id)
-        .filter(crate::entities::post_media::Column::PostId.eq(post_id))
-        .one(&state.db)
-        .await?;
-    if media.is_none() {
-        return Err(AppError::NotFound("Comment not found".to_string()));
-    }
-
-    let is_author = row.user_id == user.id;
-    let is_admin = user.role == user::ROLE_ADMINISTRATOR;
-    if !is_author && !is_admin {
-        return Err(AppError::Forbidden(
-            "Only the comment author or an administrator can edit this comment".to_string(),
-        ));
-    }
+    let row = load_owned_media_comment(&state.db, media_id, comment_id, &user).await?;
 
     let author_id = row.user_id;
     let mut active: post_media_comment::ActiveModel = row.into();
@@ -280,33 +251,9 @@ async fn edit_media_comment(
 async fn delete_media_comment(
     State(state): State<EngagementState>,
     Extension(user): Extension<UserAuth>,
-    Path((post_id, media_id, comment_id)): Path<(Uuid, Uuid, Uuid)>,
+    Path((_post_id, media_id, comment_id)): Path<(Uuid, Uuid, Uuid)>,
 ) -> AppResult<StatusCode> {
-    let row = crate::entities::PostMediaComment::find_by_id(comment_id)
-        .filter(post_media_comment::Column::DeletedAt.is_null())
-        .one(&state.db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))?;
-
-    if row.post_media_id != media_id {
-        return Err(AppError::NotFound("Comment not found".to_string()));
-    }
-    let media = crate::entities::PostMedia::find_by_id(row.post_media_id)
-        .filter(crate::entities::post_media::Column::PostId.eq(post_id))
-        .one(&state.db)
-        .await?;
-    if media.is_none() {
-        return Err(AppError::NotFound("Comment not found".to_string()));
-    }
-
-    let is_author = row.user_id == user.id;
-    let is_admin = user.role == user::ROLE_ADMINISTRATOR;
-    if !is_author && !is_admin {
-        return Err(AppError::Forbidden(
-            "Only the comment author or an administrator can delete this comment".to_string(),
-        ));
-    }
-
+    let row = load_owned_media_comment(&state.db, media_id, comment_id, &user).await?;
     let mut active: post_media_comment::ActiveModel = row.into();
     active.deleted_at = Set(Some(Utc::now().into()));
     active.update(&state.db).await?;
@@ -314,4 +261,30 @@ async fn delete_media_comment(
         .with_label_values(&["media_soft_delete"])
         .inc();
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Single-query lookup for the edit and soft-delete paths. The ownership
+/// gate (caller is the author, OR an administrator) is pushed into the
+/// WHERE clause so a foreign-comment hit returns no row and falls
+/// straight to the 404 surface without ever loading the row. The
+/// `(media_id, comment_id)` pair plus the deleted-at filter pin the
+/// lookup to a live row of the expected media; the `post_id` URL
+/// segment is for routing shape only and intentionally not validated
+/// here since it adds no real constraint beyond what `media_id` already
+/// pins down.
+async fn load_owned_media_comment(
+    db: &sea_orm::DatabaseConnection,
+    media_id: Uuid,
+    comment_id: Uuid,
+    user: &UserAuth,
+) -> AppResult<post_media_comment::Model> {
+    let mut q = crate::entities::PostMediaComment::find_by_id(comment_id)
+        .filter(post_media_comment::Column::PostMediaId.eq(media_id))
+        .filter(post_media_comment::Column::DeletedAt.is_null());
+    if user.role != user::ROLE_ADMINISTRATOR {
+        q = q.filter(post_media_comment::Column::UserId.eq(user.id));
+    }
+    q.one(db)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Comment not found".to_string()))
 }

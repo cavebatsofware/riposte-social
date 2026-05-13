@@ -18,10 +18,5 @@ jobs:
       - name: Audit vulnerabilities
         run: |
           # RUSTSEC-2023-0071 (rsa): no fixed upgrade available upstream.
-          # The previous rustls-webpki ignores (RUSTSEC-2026-0098/0099/0104)
-          # were dropped after opting out of aws-sdk-{s3,sesv2}'s default
-          # `rustls` feature, which was pinning the legacy hyper-rustls
-          # 0.24 / rustls 0.21 / rustls-webpki 0.101 chain alongside the
-          # modern `default-https-client` path.
           cargo audit \
             --ignore RUSTSEC-2023-0071

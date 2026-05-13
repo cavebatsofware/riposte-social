@@ -428,7 +428,9 @@ async fn test_media_comment_other_user_cannot_delete(pool: sqlx::PgPool) {
         .json();
     let cid = Uuid::parse_str(created["id"].as_str().unwrap()).unwrap();
 
-    // Different commenter logs in and tries to delete.
+    // Different commenter logs in and tries to delete. The ownership
+    // gate is pushed into the comment WHERE clause so a non-author lookup
+    // returns no row and the handler responds with a 404
     let other_email = test_email("media-comm-other");
     make_user(&backend, &db, &other_email, user::ROLE_COMMENTER).await;
     login_as(&server, &other_email, TEST_PASSWORD).await;
@@ -437,7 +439,7 @@ async fn test_media_comment_other_user_cannot_delete(pool: sqlx::PgPool) {
         .delete(&format!("{}/{}", url, cid))
         .add_header("x-csrf-token", &csrf2)
         .await;
-    assert_eq!(r.status_code(), StatusCode::FORBIDDEN);
+    assert_eq!(r.status_code(), StatusCode::NOT_FOUND);
 }
 
 // ==================== Engagement summary endpoint ====================

@@ -229,7 +229,7 @@ async fn list_comments(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Post not found".to_string()));
     }
 

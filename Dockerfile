@@ -5,8 +5,7 @@ FROM node:25.9-trixie AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies. Plugin peers are now
-# aligned with eslint 9.x so `npm ci` runs without --legacy-peer-deps.
+# Copy package files and install dependencies.
 COPY package*.json ./
 RUN npm ci
 

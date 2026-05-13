@@ -6,7 +6,7 @@
 /// serialize `FormData`, and pulling browser-side `fetch` into the test
 /// just to use FormData is more moving parts than the simple text-only
 /// payloads here actually need. The text-only multipart we build here
-/// is what the Rust handlers expect (`body=`, `name=`, etc.) — no media
+/// is what the Rust handlers expect (`body=`, `name=`, etc.). No media
 /// fields, since the CI test env intentionally has no S3 access.
 
 function multipartBody(fields, boundary) {
@@ -44,7 +44,7 @@ Cypress.Commands.add("createPost", (fields) => {
 });
 
 /// Create a text-only album via `/api/albums`. `name` is required by the
-/// backend; `description` is optional. No media — that's a follow-up
+/// backend; `description` is optional. No media: that's a follow-up
 /// concern when the CI env grows a MinIO sidecar.
 Cypress.Commands.add("createAlbum", (fields) => {
   return postMultipart("/api/albums", { visibility: "public", ...fields });

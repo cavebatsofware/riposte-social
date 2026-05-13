@@ -110,7 +110,7 @@ pub struct ComposeInput {
 
 /// Fetch a live (non-deleted) post of the expected kind. The kind
 /// discriminator is part of the WHERE clause so a wrong-kind row produces
-/// the same NotFound surface as a missing row — a caller probing
+/// the same NotFound surface as a missing row: a caller probing
 /// `/api/posts/{album_id}` can't distinguish "doesn't exist" from "exists
 /// as an album".
 pub async fn load_post(
@@ -462,7 +462,7 @@ where
 }
 
 /// Site-mode toggle: posters can be muted by an admin without revoking
-/// their role. Admins always bypass. Settings-read failures fail-closed —
+/// their role. Admins always bypass. Settings-read failures fail-closed:
 /// for a security gate, "I don't know" must mean "deny", not "permit".
 async fn enforce_poster_gate(settings: &SettingsService, user: &UserAuth) -> AppResult<()> {
     if user.role != user::ROLE_POSTER {
@@ -743,7 +743,7 @@ pub async fn reorder_media(
 // ============================================================
 
 /// Helper for response builders that need the implicit-cover (lowest
-/// ordinal) media id. Used by the album alias to produce the legacy
+/// ordinal) media id. Used by the album alias to produce the
 /// `cover_media_id` field. Returns None when the media list is empty.
 pub fn implicit_cover_id(media: &[post_media::Model]) -> Option<Uuid> {
     media.iter().min_by_key(|m| m.ordinal).map(|m| m.id)

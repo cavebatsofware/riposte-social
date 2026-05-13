@@ -17,8 +17,8 @@
 //!
 //! Soft-delete via `deleted_at`. `edited_at` is set on first edit and
 //! kept stable thereafter. Author FK is RESTRICT (rather than CASCADE)
-//! so that user-deletion has to deal with comments explicitly — the
-//! same rule the post-level comment table follows.
+//! so that user-deletion has to deal with comments explicitly; same
+//! rule the post-level comment table follows.
 
 use sea_orm_migration::{prelude::*, schema::*};
 
