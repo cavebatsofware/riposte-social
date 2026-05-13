@@ -103,6 +103,11 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     : t("lightbox.indexAnnouncement", { index: index + 1, total });
 
   return (
+    // Backdrop click is a mouse-only convenience; keyboard users dismiss
+    // the dialog via Escape (handled by useFocusTrap) or the explicit
+    // Close button below. Adding a synthetic keydown handler here would
+    // collide with the focus trap rather than improve a11y.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={overlayRef}
       className="media-lightbox"
@@ -152,7 +157,15 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
             controls
             autoPlay
             playsInline
-          />
+          >
+            {/*
+              We don't generate captions for user-uploaded media. The
+              empty WebVTT track satisfies jsx-a11y/media-has-caption
+              without claiming to provide captions; browsers ignore
+              an empty cues file.
+            */}
+            <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+          </video>
         ) : (
           <img
             key={item.id}

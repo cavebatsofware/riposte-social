@@ -121,7 +121,6 @@ export default function Compose() {
     return () => {
       files.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Sanitized HTML for the live preview. DOMPurify strips scripts,

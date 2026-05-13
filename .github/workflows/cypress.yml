@@ -1,0 +1,113 @@
+name: Cypress
+on: [pull_request]
+jobs:
+  feature:
+    name: Feature + a11y
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      # Mirror docker-compose.test.yml's postgres-test on port 5433 so
+      # the app binary can connect via the same DATABASE_URL pattern
+      # the local Makefile uses.
+      postgres-test:
+        image: paradedb/paradedb:0.23.4-pg18
+        env:
+          POSTGRES_DB: riposte_social_test
+          POSTGRES_USER: riposte_social_test_user
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U riposte_social_test_user -d riposte_social_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://riposte_social_test_user:test_password@localhost:5433/riposte_social_test
+      PORT: "3001"
+      SITE_DOMAIN: localhost
+      SITE_URL: http://localhost:3001
+      DEV_MODE: "true"
+      MIGRATE_DB: "true"
+      # Static test-only encryption key. NOT for production use; only
+      # protects ephemeral test rows.
+      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      # Seed a known-credential admin so cy.login() can sign in. Both
+      # SEED_TEST_ADMIN=true and the e2e_testing cargo feature are
+      # required as defense-in-depth gates against the seed path
+      # accidentally running in production.
+      SEED_TEST_ADMIN: "true"
+      TEST_ADMIN_EMAIL: admin@test.local
+      TEST_ADMIN_PASSWORD: test_admin_password
+      # Permissive rate limits so the cypress suite doesn't get
+      # IP-banned mid-run.
+      RATE_LIMIT_PER_MINUTE: "10000"
+      AUTH_RATE_LIMIT_PER_MINUTE: "10000"
+      RUST_LOG: warn
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 25
+
+      - name: Install node dependencies
+        run: npm ci
+
+      - name: Build social frontend
+        run: npm run build:social
+
+      # Build the app binary with the e2e_testing feature so the
+      # SEED_TEST_ADMIN code path and the DEV_MODE runtime overrides
+      # exist in the binary. Production builds intentionally strip both.
+      - name: Build app
+        run: cargo build --release --features e2e_testing
+
+      # Start the app in the background. MIGRATE_DB=true + SEED_TEST_ADMIN=true
+      # in env mean the binary self-migrates and seeds the admin on boot
+      # before serving requests. Then poll /health until ready.
+      - name: Start app
+        run: |
+          ./target/release/riposte-social &
+          echo $! > app.pid
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:3001/health >/dev/null 2>&1; then
+              echo "app is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::app did not become ready within 120s"
+          exit 1
+
+      # Run every spec the runner can find. Pattern matches the local
+      # `make cypress-all` target. Capture is opt-in (CYPRESS_VIDEO=true
+      # / CYPRESS_SCREENSHOTS=true) and unset here so CI runs are fast.
+      - name: Run Cypress
+        env:
+          CYPRESS_BASE_URL: http://localhost:3001
+        run: npx cypress run
+
+      # Upload any artifacts cypress wrote (only present when capture
+      # env vars were set or specs failed). Empty-directory uploads
+      # are skipped, so this is a no-op on green runs.
+      - name: Upload Cypress artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts
+          path: |
+            cypress/screenshots
+            cypress/videos
+          if-no-files-found: ignore
+
+      # Tear down so the runner doesn't leak the background process
+      # if a later step is added.
+      - name: Stop app
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill "$(cat app.pid)" 2>/dev/null || true
+            rm -f app.pid
+          fi
