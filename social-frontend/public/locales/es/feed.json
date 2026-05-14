@@ -18,10 +18,10 @@
     "composeEmpty": "Aún no hay publicaciones.",
     "composeEmptyHint": "<compose>Crea algo</compose> para empezar.",
     "noPostsYet": "Aún no hay publicaciones que mostrar. Vuelve más tarde.",
-    "searchPlaceholder": "Buscar publicaciones en {{language}}…",
+    "searchPlaceholder": "Buscar publicaciones…",
     "searchSubmitAria": "Buscar",
     "searchClearAria": "Borrar búsqueda",
-    "noResultsFor": "Ninguna publicación en {{language}} coincide con «{{query}}».",
+    "noResultsFor": "Ninguna publicación coincide con «{{query}}».",
     "clearSearch": "Borrar búsqueda"
   },
   "visibility": {

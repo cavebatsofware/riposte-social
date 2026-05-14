@@ -18,10 +18,10 @@
     "composeEmpty": "暂时没有帖子。",
     "composeEmptyHint": "<compose>写点什么</compose>开始吧。",
     "noPostsYet": "暂时没有帖子。稍后再来看看。",
-    "searchPlaceholder": "搜索 {{language}} 帖子…",
+    "searchPlaceholder": "搜索帖子…",
     "searchSubmitAria": "搜索",
     "searchClearAria": "清除搜索",
-    "noResultsFor": "没有匹配「{{query}}」的 {{language}} 帖子。",
+    "noResultsFor": "没有匹配「{{query}}」的帖子。",
     "clearSearch": "清除搜索"
   },
   "visibility": {

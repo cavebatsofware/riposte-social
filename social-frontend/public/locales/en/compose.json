@@ -72,9 +72,5 @@
   },
   "visibility": {
     "legend": "Visibility"
-  },
-  "contentLang": {
-    "label": "Language",
-    "hint": "Used to tokenize the post for search."
   }
 }
