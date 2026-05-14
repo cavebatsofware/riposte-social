@@ -18,51 +18,43 @@ use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "albums")]
+#[sea_orm(table_name = "post_media_reactions")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub author_id: Uuid,
-    pub name: String,
-    pub description: Option<String>,
-    /// Set to one of the album's media row ids once the album has at
-    /// least one item. Cleared on the cover's deletion (must be re-pointed
-    /// to a sibling).
-    pub cover_media_id: Option<Uuid>,
-    /// Same four-value enum as posts: public | commenters | posters | private.
-    pub visibility: String,
-    pub published_at: DateTimeWithTimeZone,
-    pub import_source: Option<String>,
-    pub import_external_id: Option<String>,
-    pub deleted_at: Option<DateTimeWithTimeZone>,
+    pub post_media_id: Uuid,
+    pub user_id: Uuid,
+    pub kind: String,
     pub created_at: DateTimeWithTimeZone,
-    pub updated_at: DateTimeWithTimeZone,
-    /// Phase 9e: nullable category FK. NULL means uncategorized.
-    pub category_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::user::Entity",
-        from = "Column::AuthorId",
-        to = "super::user::Column::Id",
-        on_delete = "Restrict"
+        belongs_to = "super::post_media::Entity",
+        from = "Column::PostMediaId",
+        to = "super::post_media::Column::Id",
+        on_delete = "Cascade"
     )]
-    Author,
-    #[sea_orm(has_many = "super::album_media::Entity")]
-    Media,
+    PostMedia,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
+        on_delete = "Cascade"
+    )]
+    User,
+}
+
+impl Related<super::post_media::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::PostMedia.def()
+    }
 }
 
 impl Related<super::user::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Author.def()
-    }
-}
-
-impl Related<super::album_media::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Media.def()
+        Relation::User.def()
     }
 }
 
@@ -72,11 +64,9 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
-        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
         if insert {
-            self.created_at = Set(now);
+            self.created_at = Set(chrono::Utc::now().into());
         }
-        self.updated_at = Set(now);
         Ok(self)
     }
 }

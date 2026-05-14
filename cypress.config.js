@@ -13,8 +13,16 @@ module.exports = defineConfig({
     supportFile: "cypress/support/e2e.js",
     specPattern: "cypress/e2e/**/*.cy.{js,jsx}",
     fixturesFolder: false,
-    video: false,
-    screenshotOnRunFailure: false,
+    // Failure screenshots: opt-in per run with `CYPRESS_SCREENSHOTS=true`.
+    // Only fires on a failing assertion, so when enabled the default
+    // success path stays cheap; turning it on for every run still
+    // changes config in ways CI sometimes complains about, so leave the
+    // default off and flip it deliberately when you're investigating.
+    screenshotOnRunFailure: process.env.CYPRESS_SCREENSHOTS === "true",
+    // Video: opt-in with `CYPRESS_VIDEO=true`. Per-spec mp4 capture is
+    // heavy enough that it stays off by default; enable when you want
+    // a recording you can scrub through.
+    video: process.env.CYPRESS_VIDEO === "true",
     env: {
       A11Y_STRICTNESS: process.env.A11Y_STRICTNESS,
       // Mirror the test-admin credentials from the env into Cypress

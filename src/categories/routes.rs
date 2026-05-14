@@ -392,21 +392,6 @@ async fn update_category(
         .clone()
         .unwrap_or_else(|| row.visibility.clone());
 
-    // Determine the new owner for legacy rows (created_by IS NULL):
-    // when an admin first patches such a row to a non-public tier,
-    // claim ownership so the row has a manager going forward.
-    let claim_ownership = row.created_by.is_none()
-        && user.role == user::ROLE_ADMINISTRATOR
-        && new_visibility
-            .as_deref()
-            .map(|v| v != crate::entities::post::VISIBILITY_PUBLIC)
-            .unwrap_or(false);
-    let resulting_owner: Option<Uuid> = if claim_ownership {
-        Some(user.id)
-    } else {
-        row.created_by
-    };
-
     let txn = state.db.begin().await?;
 
     let mut active: category::ActiveModel = row.clone().into();
@@ -430,19 +415,15 @@ async fn update_category(
     if let Some(v) = req.visibility {
         active.visibility = Set(v.trim().to_string());
     }
-    if claim_ownership {
-        active.created_by = Set(Some(user.id));
-    }
     let updated = active.update(&txn).await?;
 
-    // Auto-add the resulting owner to the user_list ACL when the
-    // category is now user_list and they aren't already a member.
-    // Cycling user_list -> public -> user_list can leave a stale member
-    // row from the first round, so we existence-check before insert to
-    // keep the operation idempotent against the (category_id, user_id)
-    // composite PK.
+    // When the category is now user_list, make sure the creator is in
+    // the member ACL so they don't lock themselves out. Cycling
+    // user_list -> public -> user_list can leave a stale member row
+    // from the first round, so the existence check keeps the insert
+    // idempotent against the (category_id, user_id) composite PK.
     if resulting_visibility == VISIBILITY_USER_LIST {
-        if let Some(owner_id) = resulting_owner {
+        if let Some(owner_id) = row.created_by {
             let already_member = CategoryMember::find()
                 .filter(category_member::Column::CategoryId.eq(updated.id))
                 .filter(category_member::Column::UserId.eq(owner_id))
@@ -467,6 +448,7 @@ async fn update_category(
 
 /// `DELETE /api/categories/{id}`. Manageable. Posts/albums.category_id is
 /// `ON DELETE SET NULL`, so deletion just unlinks rather than cascading.
+// TODO: this should cascade delete, current impl will create dangling rows.
 async fn delete_category(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,

@@ -29,9 +29,13 @@
 pub mod aggregate;
 pub mod comment_reactions;
 pub mod comments;
+pub mod media_comments;
+pub mod media_reactions;
 pub mod reactions;
 
-pub use aggregate::{fetch_engagement_for_posts, PostEngagement};
+pub use aggregate::{
+    fetch_engagement_for_media, fetch_engagement_for_posts, MediaEngagement, PostEngagement,
+};
 pub use comment_reactions::{fetch_comment_engagement, CommentEngagement};
 
 use axum::Router;
@@ -51,11 +55,17 @@ pub fn engagement_write_routes() -> Router<EngagementState> {
         .merge(reactions::reaction_write_routes())
         .merge(comments::comment_write_routes())
         .merge(comment_reactions::comment_reaction_routes())
+        .merge(media_reactions::media_reaction_routes())
+        .merge(media_comments::media_comment_write_routes())
 }
 
-/// Public read routes: list comments on a post. Visibility is filtered
-/// against the parent post so under-tier callers see the same 404 as
-/// missing-post.
+/// Public read routes: list comments on a post or one of its media items,
+/// plus the media engagement summary (reaction counts + comment count)
+/// the lightbox lazy-loads on open. Visibility is filtered against the
+/// parent post so under-tier callers see the same 404 as missing-post.
 pub fn engagement_read_routes() -> Router<EngagementState> {
-    Router::new().merge(comments::comment_read_routes())
+    Router::new()
+        .merge(comments::comment_read_routes())
+        .merge(media_comments::media_comment_read_routes())
+        .merge(media_reactions::media_engagement_read_routes())
 }

@@ -20,8 +20,9 @@
 use crate::admin::UserAuth;
 use crate::engagement::aggregate::fetch_engagement_for_posts;
 use crate::engagement::EngagementState;
-use crate::entities::{post, reaction, Reaction};
+use crate::entities::{reaction, Reaction};
 use crate::errors::{AppError, AppResult};
+use crate::visibility::load_visible_post;
 use axum::{
     extract::{Path, State},
     response::Json,
@@ -29,7 +30,7 @@ use axum::{
     Extension, Router,
 };
 use sea_orm::sea_query::OnConflict;
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set};
+use sea_orm::{ColumnTrait, DbErr, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -67,7 +68,7 @@ async fn create_reaction(
         )));
     }
 
-    let parent = ensure_visible_post(&state.db, post_id, &user).await?;
+    let parent = load_visible_post(&state.db, post_id, &user).await?;
 
     // `Insert::on_conflict(...).exec()` bypasses `ActiveModelBehavior::
     // before_save`, so we set `created_at` explicitly here. ActiveModel's
@@ -122,7 +123,7 @@ async fn delete_reaction(
         )));
     }
 
-    let parent = ensure_visible_post(&state.db, post_id, &user).await?;
+    let parent = load_visible_post(&state.db, post_id, &user).await?;
 
     let result = Reaction::delete_many()
         .filter(reaction::Column::PostId.eq(parent.id))
@@ -137,17 +138,6 @@ async fn delete_reaction(
     }
 
     Ok(Json(reaction_state(&state, parent.id, user.id).await?))
-}
-
-/// Fetch the parent post and verify the caller's tier is permitted to read
-/// it. Returns the same `Post not found` error for both missing rows and
-/// under-tier calls so existence isn't disclosed.
-async fn ensure_visible_post(
-    db: &DatabaseConnection,
-    post_id: Uuid,
-    user: &UserAuth,
-) -> AppResult<post::Model> {
-    crate::visibility::ensure_visible_post_for_user(db, post_id, user).await
 }
 
 /// Re-aggregate counts and viewer reactions for a single post; used as the

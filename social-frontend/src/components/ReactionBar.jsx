@@ -31,9 +31,11 @@ const DEFAULT_KIND = REACTION_KINDS[0].id;
 /// Reaction button + emoji picker for a post OR a comment.
 ///
 /// Props:
-/// - `target`: where reactions go, in one of two shapes:
+/// - `target`: where reactions go, in one of three shapes:
 ///     `{ kind: "post", postId }` for `/api/posts/{postId}/reactions`
 ///     `{ kind: "comment", postId, commentId }` for the comment endpoint
+///     `{ kind: "media", postId, mediaId }` for a media item inside a
+///       post or album lightbox
 /// - `state`: the entity carrying current reaction state
 ///     `{ id, reaction_counts, viewer_reaction_kinds }`. Both `post::Model`
 ///     and `comment::Model` payloads expose this shape from the backend.
@@ -124,12 +126,16 @@ export default function ReactionBar({ target, state, compact = false }) {
   );
   const canReact = Boolean(user);
 
-  // Build the base URL once per target. Same shape on both endpoints:
+  // Build the base URL once per target. Same shape on every endpoint:
   // POST <base> with { kind } → add; DELETE <base>/{kind} → remove.
-  const baseUrl =
-    target.kind === "post"
-      ? `/api/posts/${target.postId}/reactions`
-      : `/api/posts/${target.postId}/comments/${target.commentId}/reactions`;
+  let baseUrl;
+  if (target.kind === "post") {
+    baseUrl = `/api/posts/${target.postId}/reactions`;
+  } else if (target.kind === "media") {
+    baseUrl = `/api/posts/${target.postId}/media/${target.mediaId}/reactions`;
+  } else {
+    baseUrl = `/api/posts/${target.postId}/comments/${target.commentId}/reactions`;
+  }
 
   async function applyReaction(nextKind) {
     if (!canReact || pending) return;

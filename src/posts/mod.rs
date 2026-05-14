@@ -28,6 +28,7 @@
 
 pub mod markdown;
 pub mod routes;
+pub mod shared;
 
 use crate::entities::post;
 

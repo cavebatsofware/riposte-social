@@ -57,7 +57,8 @@
     "commentCount_one": "{{count}} comment",
     "commentCount_other": "{{count}} comments",
     "viewMore_one": "View {{count}} more comment",
-    "viewMore_other": "View {{count}} more comments"
+    "viewMore_other": "View {{count}} more comments",
+    "openPost": "Open post"
   },
   "comments": {
     "title": "Comments",
@@ -87,6 +88,9 @@
       "tabPreview": "Preview",
       "previewEmpty": "Nothing to preview yet."
     }
+  },
+  "mediaEngagement": {
+    "panelAria": "Reactions and comments on this item"
   },
   "reactions": {
     "react": "React",

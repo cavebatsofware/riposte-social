@@ -23,7 +23,7 @@ impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         let db = manager.get_connection();
 
-        // 1. Remap legacy `viewer` role to `commenter`. Rows will also pick up
+        // 1. Remap `viewer` role to `commenter`. Rows will also pick up
         //    user_type = regular_user below; viewer rows were rare/nonexistent
         //    on fresh installs but this keeps old data coherent.
         db.execute_unprepared("UPDATE admin_users SET role = 'commenter' WHERE role = 'viewer'")

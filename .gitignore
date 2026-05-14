@@ -53,3 +53,9 @@ public-frontend/node_modules/
 
 # Crates
 crates/
+
+# Cypress run artifacts (only produced when CYPRESS_SCREENSHOTS=true
+# or CYPRESS_VIDEO=true is set; the default config skips both)
+cypress/screenshots/
+cypress/videos/
+cypress/downloads/

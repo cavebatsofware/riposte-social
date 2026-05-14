@@ -938,32 +938,3 @@ async fn test_author_sees_own_post_in_user_list_category_after_revocation(pool: 
         "post author should see their own post even after losing category membership"
     );
 }
-
-// ==================== Phase 13d: legacy ownership ====================
-
-#[sqlx::test(migrations = false)]
-async fn test_admin_patching_legacy_category_claims_ownership(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
-    let admin_email = test_email("13d-legacy-admin");
-    let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
-
-    // Insert directly with no creator (simulates a legacy seed).
-    let cat = insert_category(&db, "Legacy", "legacy-13d", post::VISIBILITY_PUBLIC, None).await;
-
-    login_as(&server, &admin_email, TEST_PASSWORD).await;
-    let csrf = get_csrf_token(&server).await;
-    let patch = server
-        .patch(&format!("/api/categories/{}", cat.id))
-        .add_header("x-csrf-token", &csrf)
-        .json(&serde_json::json!({ "visibility": "private" }))
-        .await;
-    assert_eq!(patch.status_code(), StatusCode::OK);
-
-    // Reload from DB and confirm created_by is now the admin.
-    let reloaded = riposte_social::entities::Category::find_by_id(cat.id)
-        .one(&db)
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(reloaded.created_by, Some(admin.id));
-}

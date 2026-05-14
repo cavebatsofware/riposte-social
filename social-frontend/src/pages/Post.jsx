@@ -123,7 +123,7 @@ export default function Post() {
               </button>
             </div>
           )}
-          <CommentThread postId={post.id} />
+          <CommentThread target={{ kind: "post", postId: post.id }} />
         </>
       )}
     </Layout>

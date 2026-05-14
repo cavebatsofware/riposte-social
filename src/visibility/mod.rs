@@ -27,7 +27,7 @@
 //! `ViewerCtx::build` runs a single subquery up-front to produce the set
 //! of category ids the caller can see (covering both role-tier and
 //! `user_list` ACL hits). Feed queries then add one SQL clause:
-//! `(category_id IS NULL AND <legacy uncategorized predicate>) OR
+//! `(category_id IS NULL AND <uncategorized predicate>) OR
 //!  category_id IN (:accessible_category_ids)`. No per-row category
 //! lookup happens during pagination.
 
@@ -36,8 +36,22 @@ use crate::entities::{category, category_member, post, user, Category, CategoryM
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
 use anyhow::Result;
-use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, QuerySelect};
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
+};
 use uuid::Uuid;
+
+/// Slim subset of `post` columns needed to evaluate visibility. Used by
+/// hot read paths (per-media engagement, lightbox lazy loads) so the
+/// SELECT excludes `body` and the `body_tsv` tsvector that together can
+/// add several KB per row of network bytes per visibility check.
+#[derive(Debug, Clone, FromQueryResult)]
+pub struct PostVisibilityCols {
+    pub id: Uuid,
+    pub author_id: Uuid,
+    pub visibility: String,
+    pub category_id: Option<Uuid>,
+}
 
 /// Fifth visibility tier used only on categories. The `category_member`
 /// table enumerates the user ids granted access.
@@ -229,7 +243,7 @@ impl ViewerCtx {
         A: ColumnTrait,
         C: ColumnTrait,
     {
-        // Uncategorized branch: legacy per-row visibility predicate.
+        // Uncategorized branch: per-row visibility predicate.
         let allowed: Vec<&'static str> = self.tier.allowed_visibilities().to_vec();
         let mut uncategorized_vis = sea_orm::Condition::any().add(visibility_col.is_in(allowed));
         if let Some(vid) = self.viewer_id {
@@ -277,41 +291,22 @@ impl ViewerCtx {
             .add(categorized_branch)
     }
 
-    /// Single-row visibility check. When `category` is `Some`, the
-    /// category's visibility is authoritative; the row's own visibility
-    /// is ignored. When `None`, the row's own visibility applies (the
-    /// uncategorized path).
-    ///
-    /// Author-id check fires first: it's a cheap `Option<Uuid>` equality
-    /// and the post-author's own posts should always be readable.
-    pub fn can_view_post(&self, post: &post::Model, category: Option<&category::Model>) -> bool {
-        if let Some(cat) = category {
-            if self.viewer_id == Some(post.author_id) {
-                return true;
-            }
-            return self.can_view_category(cat);
-        }
-        can_read_post(self.tier, &post.visibility, post.author_id, self.viewer_id)
-    }
-
-    /// Same shape as `can_view_post` but for albums.
-    pub fn can_view_album(
+    /// When the resource has a category, the category's visibility wins
+    /// and the resource's own `visibility` is ignored. Author short-
+    /// circuit fires first so an author can always read their own work.
+    pub fn permits_read(
         &self,
-        album: &crate::entities::album::Model,
+        author_id: Uuid,
+        visibility: &str,
         category: Option<&category::Model>,
     ) -> bool {
         if let Some(cat) = category {
-            if self.viewer_id == Some(album.author_id) {
+            if self.viewer_id == Some(author_id) {
                 return true;
             }
             return self.can_view_category(cat);
         }
-        can_read_post(
-            self.tier,
-            &album.visibility,
-            album.author_id,
-            self.viewer_id,
-        )
+        can_read_post(self.tier, visibility, author_id, self.viewer_id)
     }
 
     /// Whether this viewer can read into the given category. Admins
@@ -457,19 +452,15 @@ where
     }
 }
 
-/// Fetch a live (non-deleted) post and confirm the caller can read it.
-/// Returns the same "Post not found" error for both missing rows and
-/// under-tier calls so existence isn't disclosed. Used by write paths
-/// (engagement, compose-time checks) that already extract a `UserAuth`.
+/// Load a live (non-deleted) post if the caller can read it. Returns the
+/// same "Post not found" error for both missing rows and under-tier calls
+/// so existence isn't disclosed. Used by write paths (engagement,
+/// compose-time checks) that already extract a `UserAuth`.
 ///
 /// Loads the parent category (when set) so the visibility check honors
 /// category-driven access. One extra round trip per write path; tolerable
 /// at engagement scale.
-pub async fn ensure_visible_post_for_user<C>(
-    db: &C,
-    post_id: Uuid,
-    user: &UserAuth,
-) -> AppResult<post::Model>
+pub async fn load_visible_post<C>(db: &C, post_id: Uuid, user: &UserAuth) -> AppResult<post::Model>
 where
     C: ConnectionTrait,
 {
@@ -488,7 +479,7 @@ where
     let ctx = ViewerCtx::from_user_auth_async(db, user)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, cat.as_ref()) {
         return Err(AppError::NotFound("Post not found".to_string()));
     }
     Ok(parent)

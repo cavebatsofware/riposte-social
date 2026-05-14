@@ -114,6 +114,7 @@ export default function Album() {
         <MediaLightbox
           items={album.media}
           index={lightboxIndex}
+          postId={album.id}
           onIndex={setLightboxIndex}
           onClose={() => setLightboxIndex(null)}
         />

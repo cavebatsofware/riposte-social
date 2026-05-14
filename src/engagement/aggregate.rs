@@ -17,7 +17,10 @@
 //! reactions for a set of posts. Used by the post/feed handlers to enrich
 //! the response shape without N+1 queries.
 
-use crate::entities::{comment, reaction, Comment, Reaction};
+use crate::entities::{
+    comment, post_media_comment, post_media_reaction, reaction, Comment, PostMediaComment,
+    PostMediaReaction, Reaction,
+};
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter, QueryOrder,
     QuerySelect,
@@ -157,4 +160,104 @@ struct ViewerReactionRow {
 struct CommentCountRow {
     post_id: Uuid,
     count: i64,
+}
+
+/// Engagement summary for one media item: per-kind reaction counts, the
+/// caller's own reactions, and a live comment count. Mirrors
+/// `PostEngagement` but keyed by `post_media_id` and without the
+/// `top_comments` field, since media-level conversation is loaded lazily by
+/// the lightbox rather than eagerly with the post payload.
+#[derive(Default, Debug, Clone)]
+pub struct MediaEngagement {
+    pub reaction_counts: HashMap<String, i64>,
+    pub viewer_reaction_kinds: Vec<String>,
+    pub comment_count: i64,
+}
+
+#[derive(FromQueryResult)]
+struct MediaReactionCountRow {
+    post_media_id: Uuid,
+    kind: String,
+    count: i64,
+}
+
+#[derive(FromQueryResult)]
+struct MediaViewerReactionRow {
+    post_media_id: Uuid,
+    kind: String,
+}
+
+#[derive(FromQueryResult)]
+struct MediaCommentCountRow {
+    post_media_id: Uuid,
+    count: i64,
+}
+
+/// Batched lookup of reaction counts, viewer reactions, and live comment
+/// counts for a list of media IDs. Lazy-loaded by the lightbox on open
+/// rather than eagerly attached to feed/post payloads, so the per-feed
+/// row volume stays bounded by the post count instead of growing with
+/// the album photo count.
+pub async fn fetch_engagement_for_media(
+    db: &DatabaseConnection,
+    media_ids: &[Uuid],
+    viewer_id: Option<Uuid>,
+) -> Result<HashMap<Uuid, MediaEngagement>, DbErr> {
+    if media_ids.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let mut out: HashMap<Uuid, MediaEngagement> = HashMap::new();
+
+    let counts: Vec<MediaReactionCountRow> = PostMediaReaction::find()
+        .select_only()
+        .column(post_media_reaction::Column::PostMediaId)
+        .column(post_media_reaction::Column::Kind)
+        .column_as(post_media_reaction::Column::Id.count(), "count")
+        .filter(post_media_reaction::Column::PostMediaId.is_in(media_ids.to_vec()))
+        .group_by(post_media_reaction::Column::PostMediaId)
+        .group_by(post_media_reaction::Column::Kind)
+        .into_model::<MediaReactionCountRow>()
+        .all(db)
+        .await?;
+    for row in counts {
+        out.entry(row.post_media_id)
+            .or_default()
+            .reaction_counts
+            .insert(row.kind, row.count);
+    }
+
+    if let Some(viewer) = viewer_id {
+        let mine: Vec<MediaViewerReactionRow> = PostMediaReaction::find()
+            .select_only()
+            .column(post_media_reaction::Column::PostMediaId)
+            .column(post_media_reaction::Column::Kind)
+            .filter(post_media_reaction::Column::PostMediaId.is_in(media_ids.to_vec()))
+            .filter(post_media_reaction::Column::UserId.eq(viewer))
+            .into_model::<MediaViewerReactionRow>()
+            .all(db)
+            .await?;
+        for row in mine {
+            out.entry(row.post_media_id)
+                .or_default()
+                .viewer_reaction_kinds
+                .push(row.kind);
+        }
+    }
+
+    let comment_counts: Vec<MediaCommentCountRow> = PostMediaComment::find()
+        .select_only()
+        .column(post_media_comment::Column::PostMediaId)
+        .column_as(post_media_comment::Column::Id.count(), "count")
+        .filter(post_media_comment::Column::PostMediaId.is_in(media_ids.to_vec()))
+        .filter(post_media_comment::Column::DeletedAt.is_null())
+        .group_by(post_media_comment::Column::PostMediaId)
+        .into_model::<MediaCommentCountRow>()
+        .all(db)
+        .await?;
+    for row in comment_counts {
+        out.entry(row.post_media_id).or_default().comment_count = row.count;
+    }
+
+    Ok(out)
 }

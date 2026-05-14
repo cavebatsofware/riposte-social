@@ -10,18 +10,24 @@ import ReactionBar from "./ReactionBar";
 // `.skeleton-line` classes are defined in SkeletonCard.css.
 import "./SkeletonCard.css";
 
-/// Comment thread for the post permalink page.
+/// Comment thread for a post permalink OR a media item inside a lightbox.
 ///
-/// - Fetches `GET /api/posts/{id}/comments` on mount.
-/// - Authenticated callers (commenter, poster, admin) get a textarea +
-///   Post button. Anonymous callers see the list and a "Sign in to comment"
-///   pointer.
-/// - Soft-deletion on the backend keeps moderated rows out of the response,
-///   so we never have to render a placeholder for a removed comment here.
+/// `target` selects the URL family:
+///   `{ kind: "post", postId }` → `/api/posts/{postId}/comments`
+///   `{ kind: "media", postId, mediaId }` →
+///       `/api/posts/{postId}/media/{mediaId}/comments`
+///
+/// - Fetches the list on mount (and again when `target` changes, since the
+///   lightbox swaps `mediaId` as the user pages through items).
+/// - Authenticated callers get a textarea + Post button. Anonymous
+///   callers see the list and a "Sign in to comment" pointer.
+/// - Soft-deletion on the backend keeps moderated rows out of the
+///   response, so we never have to render a placeholder for a removed
+///   comment here.
 /// - Body HTML is sanitized server-side (`ammonia`) and re-sanitized
-///   client-side (`DOMPurify`) before injection. Defense-in-depth, same as
-///   `<PostCard>`.
-export default function CommentThread({ postId }) {
+///   client-side (`DOMPurify`) before injection. Defense-in-depth, same
+///   as `<PostCard>`.
+export default function CommentThread({ target }) {
   const { user } = useAuth();
   const { t } = useTranslation("feed");
   const [comments, setComments] = useState([]);
@@ -30,13 +36,22 @@ export default function CommentThread({ postId }) {
   const [draft, setDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // Stable URL key for the current target. Changing it (e.g. moving the
+  // lightbox to a different media item) triggers refetch + clears the
+  // composer draft so a half-typed reply doesn't leak across items.
+  const baseUrl =
+    target.kind === "media"
+      ? `/api/posts/${target.postId}/media/${target.mediaId}/comments`
+      : `/api/posts/${target.postId}/comments`;
+
   useEffect(() => {
     let cancelled = false;
+    setDraft("");
     async function load() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchApi(`/api/posts/${postId}/comments`);
+        const response = await fetchApi(baseUrl);
         if (response.status === 401 || response.status === 404) {
           if (!cancelled) setComments([]);
           return;
@@ -54,7 +69,7 @@ export default function CommentThread({ postId }) {
     return () => {
       cancelled = true;
     };
-  }, [postId]);
+  }, [baseUrl, t]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -62,7 +77,7 @@ export default function CommentThread({ postId }) {
     setSubmitting(true);
     setError("");
     try {
-      const response = await fetchApi(`/api/posts/${postId}/comments`, {
+      const response = await fetchApi(baseUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body: draft }),
@@ -84,10 +99,9 @@ export default function CommentThread({ postId }) {
   async function handleDelete(commentId) {
     if (!window.confirm(t("comments.deleteConfirm"))) return;
     try {
-      const response = await fetchApi(
-        `/api/posts/${postId}/comments/${commentId}`,
-        { method: "DELETE" },
-      );
+      const response = await fetchApi(`${baseUrl}/${commentId}`, {
+        method: "DELETE",
+      });
       if (!response.ok && response.status !== 204) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || t("comments.deleteFailed"));
@@ -99,14 +113,11 @@ export default function CommentThread({ postId }) {
   }
 
   async function handleEdit(commentId, body) {
-    const response = await fetchApi(
-      `/api/posts/${postId}/comments/${commentId}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body }),
-      },
-    );
+    const response = await fetchApi(`${baseUrl}/${commentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    });
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       throw new Error(data.error || t("comments.editFailed"));
@@ -155,7 +166,7 @@ export default function CommentThread({ postId }) {
           {comments.map((c) => (
             <CommentItem
               key={c.id}
-              postId={postId}
+              target={target}
               comment={c}
               viewer={user}
               onDelete={handleDelete}
@@ -212,7 +223,13 @@ export default function CommentThread({ postId }) {
 /// Single comment row. Body HTML is run through DOMPurify here as a
 /// localized invariant: this component never accepts unsanitized HTML, even
 /// if a future caller forgets the upstream sanitization step.
-function CommentItem({ postId, comment, viewer, onDelete, onEdit }) {
+///
+/// Inline ReactionBar renders only for post comments. Media-comment rows
+/// (target.kind === "media") skip the bar; the backend has no
+/// `/comments/{id}/reactions` route under the media path, and the
+/// `MediaCommentResponse` payload doesn't carry the reaction-count
+/// fields anyway.
+function CommentItem({ target, comment, viewer, onDelete, onEdit }) {
   const { t, i18n } = useTranslation("feed");
   const { t: tCommon } = useTranslation("common");
   const author =
@@ -354,11 +371,17 @@ function CommentItem({ postId, comment, viewer, onDelete, onEdit }) {
             className="comment-item-body post-body"
             dangerouslySetInnerHTML={{ __html: safe }}
           />
-          <ReactionBar
-            target={{ kind: "comment", postId, commentId: comment.id }}
-            state={comment}
-            compact
-          />
+          {target.kind !== "media" && (
+            <ReactionBar
+              target={{
+                kind: "comment",
+                postId: target.postId,
+                commentId: comment.id,
+              }}
+              state={comment}
+              compact
+            />
+          )}
         </>
       )}
     </li>

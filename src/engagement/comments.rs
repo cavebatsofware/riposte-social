@@ -36,6 +36,7 @@ use crate::entities::{comment, post, user, Comment, Post, User};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
 use crate::posts::{markdown, FeedTier};
+use crate::visibility::load_visible_post;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -44,9 +45,7 @@ use axum::{
     Extension, Router,
 };
 use chrono::Utc;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -167,7 +166,7 @@ async fn create_comment(
         )));
     }
 
-    let parent = ensure_visible_authenticated(&state.db, post_id, &user).await?;
+    let parent = load_visible_post(&state.db, post_id, &user).await?;
 
     let row = comment::ActiveModel {
         id: Set(Uuid::new_v4()),
@@ -230,7 +229,7 @@ async fn list_comments(
     let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
-    if !ctx.can_view_post(&parent, parent_cat.as_ref()) {
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
         return Err(AppError::NotFound("Post not found".to_string()));
     }
 
@@ -365,15 +364,4 @@ async fn delete_comment(
         .with_label_values(&["soft_delete"])
         .inc();
     Ok(StatusCode::NO_CONTENT)
-}
-
-/// Like the read-side gate, but used by write paths that already extract a
-/// `UserAuth`. Returns the parent post when the caller is permitted to read
-/// it, or a `Post not found` error otherwise.
-async fn ensure_visible_authenticated(
-    db: &DatabaseConnection,
-    post_id: Uuid,
-    user: &UserAuth,
-) -> AppResult<post::Model> {
-    crate::visibility::ensure_visible_post_for_user(db, post_id, user).await
 }

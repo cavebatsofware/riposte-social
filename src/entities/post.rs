@@ -58,6 +58,21 @@ pub fn is_valid_content_lang(v: &str) -> bool {
     ALLOWED_CONTENT_LANGS.contains(&v)
 }
 
+/// Discriminator across post-like rows. Open-ended TEXT so future kinds
+/// (e.g. `'article'`) drop in without DDL. Stored on `posts.kind`.
+pub const KIND_POST: &str = "post";
+pub const KIND_ALBUM: &str = "album";
+
+pub const ALLOWED_KINDS: &[&str] = &[KIND_POST, KIND_ALBUM];
+
+pub fn is_valid_kind(v: &str) -> bool {
+    ALLOWED_KINDS.contains(&v)
+}
+
+/// App-layer cap on `slug` length (the album name field for kind=album,
+/// optional title-like field for kind=post).
+pub const SLUG_MAX_LEN: usize = 200;
+
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
 #[sea_orm(table_name = "posts")]
 pub struct Model {
@@ -72,10 +87,17 @@ pub struct Model {
     pub deleted_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
-    /// Phase 9e: nullable category FK. NULL means uncategorized. Deleting
+    /// nullable category FK. NULL means uncategorized. Deleting
     /// a category sets this to NULL via `ON DELETE SET NULL`.
     pub category_id: Option<Uuid>,
     pub content_lang: String,
+    /// `'post'` (default) or `'album'`. Future
+    /// kinds (`'article'`, ...) extend this without DDL.
+    pub kind: String,
+    /// For `kind='album'` this carries the album
+    /// name (required at the handler layer); for `kind='post'` it's
+    /// optional.
+    pub slug: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -15,8 +15,6 @@
  */
 pub mod access_code;
 pub mod access_log;
-pub mod album;
-pub mod album_media;
 pub mod category;
 pub mod category_member;
 pub mod comment;
@@ -26,6 +24,8 @@ pub mod import_job;
 pub mod invite_code;
 pub mod post;
 pub mod post_media;
+pub mod post_media_comment;
+pub mod post_media_reaction;
 pub mod reaction;
 pub mod setting;
 pub mod subscriber;
@@ -33,8 +33,6 @@ pub mod user;
 
 pub use access_code::Entity as AccessCode;
 pub use access_log::Entity as AccessLog;
-pub use album::Entity as Album;
-pub use album_media::Entity as AlbumMedia;
 pub use category::Entity as Category;
 pub use category_member::Entity as CategoryMember;
 pub use comment::Entity as Comment;
@@ -44,6 +42,8 @@ pub use import_job::Entity as ImportJob;
 pub use invite_code::Entity as InviteCode;
 pub use post::Entity as Post;
 pub use post_media::Entity as PostMedia;
+pub use post_media_comment::Entity as PostMediaComment;
+pub use post_media_reaction::Entity as PostMediaReaction;
 pub use reaction::Entity as Reaction;
 pub use setting::Entity as Setting;
 pub use subscriber::Entity as Subscriber;

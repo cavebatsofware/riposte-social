@@ -57,7 +57,8 @@
     "commentCount_one": "{{count}} 条评论",
     "commentCount_other": "{{count}} 条评论",
     "viewMore_one": "再查看 {{count}} 条评论",
-    "viewMore_other": "再查看 {{count}} 条评论"
+    "viewMore_other": "再查看 {{count}} 条评论",
+    "openPost": "打开帖子"
   },
   "comments": {
     "title": "评论",
@@ -87,6 +88,9 @@
       "tabPreview": "预览",
       "previewEmpty": "暂时没有可预览的内容。"
     }
+  },
+  "mediaEngagement": {
+    "panelAria": "对此项的反应和评论"
   },
   "reactions": {
     "react": "反应",

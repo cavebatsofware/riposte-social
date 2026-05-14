@@ -118,7 +118,6 @@ export default function ComposeAlbum() {
     return () => {
       pendingFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!authLoading && (!user || (user.role !== "administrator" && user.role !== "poster"))) {

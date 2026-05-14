@@ -25,10 +25,13 @@ import VisibilityMenu from "./VisibilityMenu";
 /// event-handler attributes, and `javascript:` URLs.
 ///
 /// `variant`:
-/// - `"feed"` (default): wraps the card in a `<Link>` to the permalink so
-///   the entire card is clickable; multi-image media renders as a grid.
-/// - `"permalink"`: no wrapping link; the first media attachment renders
-///   as a full-width hero, subsequent attachments as a thumbnail row.
+/// - `"feed"` (default): renders an "Open post" link in the meta line so
+///   the permalink renders in the post header.
+/// - `"permalink"`: no permalink rendered.
+///   
+///  The first media attachment
+///  renders as a full-width hero, subsequent attachments as a thumbnail
+///  row.
 export default function PostCard({ post, variant = "feed" }) {
   const { user } = useAuth();
   const { t, i18n } = useTranslation("feed");
@@ -37,25 +40,14 @@ export default function PostCard({ post, variant = "feed" }) {
   const initials = computeInitials(author);
   const time = formatRelativeTime(post.published_at, i18n.language);
   const safeHtml = DOMPurify.sanitize(post.body_html || "");
-  // Stop the click on the byline from bubbling up to the card-wrapping
-  // <Link> on feed variant — clicking the avatar should land on the
-  // profile, not the post permalink.
-  const stopBubble = (e) => e.stopPropagation();
 
-  // Lightbox state. Mirrors the Album page pattern (Phase 9d) so post
-  // media gets the same click-in carousel — full-screen image/video
-  // viewer with prev/next, swipe, ESC. Null = closed; an index opens
-  // at that media position.
   const [lightboxIndex, setLightboxIndex] = useState(null);
   function openLightbox(idx, e) {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
+    if (e) e.preventDefault();
     setLightboxIndex(idx);
   }
 
-  // Quick visibility toggle (Phase 9b) is shown only when the viewer is
+  // Quick visibility toggle is shown only when the viewer is
   // the post's author or an administrator. Non-owners get the read-only
   // badge they already had.
   const canEditVisibility =
@@ -72,13 +64,11 @@ export default function PostCard({ post, variant = "feed" }) {
           avatarUrl={post.author_avatar_url}
           initials={initials}
           author={author}
-          stopBubble={stopBubble}
         />
-        <div>
+        <div className="post-meta-main">
           <PostAuthorName
             handle={post.author_handle}
             author={author}
-            stopBubble={stopBubble}
           />
           <div className="post-meta-line">
             <span>{time}</span>
@@ -102,7 +92,6 @@ export default function PostCard({ post, variant = "feed" }) {
                       ? { backgroundColor: post.category.color }
                       : undefined
                   }
-                  onClick={stopBubble}
                 >
                   {post.category.name}
                 </Link>
@@ -110,6 +99,11 @@ export default function PostCard({ post, variant = "feed" }) {
             )}
           </div>
         </div>
+        {variant === "feed" && (
+          <Link to={`/post/${post.id}`} className="post-meta-open">
+            {t("postCard.openPost")}
+          </Link>
+        )}
       </header>
 
       <PostBody safeHtml={safeHtml} variant={variant} />
@@ -132,29 +126,16 @@ export default function PostCard({ post, variant = "feed" }) {
     </article>
   );
 
-  // Lightbox renders as a portal-like overlay outside the card-link
-  // wrapper so a) it covers the full viewport regardless of where the
-  // PostCard sits in the layout, and b) clicking inside the lightbox
-  // doesn't bubble up to the card's <Link>.
   const lightbox = lightboxIndex !== null && post.media && (
     <MediaLightbox
       items={post.media}
       index={lightboxIndex}
+      postId={post.id}
       onIndex={setLightboxIndex}
       onClose={() => setLightboxIndex(null)}
     />
   );
 
-  if (variant === "feed") {
-    return (
-      <>
-        <Link to={`/post/${post.id}`} className="post-card-link">
-          {card}
-        </Link>
-        {lightbox}
-      </>
-    );
-  }
   return (
     <>
       {card}
@@ -167,7 +148,7 @@ export default function PostCard({ post, variant = "feed" }) {
 /// author has uploaded one, otherwise initials. Wrapped in a `<Link>` to
 /// `/u/{handle}` when the handle is known so the entire bubble is
 /// clickable; falls back to a plain div otherwise.
-function PostAvatar({ handle, avatarUrl, initials, author, stopBubble }) {
+function PostAvatar({ handle, avatarUrl, initials, author }) {
   const inner = avatarUrl ? (
     <img src={avatarUrl} alt={`${author} avatar`} />
   ) : (
@@ -178,7 +159,6 @@ function PostAvatar({ handle, avatarUrl, initials, author, stopBubble }) {
       <Link
         to={`/u/${handle}`}
         className="post-avatar post-avatar-link"
-        onClick={stopBubble}
         aria-label={`${author} profile`}
       >
         {inner}
@@ -193,13 +173,12 @@ function PostAvatar({ handle, avatarUrl, initials, author, stopBubble }) {
 }
 
 /// Author display name, linked to `/u/{handle}` when available.
-function PostAuthorName({ handle, author, stopBubble }) {
+function PostAuthorName({ handle, author }) {
   if (handle) {
     return (
       <Link
         to={`/u/${handle}`}
         className="post-author post-author-link"
-        onClick={stopBubble}
       >
         {author}
       </Link>
@@ -340,11 +319,7 @@ function TopComments({ comments, commentCount, postId }) {
         <TopCommentRow key={c.id} comment={c} />
       ))}
       {remaining > 0 && (
-        <Link
-          to={`/post/${postId}#comments`}
-          className="post-top-comments-more"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <Link to={`/post/${postId}#comments`} className="post-top-comments-more">
           {t("postCard.viewMore", { count: remaining })}
         </Link>
       )}

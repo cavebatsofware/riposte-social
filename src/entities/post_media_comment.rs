@@ -18,34 +18,46 @@ use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
-#[sea_orm(table_name = "album_media")]
+#[sea_orm(table_name = "post_media_comments")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: Uuid,
-    pub album_id: Uuid,
-    pub s3_key: String,
-    pub mime_type: String,
-    pub width: Option<i32>,
-    pub height: Option<i32>,
-    pub ordinal: i32,
-    pub caption: Option<String>,
+    pub post_media_id: Uuid,
+    pub user_id: Uuid,
+    pub body: String,
+    pub deleted_at: Option<DateTimeWithTimeZone>,
+    pub edited_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::album::Entity",
-        from = "Column::AlbumId",
-        to = "super::album::Column::Id",
+        belongs_to = "super::post_media::Entity",
+        from = "Column::PostMediaId",
+        to = "super::post_media::Column::Id",
         on_delete = "Cascade"
     )]
-    Album,
+    PostMedia,
+    #[sea_orm(
+        belongs_to = "super::user::Entity",
+        from = "Column::UserId",
+        to = "super::user::Column::Id",
+        on_delete = "Restrict"
+    )]
+    User,
 }
 
-impl Related<super::album::Entity> for Entity {
+impl Related<super::post_media::Entity> for Entity {
     fn to() -> RelationDef {
-        Relation::Album.def()
+        Relation::PostMedia.def()
+    }
+}
+
+impl Related<super::user::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::User.def()
     }
 }
 
@@ -55,9 +67,11 @@ impl ActiveModelBehavior for ActiveModel {
     where
         C: ConnectionTrait,
     {
+        let now: DateTimeWithTimeZone = chrono::Utc::now().into();
         if insert {
-            self.created_at = Set(chrono::Utc::now().into());
+            self.created_at = Set(now);
         }
+        self.updated_at = Set(now);
         Ok(self)
     }
 }

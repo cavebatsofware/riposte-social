@@ -101,6 +101,9 @@
     "viewerAria": "媒体查看器",
     "close": "关闭查看器",
     "prev": "上一项",
-    "next": "下一项"
+    "next": "下一项",
+    "imageWithoutCaption": "图片 {{index}} / {{total}}",
+    "indexAnnouncement": "图片 {{index}} / {{total}}",
+    "indexAnnouncementWithCaption": "图片 {{index}} / {{total}}:{{caption}}"
   }
 }

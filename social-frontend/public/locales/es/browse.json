@@ -102,6 +102,9 @@
     "viewerAria": "Visor de medios",
     "close": "Cerrar visor",
     "prev": "Anterior",
-    "next": "Siguiente"
+    "next": "Siguiente",
+    "imageWithoutCaption": "Imagen {{index}} de {{total}}",
+    "indexAnnouncement": "Imagen {{index}} de {{total}}",
+    "indexAnnouncementWithCaption": "Imagen {{index}} de {{total}}: {{caption}}"
   }
 }

@@ -36,10 +36,17 @@ help:
 	@echo "  make db-restore     - Restore database from backup"
 	@echo ""
 	@echo "🧪 Test Commands:"
-	@echo "  make test           - Run tests with test database"
-	@echo "  make test-db-up     - Start test database"
-	@echo "  make test-db-down   - Stop test database"
-	@echo "  make test-db-reset  - Reset test database"
+	@echo "  make test               - Run tests with test database"
+	@echo "  make test-db-up         - Start test database"
+	@echo "  make test-db-down       - Stop test database"
+	@echo "  make test-db-reset      - Reset test database"
+	@echo "  make test-app-up        - Bring up containerized test stack (db + app)"
+	@echo "  make test-app-down      - Stop containerized test stack"
+	@echo "  make test-app-reset     - Reset containerized test stack to a fresh DB"
+	@echo "  make cypress-feature    - Run Cypress feature specs against test stack"
+	@echo "  make cypress-a11y       - Run Cypress a11y smoke against test stack"
+	@echo "  make cypress-a11y-strict- Run Cypress a11y smoke (every impact level)"
+	@echo "  make cypress-all        - Run every Cypress spec against test stack"
 	@echo ""
 	@echo "🛠️  Development Commands:"
 	@echo "  make dev            - Start with hot reload (requires cargo-watch)"
@@ -335,6 +342,51 @@ test-app-reset:
 .PHONY: test-app-logs
 test-app-logs:
 	docker-compose -f docker-compose.test.yml --profile app logs -f app-test
+
+#
+# Cypress Commands
+#
+# Each target ensures the containerized test stack is up and points
+# Cypress at it via CYPRESS_BASE_URL. They use the dockerized cypress
+# runner (cypress/included) so the host doesn't need a local cypress
+# install. Stack stays up after the run; use `make test-app-down` to
+# stop it or `make test-app-reset` to wipe the DB.
+#
+# Capture is opt-in. Prefix any target to record:
+#   CYPRESS_SCREENSHOTS=true make cypress-feature   (failure screenshots)
+#   CYPRESS_VIDEO=true make cypress-feature         (per-spec mp4)
+# Artifacts land in cypress/{screenshots,videos}/ (both gitignored).
+
+# Run the feature-track Cypress specs (text-only, S3-free). Currently
+# the unified posts/albums kind discriminator coverage. Use this for
+# fast feedback on backend route behavior without spinning up MinIO.
+.PHONY: cypress-feature
+cypress-feature: test-app-up
+	@echo "🧪 Running Cypress feature specs..."
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run e2e:feature:docker
+	@echo "✅ Feature specs complete"
+
+# Run the a11y smoke at the gate level (serious + critical impacts).
+.PHONY: cypress-a11y
+cypress-a11y: test-app-up
+	@echo "♿ Running Cypress a11y smoke (ci strictness)..."
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run a11y:smoke:docker
+	@echo "✅ a11y smoke complete"
+
+# Run the a11y smoke at strict (every axe impact level surfaced).
+# Useful during development to see the full violation picture.
+.PHONY: cypress-a11y-strict
+cypress-a11y-strict: test-app-up
+	@echo "♿ Running Cypress a11y smoke (strict strictness)..."
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run a11y:smoke:strict:docker
+	@echo "✅ a11y smoke (strict) complete"
+
+# Run every Cypress spec against the test stack.
+.PHONY: cypress-all
+cypress-all: test-app-up
+	@echo "🧪 Running all Cypress specs..."
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run e2e:docker
+	@echo "✅ All Cypress specs complete"
 
 #
 # Development Commands
