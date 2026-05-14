@@ -1,7 +1,7 @@
 # Frontend build stage. Builds both the admin SPA (admin-assets/) and the
 # social SPA (social-assets/). The two share package.json + node_modules
 # and are produced from one `npm run build` call (admin then social).
-FROM node:25.9-trixie AS frontend-builder
+FROM node:26-trixie-slim AS frontend-builder
 
 WORKDIR /app
 
@@ -21,7 +21,7 @@ RUN npm run build
 
 # Rust build stage. Debian 13 (trixie) image so the runtime stage can
 # share the same glibc; default target is x86_64-unknown-linux-gnu.
-FROM rust:1.95-trixie AS builder
+FROM rust:slim-trixie AS builder
 
 WORKDIR /app
 

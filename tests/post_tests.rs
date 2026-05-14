@@ -750,33 +750,6 @@ async fn test_serve_media_404_for_missing(pool: sqlx::PgPool) {
 
 // ==================== Feed search ====================
 
-/// Variant of insert_post that also sets the FTS configuration. Other
-/// tests use the default (English).
-async fn insert_post_with_lang(
-    db: &sea_orm::DatabaseConnection,
-    author_id: Uuid,
-    body: &str,
-    visibility: &str,
-    content_lang: &str,
-) -> post::Model {
-    let now = chrono::Utc::now();
-    post::ActiveModel {
-        id: Set(Uuid::new_v4()),
-        author_id: Set(author_id),
-        body: Set(body.to_string()),
-        visibility: Set(visibility.to_string()),
-        published_at: Set(now.into()),
-        import_source: Set(None),
-        import_external_id: Set(None),
-        deleted_at: Set(None),
-        content_lang: Set(content_lang.to_string()),
-        ..Default::default()
-    }
-    .insert(db)
-    .await
-    .unwrap()
-}
-
 #[sqlx::test(migrations = false)]
 async fn test_feed_search_finds_matching_post(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
@@ -881,89 +854,11 @@ async fn test_feed_search_empty_q_is_noop(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_feed_search_english_stemming(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
-    let admin = create_verified_admin(&backend, &test_email("search-en"), TEST_PASSWORD).await;
-    // English stemmer collapses 'cars' and 'car' to the same stem.
-    insert_post_with_lang(
-        &db,
-        admin.id,
-        "the cars are nice",
-        post::VISIBILITY_PUBLIC,
-        "english",
-    )
-    .await;
-
-    let response = server.get("/api/feed?q=car&lang=en").await;
-    assert_eq!(response.status_code(), StatusCode::OK);
-    let json: serde_json::Value = response.json();
-    assert_eq!(
-        json["posts"].as_array().unwrap().len(),
-        1,
-        "english stemmer should match 'car' against body containing 'cars'"
-    );
-}
-
-#[sqlx::test(migrations = false)]
-async fn test_feed_search_cross_language_misses(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
-    let admin = create_verified_admin(&backend, &test_email("search-xlang"), TEST_PASSWORD).await;
-    insert_post_with_lang(
-        &db,
-        admin.id,
-        "estos coches son rápidos",
-        post::VISIBILITY_PUBLIC,
-        "spanish",
-    )
-    .await;
-
-    // English searcher: explicit content_lang='english' filter excludes
-    // the Spanish post regardless of stemmer overlap.
-    let response = server.get("/api/feed?q=coches&lang=en").await;
-    let json: serde_json::Value = response.json();
-    assert!(
-        json["posts"].as_array().unwrap().is_empty(),
-        "english search must not match spanish-tagged post"
-    );
-
-    // Same query in Spanish does match.
-    let response = server.get("/api/feed?q=coches&lang=es").await;
-    let json: serde_json::Value = response.json();
-    assert_eq!(json["posts"].as_array().unwrap().len(), 1);
-}
-
-#[sqlx::test(migrations = false)]
-async fn test_feed_search_spanish_stemming(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
-    let admin = create_verified_admin(&backend, &test_email("search-es"), TEST_PASSWORD).await;
-    // Spanish stemmer collapses 'corriendo' (running) and 'corre' (runs) to
-    // the same root.
-    insert_post_with_lang(
-        &db,
-        admin.id,
-        "el perro está corriendo",
-        post::VISIBILITY_PUBLIC,
-        "spanish",
-    )
-    .await;
-
-    let response = server.get("/api/feed?q=corre&lang=es").await;
-    let json: serde_json::Value = response.json();
-    assert_eq!(
-        json["posts"].as_array().unwrap().len(),
-        1,
-        "spanish stemmer should match 'corre' against body containing 'corriendo'"
-    );
-}
-
-#[sqlx::test(migrations = false)]
 async fn test_feed_search_malformed_query_returns_200(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("search-bad"), TEST_PASSWORD).await;
     insert_post(&db, admin.id, "anything", post::VISIBILITY_PUBLIC).await;
 
-    // websearch_to_tsquery is forgiving about unbalanced operators; the
-    // server should never 500 on user input.
     for bad in ["AND OR NOT)", "\"unterminated", "(()) -- 'drop'", ":::"] {
         let response = server
             .get(&format!("/api/feed?q={}", urlencoding::encode(bad)))
@@ -975,50 +870,4 @@ async fn test_feed_search_malformed_query_returns_200(pool: sqlx::PgPool) {
             bad
         );
     }
-}
-
-#[sqlx::test(migrations = false)]
-async fn test_create_post_invalid_content_lang_rejected(pool: sqlx::PgPool) {
-    let (server, backend, _db) = build_test_server(pool).await;
-    let email = test_email("post-bad-lang");
-    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
-    login_as(&server, &email, TEST_PASSWORD).await;
-    let csrf = get_csrf_token(&server).await;
-
-    let form = MultipartForm::new()
-        .add_text("body", "hello")
-        .add_text("visibility", "public")
-        .add_text("content_lang", "klingon");
-    let response = server
-        .post("/api/posts")
-        .add_header("x-csrf-token", &csrf)
-        .multipart(form)
-        .await;
-    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
-}
-
-#[sqlx::test(migrations = false)]
-async fn test_create_post_persists_content_lang(pool: sqlx::PgPool) {
-    let (server, backend, db) = build_test_server(pool).await;
-    let email = test_email("post-lang-ok");
-    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
-    login_as(&server, &email, TEST_PASSWORD).await;
-    let csrf = get_csrf_token(&server).await;
-
-    let form = MultipartForm::new()
-        .add_text("body", "bonjour le monde")
-        .add_text("visibility", "public")
-        .add_text("content_lang", "french");
-    let response = server
-        .post("/api/posts")
-        .add_header("x-csrf-token", &csrf)
-        .multipart(form)
-        .await;
-    assert_eq!(response.status_code(), StatusCode::CREATED);
-    let json: serde_json::Value = response.json();
-    assert_eq!(json["content_lang"].as_str().unwrap(), "french");
-
-    let id = uuid::Uuid::parse_str(json["id"].as_str().unwrap()).unwrap();
-    let row = Post::find_by_id(id).one(&db).await.unwrap().unwrap();
-    assert_eq!(row.content_lang, "french");
 }

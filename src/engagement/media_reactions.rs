@@ -211,10 +211,10 @@ async fn delete_media_reaction(
 
 /// Single INNER JOIN that fetches the media row alongside the few
 /// parent-post columns the visibility check actually reads. The post
-/// `body` and `body_tsv` are intentionally not selected: they're large
-/// (potentially KB per row) and irrelevant to every caller of this
-/// helper. Returns `Media not found` for missing rows, mismatched ids,
-/// or a soft-deleted parent so the endpoint surface stays uniform.
+/// `body` is intentionally not selected: it's large (potentially KB
+/// per row) and irrelevant to every caller of this helper. Returns
+/// `Media not found` for missing rows, mismatched ids, or a
+/// soft-deleted parent so the endpoint surface stays uniform.
 pub(crate) async fn lookup_media(
     db: &DatabaseConnection,
     post_id: Uuid,

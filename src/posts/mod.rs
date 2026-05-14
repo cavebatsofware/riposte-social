@@ -30,21 +30,7 @@ pub mod markdown;
 pub mod routes;
 pub mod shared;
 
-use crate::entities::post;
-
 // Visibility logic lives in `crate::visibility`. Re-exported here so the
 // older `crate::posts::FeedTier` / `crate::posts::can_read_post` import
 // paths used across the codebase (and tests) keep working.
 pub use crate::visibility::{can_read_post, FeedTier};
-
-/// Map a locale code (en/es/fr/zh/de) to the Postgres FTS configuration
-/// name. Unknown locales fall through to `english`.
-pub fn fts_config_for_locale(locale: Option<&str>) -> &'static str {
-    match locale {
-        Some("es") => post::CONTENT_LANG_SPANISH,
-        Some("fr") => post::CONTENT_LANG_FRENCH,
-        Some("de") => post::CONTENT_LANG_GERMAN,
-        Some("zh") => post::CONTENT_LANG_CHINESE,
-        _ => post::CONTENT_LANG_ENGLISH,
-    }
-}

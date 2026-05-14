@@ -38,26 +38,6 @@ pub fn is_valid_visibility(v: &str) -> bool {
     )
 }
 
-/// FTS configuration values stored in `content_lang`. Anything outside
-/// this set falls through the migration's CASE ELSE to `'simple'`.
-pub const CONTENT_LANG_ENGLISH: &str = "english";
-pub const CONTENT_LANG_SPANISH: &str = "spanish";
-pub const CONTENT_LANG_FRENCH: &str = "french";
-pub const CONTENT_LANG_GERMAN: &str = "german";
-pub const CONTENT_LANG_CHINESE: &str = "chinese";
-
-pub const ALLOWED_CONTENT_LANGS: &[&str] = &[
-    CONTENT_LANG_ENGLISH,
-    CONTENT_LANG_SPANISH,
-    CONTENT_LANG_FRENCH,
-    CONTENT_LANG_GERMAN,
-    CONTENT_LANG_CHINESE,
-];
-
-pub fn is_valid_content_lang(v: &str) -> bool {
-    ALLOWED_CONTENT_LANGS.contains(&v)
-}
-
 /// Discriminator across post-like rows. Open-ended TEXT so future kinds
 /// (e.g. `'article'`) drop in without DDL. Stored on `posts.kind`.
 pub const KIND_POST: &str = "post";
@@ -90,7 +70,6 @@ pub struct Model {
     /// nullable category FK. NULL means uncategorized. Deleting
     /// a category sets this to NULL via `ON DELETE SET NULL`.
     pub category_id: Option<Uuid>,
-    pub content_lang: String,
     /// `'post'` (default) or `'album'`. Future
     /// kinds (`'article'`, ...) extend this without DDL.
     pub kind: String,

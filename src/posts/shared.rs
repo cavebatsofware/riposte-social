@@ -100,7 +100,6 @@ pub struct ComposeInput {
     pub slug: Option<String>,
     pub visibility: String,
     pub category_id: Option<Uuid>,
-    pub content_lang: String,
     pub media: Vec<PendingMedia>,
 }
 
@@ -152,7 +151,7 @@ pub async fn load_owned_post(
 // ============================================================
 
 /// Multipart fields recognized for posts:
-///   `body` (text, required), `visibility`, `category_id`, `content_lang`,
+///   `body` (text, required), `visibility`, `category_id`,
 ///   `slug` (optional), `media` (file, repeated).
 ///
 /// Multipart fields recognized for albums:
@@ -160,9 +159,8 @@ pub async fn load_owned_post(
 ///   `visibility`, `category_id`, `media` (file, repeated),
 ///   `caption_<index>` (text, optional, attached to media at index).
 ///
-/// Format-level value checks (visibility allowlist, content_lang allowlist,
-/// slug length) run here. DB-level checks (category exists, member rules)
-/// run in `commit_compose`.
+/// Format-level value checks (visibility allowlist, slug length) run here.
+/// DB-level checks (category exists, member rules) run in `commit_compose`.
 pub async fn parse_compose_multipart(
     multipart: &mut Multipart,
     kind: &str,
@@ -179,7 +177,6 @@ pub async fn parse_compose_multipart(
     let mut slug: Option<String> = None;
     let mut visibility = post::VISIBILITY_PRIVATE.to_string();
     let mut category_id: Option<Uuid> = None;
-    let mut content_lang = post::CONTENT_LANG_ENGLISH.to_string();
     let mut media: Vec<PendingMedia> = Vec::new();
     let mut captions: HashMap<usize, String> = HashMap::new();
     let media_cap = media_files_max_for_kind(kind);
@@ -208,12 +205,6 @@ pub async fn parse_compose_multipart(
                     category_id = Some(Uuid::parse_str(&trimmed).map_err(|e| {
                         AppError::ValidationError(format!("category_id must be a UUID: {}", e))
                     })?);
-                }
-            }
-            "content_lang" => {
-                let trimmed = read_text(field, "content_lang").await?.trim().to_string();
-                if !trimmed.is_empty() {
-                    content_lang = trimmed;
                 }
             }
             "media" => {
@@ -261,12 +252,6 @@ pub async fn parse_compose_multipart(
             visibility
         )));
     }
-    if !post::is_valid_content_lang(&content_lang) {
-        return Err(AppError::ValidationError(format!(
-            "Invalid content_lang '{}'",
-            content_lang
-        )));
-    }
 
     Ok(ComposeInput {
         kind: kind.to_string(),
@@ -274,7 +259,6 @@ pub async fn parse_compose_multipart(
         slug: resolved_slug,
         visibility,
         category_id,
-        content_lang,
         media,
     })
 }
@@ -532,7 +516,6 @@ pub async fn commit_compose(
             import_external_id: Set(None),
             deleted_at: Set(None),
             category_id: Set(input.category_id),
-            content_lang: Set(input.content_lang),
             kind: Set(input.kind),
             slug: Set(input.slug),
             ..Default::default()
