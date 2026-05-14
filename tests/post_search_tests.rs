@@ -213,3 +213,28 @@ async fn test_search_response_has_no_cursor(pool: sqlx::PgPool) {
         json["next_cursor"]
     );
 }
+
+#[sqlx::test(migrations = false)]
+async fn test_search_special_characters_safe(pool: sqlx::PgPool) {
+    // The BM25 search term is bound positionally via Statement, so
+    // characters that would be dangerous in a string literal (single
+    // quote, backslash, comment markers, classic injection shapes) are
+    // passed through to paradedb as opaque text. This test exercises a
+    // handful of those end-to-end and asserts the handler doesn't 500
+    // on any of them.
+    let (server, backend, db) = build_test_server(pool).await;
+    let admin = create_verified_admin(&backend, &test_email("search-escape"), TEST_PASSWORD).await;
+    insert_post(&db, admin.id, "ordinary post body").await;
+
+    for term in ["bobby'", r"bobby\", r"bobby\'", r"a' OR '1'='1", r"x\\y"] {
+        let response = server
+            .get(&format!("/api/feed?q={}", urlencoding::encode(term)))
+            .await;
+        assert_eq!(
+            response.status_code(),
+            StatusCode::OK,
+            "term {:?} must not 500",
+            term
+        );
+    }
+}

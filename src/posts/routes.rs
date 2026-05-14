@@ -39,9 +39,10 @@ use axum::{
 };
 use axum_login::AuthSession;
 use chrono::Utc;
+use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait,
-    FromQueryResult, QueryFilter, QueryOrder, QuerySelect, Set, Statement,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, Set, Statement,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -770,50 +771,42 @@ async fn feed(
         }
     }
 
-    // BM25 search via pg_search runs as a separate raw query that
-    // returns matching post ids in score-desc order, then those ids feed
-    // a normal SeaORM `IN (...)` filter so the visibility/category/author
-    // predicates compose. We can't push the BM25 expression directly into
-    // the SeaORM WHERE clause because sea-query's `cust_with_values`
-    // placeholders ($N) collide with the placeholders the rest of the
-    // query generates -- the BM25 args get bound to whichever values
-    // happen to occupy the same numbered position in the final SQL.
+    // BM25 search via pg_search splices into the rendered SeaORM SQL
+    // by hand. We can't use sea-query's cust_with_values to carry the
+    // BM25 args -- in this version, cust placeholder values aren't
+    // merged into the SelectStatement's bind vec, so the prepared
+    // statement ends up with placeholders that have no value. Instead:
+    // render the SeaORM query (with the BM25 ORDER BY but no LIMIT),
+    // string-insert ` AND <bm25-expr>` before `ORDER BY`, append the
+    // term to the values vec at position `prior + 1`, and tack on a
+    // clamped u64 LIMIT literal. LIMIT inline is safe because `limit`
+    // is a `u64` already clamped to FEED_LIMIT_MAX.
     let page: Vec<post::Model>;
     let next_cursor: Option<String>;
     if let Some(term) = &search_term {
-        #[derive(FromQueryResult)]
-        struct Hit {
-            id: Uuid,
-        }
-        let hits: Vec<Uuid> = Hit::find_by_statement(Statement::from_sql_and_values(
-            state.db.get_database_backend(),
-            "SELECT id FROM posts WHERE id @@@ paradedb.boolean(should => ARRAY[\
-             paradedb.match('body', $1, distance => 1), \
-             paradedb.match('body_ngram', $1)]) \
-             ORDER BY paradedb.score(id) DESC, id DESC \
-             LIMIT $2",
-            [term.as_str().into(), (limit as i64).into()],
-        ))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|h| h.id)
-        .collect();
-
-        if hits.is_empty() {
-            return Ok(Json(FeedResponse {
-                posts: vec![],
-                next_cursor: None,
-            }));
-        }
-
-        let order: HashMap<Uuid, usize> = hits.iter().enumerate().map(|(i, id)| (*id, i)).collect();
-        let mut rows = q
-            .filter(post::Column::Id.is_in(hits.clone()))
-            .all(&state.db)
-            .await?;
-        rows.sort_by_key(|p| order.get(&p.id).copied().unwrap_or(usize::MAX));
-        page = rows;
+        let backend = state.db.get_database_backend();
+        let (rendered_sql, rendered_values) = q
+            .order_by_desc(Expr::cust("paradedb.score(id)"))
+            .order_by_desc(post::Column::Id)
+            .as_query()
+            .to_owned()
+            .build_any(&*backend.get_query_builder());
+        let n = rendered_values.0.len() + 1;
+        let bm25_clause = format!(
+            " AND id @@@ paradedb.boolean(should => ARRAY[\
+             paradedb.match('body', ${n}, distance => 1), \
+             paradedb.match('body_ngram', ${n})])"
+        );
+        let order_pos = rendered_sql.find(" ORDER BY").unwrap_or(rendered_sql.len());
+        let mut final_sql = String::with_capacity(rendered_sql.len() + bm25_clause.len() + 32);
+        final_sql.push_str(&rendered_sql[..order_pos]);
+        final_sql.push_str(&bm25_clause);
+        final_sql.push_str(&rendered_sql[order_pos..]);
+        final_sql.push_str(&format!(" LIMIT {}", limit));
+        let mut all_values = rendered_values.0;
+        all_values.push(sea_orm::Value::from(term.clone()));
+        let stmt = Statement::from_sql_and_values(backend, final_sql, all_values);
+        page = Post::find().from_raw_sql(stmt).all(&state.db).await?;
         next_cursor = None;
     } else {
         q = q
@@ -848,59 +841,67 @@ async fn feed(
         };
     }
 
-    // Fetch authors and media in a batch each to avoid N+1.
+    // Hydrate the page in a single round-trip burst: authors, media,
+    // engagement counts, and categories are independent of each other,
+    // so they fly in parallel through the SeaORM connection pool. The
+    // top-comment authors batch sequences after engagement because it
+    // reads the `top_comments` ids that fetch_engagement_for_posts
+    // returns.
     let author_ids: Vec<Uuid> = page.iter().map(|p| p.author_id).collect();
     let post_ids: Vec<Uuid> = page.iter().map(|p| p.id).collect();
+    let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
 
-    let authors = if author_ids.is_empty() {
-        vec![]
-    } else {
-        User::find()
-            .filter(user::Column::Id.is_in(author_ids))
-            .all(&state.db)
-            .await?
-    };
+    let (authors, media_rows, engagement_by_post_raw, categories) = tokio::try_join!(
+        async {
+            if author_ids.is_empty() {
+                Ok::<Vec<user::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                User::find()
+                    .filter(user::Column::Id.is_in(author_ids.clone()))
+                    .all(&state.db)
+                    .await
+            }
+        },
+        async {
+            if post_ids.is_empty() {
+                Ok::<Vec<post_media::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                PostMedia::find()
+                    .filter(post_media::Column::PostId.is_in(post_ids.clone()))
+                    .order_by_asc(post_media::Column::Ordinal)
+                    .all(&state.db)
+                    .await
+            }
+        },
+        async {
+            fetch_engagement_for_posts(&state.db, &post_ids, ctx.viewer_id)
+                .await
+                .map_err(|e| sea_orm::DbErr::Custom(format!("engagement fetch failed: {:#}", e)))
+        },
+        async {
+            if category_ids.is_empty() {
+                Ok::<Vec<category::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                Category::find()
+                    .filter(category::Column::Id.is_in(category_ids.clone()))
+                    .all(&state.db)
+                    .await
+            }
+        },
+    )?;
+
     let authors_by_id: HashMap<Uuid, user::Model> =
         authors.into_iter().map(|a| (a.id, a)).collect();
-
-    let media_rows = if post_ids.is_empty() {
-        vec![]
-    } else {
-        PostMedia::find()
-            .filter(post_media::Column::PostId.is_in(post_ids))
-            .order_by_asc(post_media::Column::Ordinal)
-            .all(&state.db)
-            .await?
-    };
     let mut media_by_post: HashMap<Uuid, Vec<post_media::Model>> = HashMap::new();
     for m in media_rows {
         media_by_post.entry(m.post_id).or_default().push(m);
     }
+    let categories_by_id: HashMap<Uuid, category::Model> =
+        categories.into_iter().map(|c| (c.id, c)).collect();
+    let mut engagement_by_post = engagement_by_post_raw;
 
-    // Engagement is fetched in batch keyed by post_id. Anonymous callers
-    // get reaction counts and comment counts but no `viewer_reaction_kinds`.
-    let post_ids_for_engagement: Vec<Uuid> = page.iter().map(|p| p.id).collect();
-    let mut engagement_by_post =
-        fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, ctx.viewer_id).await?;
-
-    // Phase 9e: hydrate the page's categories in one batched query so the
-    // chip can render on each card without N+1.
-    let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
-    let categories_by_id: HashMap<Uuid, category::Model> = if category_ids.is_empty() {
-        HashMap::new()
-    } else {
-        Category::find()
-            .filter(category::Column::Id.is_in(category_ids))
-            .all(&state.db)
-            .await?
-            .into_iter()
-            .map(|c| (c.id, c))
-            .collect()
-    };
-
-    // Hydrate authors of any top_comments returned by the engagement
-    // batch so each PostCard can render the inline conversation context
-    // with display name + avatar without N+1.
+    // Top-comment authors depend on the engagement result (the comment
+    // ids it surfaces), so this one sequences after the parallel batch.
     let top_comment_authors =
         load_top_comment_authors(&state.db, engagement_by_post.values()).await?;
 
