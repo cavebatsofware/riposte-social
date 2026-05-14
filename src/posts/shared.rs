@@ -699,7 +699,8 @@ pub async fn reorder_media(
         )));
     }
     let mut seen: HashSet<Uuid> = HashSet::new();
-    for (id, _) in &ordinals {
+    let mut seen_ords: HashSet<i32> = HashSet::new();
+    for (id, ord) in &ordinals {
         if !existing_ids.contains(id) {
             return Err(AppError::ValidationError(format!(
                 "media {} does not belong to this post",
@@ -710,6 +711,18 @@ pub async fn reorder_media(
             return Err(AppError::ValidationError(format!(
                 "media {} appears more than once in the reorder list",
                 id
+            )));
+        }
+        if *ord < 0 {
+            return Err(AppError::ValidationError(format!(
+                "ordinal {} is negative; ordinals must be non-negative",
+                ord
+            )));
+        }
+        if !seen_ords.insert(*ord) {
+            return Err(AppError::ValidationError(format!(
+                "ordinal {} is duplicated; each media must have a unique ordinal",
+                ord
             )));
         }
     }

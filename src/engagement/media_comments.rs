@@ -195,13 +195,17 @@ async fn list_media_comments(
         .await?;
 
     let author_ids: Vec<Uuid> = rows.iter().map(|r| r.user_id).collect();
-    let authors_by_id: HashMap<Uuid, user::Model> = User::find()
-        .filter(user::Column::Id.is_in(author_ids))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|a| (a.id, a))
-        .collect();
+    let authors_by_id: HashMap<Uuid, user::Model> = if author_ids.is_empty() {
+        HashMap::new()
+    } else {
+        User::find()
+            .filter(user::Column::Id.is_in(author_ids))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|a| (a.id, a))
+            .collect()
+    };
 
     let comments = rows
         .into_iter()

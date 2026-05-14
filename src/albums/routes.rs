@@ -378,35 +378,43 @@ async fn list_albums(
     };
 
     let author_ids: Vec<Uuid> = page.iter().map(|a| a.author_id).collect();
-    let authors_by_id: HashMap<Uuid, user::Model> = User::find()
-        .filter(user::Column::Id.is_in(author_ids))
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|a| (a.id, a))
-        .collect();
+    let authors_by_id: HashMap<Uuid, user::Model> = if author_ids.is_empty() {
+        HashMap::new()
+    } else {
+        User::find()
+            .filter(user::Column::Id.is_in(author_ids))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|a| (a.id, a))
+            .collect()
+    };
 
     // Aggregate per album in one round trip: photo_count via COUNT(*)
     // and the implicit cover (lowest-ordinal media id) via Postgres'
     // ARRAY_AGG ordered subscript. Avoids loading every post_media row
     // for every album in the page just to read count + cover.
     let album_ids: Vec<Uuid> = page.iter().map(|a| a.id).collect();
-    let stats_by_album: HashMap<Uuid, AlbumStatsRow> = PostMedia::find()
-        .select_only()
-        .column(post_media::Column::PostId)
-        .column_as(post_media::Column::Id.count(), "photo_count")
-        .column_as(
-            Expr::cust("(ARRAY_AGG(id ORDER BY ordinal ASC))[1]"),
-            "cover_id",
-        )
-        .filter(post_media::Column::PostId.is_in(album_ids))
-        .group_by(post_media::Column::PostId)
-        .into_model::<AlbumStatsRow>()
-        .all(&state.db)
-        .await?
-        .into_iter()
-        .map(|s| (s.post_id, s))
-        .collect();
+    let stats_by_album: HashMap<Uuid, AlbumStatsRow> = if album_ids.is_empty() {
+        HashMap::new()
+    } else {
+        PostMedia::find()
+            .select_only()
+            .column(post_media::Column::PostId)
+            .column_as(post_media::Column::Id.count(), "photo_count")
+            .column_as(
+                Expr::cust("(ARRAY_AGG(id ORDER BY ordinal ASC))[1]"),
+                "cover_id",
+            )
+            .filter(post_media::Column::PostId.is_in(album_ids))
+            .group_by(post_media::Column::PostId)
+            .into_model::<AlbumStatsRow>()
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|s| (s.post_id, s))
+            .collect()
+    };
 
     let albums: Vec<AlbumSummary> = page
         .into_iter()
