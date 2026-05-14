@@ -55,7 +55,7 @@ export default function VisibilityMenu({ post, onChange }) {
   }, [open]);
 
   async function selectOption(id) {
-    if (submitting) {
+    if (id === current || submitting) {
       setOpen(false);
       return;
     }

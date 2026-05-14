@@ -543,8 +543,9 @@ function MemberModal({ category, onClose }) {
     // the dialog via Escape (handled by the focus trap) or by tabbing to
     // the explicit close button inside. The inner stopPropagation keeps
     // a click on the dialog body from bubbling up and closing the modal.
-    /* eslint-disable jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions,jsx-a11y/no-static-element-interactions */
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
     <div className="modal-backdrop" onClick={onClose}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="modal categories-member-modal"
         role="dialog"
