@@ -6,11 +6,6 @@ import DOMPurify from "dompurify";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
-import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
-import {
-  ftsConfigForLocale,
-  SUPPORTED_CONTENT_LANGS,
-} from "../utils/contentLang";
 import Layout from "../components/Layout";
 import VisibilityPicker from "../components/VisibilityPicker";
 
@@ -43,7 +38,7 @@ export default function Compose() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get("edit");
-  const { t, i18n } = useTranslation("compose");
+  const { t } = useTranslation("compose");
   const { t: tCommon } = useTranslation("common");
 
   const [body, setBody] = useState("");
@@ -56,15 +51,6 @@ export default function Compose() {
   // mount; the dropdown shows the full set ordered by ordinal.
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState([]);
-  // FTS configuration the post will be tokenized under. Default derives
-  // from the user's UI locale; edit mode overwrites with the post's
-  // existing value on load.
-  const [contentLang, setContentLang] = useState(() => {
-    const active = (i18n.resolvedLanguage || i18n.language || "en").split(
-      "-",
-    )[0];
-    return ftsConfigForLocale(active);
-  });
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -103,7 +89,6 @@ export default function Compose() {
           setBody(data.body);
           setVisibility(data.visibility);
           setCategoryId(data.category ? data.category.id : "");
-          if (data.content_lang) setContentLang(data.content_lang);
         }
       } catch (err) {
         if (!cancelled) setError(err.message);
@@ -239,10 +224,10 @@ export default function Compose() {
     try {
       let response;
       if (editId) {
-        // Phase 9e: send category_id when set, or `clear_category: true`
-        // to drop an existing assignment (the empty-string option in the
-        // picker becomes a clear).
-        const patchBody = { body, visibility, content_lang: contentLang };
+        // Send category_id when set, or `clear_category: true` to drop
+        // an existing assignment (the empty-string option in the picker
+        // becomes a clear).
+        const patchBody = { body, visibility };
         if (categoryId) {
           patchBody.category_id = categoryId;
         } else {
@@ -257,7 +242,6 @@ export default function Compose() {
         const form = new FormData();
         form.append("body", body);
         form.append("visibility", visibility);
-        form.append("content_lang", contentLang);
         if (categoryId) form.append("category_id", categoryId);
         for (const { file } of files) {
           form.append("media", file);
@@ -371,28 +355,6 @@ export default function Compose() {
             )}
           </div>
 
-          <div className="compose-field">
-            <label htmlFor="compose-content-lang">
-              {t("contentLang.label")}
-            </label>
-            <select
-              id="compose-content-lang"
-              className="compose-input"
-              value={contentLang}
-              onChange={(e) => setContentLang(e.target.value)}
-            >
-              {SUPPORTED_LOCALES.map((loc) => {
-                const cfg = ftsConfigForLocale(loc);
-                if (!SUPPORTED_CONTENT_LANGS.includes(cfg)) return null;
-                return (
-                  <option key={loc} value={cfg}>
-                    {LOCALE_NATIVE_NAMES[loc]}
-                  </option>
-                );
-              })}
-            </select>
-            <p className="form-hint">{t("contentLang.hint")}</p>
-          </div>
         </div>
 
         {!editId && (

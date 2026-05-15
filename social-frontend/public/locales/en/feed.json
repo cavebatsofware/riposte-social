@@ -18,10 +18,10 @@
     "composeEmpty": "No posts yet.",
     "composeEmptyHint": "<compose>Compose something</compose> to get started.",
     "noPostsYet": "No posts to show yet. Come back later.",
-    "searchPlaceholder": "Search posts in {{language}}…",
+    "searchPlaceholder": "Search posts…",
     "searchSubmitAria": "Search",
     "searchClearAria": "Clear search",
-    "noResultsFor": "No posts in {{language}} match \"{{query}}\".",
+    "noResultsFor": "No posts match \"{{query}}\".",
     "clearSearch": "Clear search"
   },
   "visibility": {

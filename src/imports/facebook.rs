@@ -1115,7 +1115,6 @@ async fn import_one_post(
             created_at: Set(now),
             updated_at: Set(now),
             category_id: Set(None),
-            content_lang: Set(post::CONTENT_LANG_ENGLISH.to_string()),
             kind: Set(post::KIND_POST.to_string()),
             slug: Set(None),
         }
@@ -1251,7 +1250,6 @@ async fn import_one_album(
             created_at: Set(now),
             updated_at: Set(now),
             category_id: Set(None),
-            content_lang: Set(post::CONTENT_LANG_ENGLISH.to_string()),
             kind: Set(post::KIND_ALBUM.to_string()),
             slug: Set(Some(fb_album.name.clone())),
         }

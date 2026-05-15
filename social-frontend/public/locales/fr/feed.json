@@ -18,10 +18,10 @@
     "composeEmpty": "Aucune publication pour l'instant.",
     "composeEmptyHint": "<compose>Rédigez quelque chose</compose> pour commencer.",
     "noPostsYet": "Aucune publication à afficher pour l'instant. Revenez plus tard.",
-    "searchPlaceholder": "Rechercher des publications en {{language}}…",
+    "searchPlaceholder": "Rechercher des publications…",
     "searchSubmitAria": "Rechercher",
     "searchClearAria": "Effacer la recherche",
-    "noResultsFor": "Aucune publication en {{language}} ne correspond à « {{query}} ».",
+    "noResultsFor": "Aucune publication ne correspond à « {{query}} ».",
     "clearSearch": "Effacer la recherche"
   },
   "visibility": {

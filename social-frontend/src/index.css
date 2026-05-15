@@ -1392,11 +1392,12 @@ summary:focus-visible,
   display: block;
 }
 
-/* When .post-avatar is rendered as a <Link> (author has a handle), drop
-   default link underline + color so it matches the non-link variant. */
+/* When .post-avatar is rendered as a <Link>, drop the default link
+   underline. Color is intentionally left to `.post-avatar`'s
+   `--color-avatar-fg`; overriding to `inherit` here pulled the parent
+   `--color-muted`, which fails AA contrast against the avatar bubble. */
 .post-avatar-link {
   text-decoration: none;
-  color: inherit;
 }
 
 .post-author {

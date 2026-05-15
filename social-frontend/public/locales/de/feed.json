@@ -18,10 +18,10 @@
     "composeEmpty": "Noch keine Beiträge.",
     "composeEmptyHint": "<compose>Verfasse etwas</compose>, um loszulegen.",
     "noPostsYet": "Noch keine Beiträge zu zeigen. Schau später wieder rein.",
-    "searchPlaceholder": "Beiträge in {{language}} suchen…",
+    "searchPlaceholder": "Beiträge suchen…",
     "searchSubmitAria": "Suchen",
     "searchClearAria": "Suche löschen",
-    "noResultsFor": "Keine {{language}}-Beiträge entsprechen „{{query}}\".",
+    "noResultsFor": "Keine Beiträge entsprechen „{{query}}\".",
     "clearSearch": "Suche löschen"
   },
   "visibility": {

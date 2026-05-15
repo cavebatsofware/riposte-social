@@ -41,8 +41,8 @@ use axum_login::AuthSession;
 use chrono::Utc;
 use sea_orm::sea_query::Expr;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
+    QueryOrder, QuerySelect, QueryTrait, Set, Statement,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -176,10 +176,6 @@ pub struct UpdatePostRequest {
     /// payload can either set or clear without serde-with gymnastics.
     #[serde(default)]
     pub clear_category: bool,
-    /// FTS configuration name. Validated against the allowlist when
-    /// present. Omitting leaves the existing value alone.
-    #[serde(default)]
-    pub content_lang: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -215,7 +211,6 @@ pub struct PostResponse {
     /// category, equals the category's visibility; otherwise equals the
     /// post's own `visibility`. Always populated.
     pub effective_visibility: String,
-    pub content_lang: String,
     pub published_at: String,
     pub created_at: String,
     pub updated_at: String,
@@ -311,7 +306,6 @@ fn build_post_response(
         body_html,
         visibility: row.visibility,
         effective_visibility,
-        content_lang: row.content_lang,
         published_at: row.published_at.with_timezone(&Utc).to_rfc3339(),
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),
         updated_at: row.updated_at.with_timezone(&Utc).to_rfc3339(),
@@ -340,8 +334,6 @@ fn build_post_response(
 ///   public visibility).
 /// - `category_id` (text, optional): UUID. Caller must be allowed to
 ///   compose into that category.
-/// - `content_lang` (text, optional): FTS configuration. Defaults to
-///   `english`.
 /// - `media` (file, 0 or more): image or video attachments. Format-level
 ///   validation (mime allowlist, per-file size cap, count cap) happens in
 ///   `shared::parse_compose_multipart`.
@@ -604,15 +596,6 @@ async fn update_post(
             return Err(AppError::ValidationError("Category not found".to_string()));
         }
     }
-    if let Some(ref lang) = req.content_lang {
-        if !post::is_valid_content_lang(lang) {
-            return Err(AppError::ValidationError(format!(
-                "Invalid content_lang '{}'",
-                lang
-            )));
-        }
-    }
-
     // Compose-time member check: if the post is moving INTO a category,
     // confirm the author may compose there. Admins always pass.
     if !req.clear_category {
@@ -636,9 +619,6 @@ async fn update_post(
     }
     if let Some(v) = req.visibility {
         active.visibility = Set(v);
-    }
-    if let Some(lang) = req.content_lang {
-        active.content_lang = Set(lang);
     }
     let updated = active.update(&state.db).await?;
 
@@ -691,7 +671,8 @@ async fn delete_post(
 #[derive(Deserialize)]
 pub struct FeedQuery {
     /// Cursor in the form `{published_at_rfc3339}_{post_id}`. Returned in
-    /// the previous page's `next_cursor`. Omitted on first page.
+    /// the previous page's `next_cursor`. Omitted on first page. Ignored
+    /// when `q` is set: search responses always return a single page.
     #[serde(default)]
     pub cursor: Option<String>,
     /// Page size. Capped server-side.
@@ -702,18 +683,16 @@ pub struct FeedQuery {
     /// posts that are visible to them.
     #[serde(default)]
     pub author: Option<Uuid>,
-    /// Optional category filter (Phase 9e). Slug, not id, for nice URLs.
+    /// Optional category filter. Slug, not id, for nice URLs.
     /// `?category=uncategorized` is reserved as a synthetic filter that
     /// matches posts with `category_id IS NULL`.
     #[serde(default)]
     pub category: Option<String>,
-    /// Search term. Empty/whitespace = no filter.
+    /// Search term. Empty/whitespace = no filter. When set, ordering
+    /// switches to BM25 relevance and pagination collapses to a single
+    /// page (no `next_cursor`).
     #[serde(default)]
     pub q: Option<String>,
-    /// Locale code (en/es/fr/zh/de) the search term is parsed under.
-    /// Defaults to English when omitted or unrecognized.
-    #[serde(default)]
-    pub lang: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -748,6 +727,13 @@ async fn feed(
         .await
         .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
 
+    let search_term = query
+        .q
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+
     let mut q = Post::find()
         .filter(post::Column::DeletedAt.is_null())
         .filter(post::Column::Kind.eq(post::KIND_POST))
@@ -755,17 +741,15 @@ async fn feed(
             post::Column::Visibility,
             post::Column::AuthorId,
             post::Column::CategoryId,
-        ))
-        .order_by_desc(post::Column::PublishedAt)
-        .order_by_desc(post::Column::Id);
+        ));
 
     if let Some(author_id) = query.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));
     }
-    // Phase 9e: ?category=<slug> filters by category. The synthetic
-    // `uncategorized` slug matches NULL category_id. An unknown slug
-    // returns an empty page (no error — the rail typically built the
-    // URL from a known slug, so a stale rail entry just renders empty).
+    // ?category=<slug> filters by category. The synthetic `uncategorized`
+    // slug matches NULL category_id. An unknown slug returns an empty
+    // page (no error -- the rail typically built the URL from a known
+    // slug, so a stale rail entry just renders empty).
     if let Some(slug) = query.category.as_deref() {
         let slug = slug.trim();
         if slug == "uncategorized" {
@@ -778,7 +762,6 @@ async fn feed(
             match cat {
                 Some(c) => q = q.filter(post::Column::CategoryId.eq(c.id)),
                 None => {
-                    // Force-empty result so callers see {posts: [], next_cursor: null}.
                     return Ok(Json(FeedResponse {
                         posts: vec![],
                         next_cursor: None,
@@ -788,104 +771,137 @@ async fn feed(
         }
     }
 
-    // Search filters on content_lang as well as the FTS predicate. The
-    // explicit language match prevents cross-language coincidences from
-    // stemmer overlap and shrinks the scan to the same-language subset
-    // before the GIN index does the per-token lookup.
-    if let Some(term) = query.q.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
-        let lang = crate::posts::fts_config_for_locale(query.lang.as_deref());
-        q = q
-            .filter(post::Column::ContentLang.eq(lang))
-            .filter(Expr::cust_with_values(
-                "body_tsv @@ websearch_to_tsquery($1::regconfig, $2)",
-                [lang.to_string(), term.to_string()],
-            ));
-    }
-
-    if let Some(cursor) = query.cursor.as_deref().and_then(parse_cursor) {
-        let (cursor_published_at, cursor_id) = cursor;
-        q = q.filter(
-            sea_orm::Condition::any()
-                .add(post::Column::PublishedAt.lt(cursor_published_at))
-                .add(
-                    sea_orm::Condition::all()
-                        .add(post::Column::PublishedAt.eq(cursor_published_at))
-                        .add(post::Column::Id.lt(cursor_id)),
-                ),
+    // BM25 search via pg_search splices into the rendered SeaORM SQL
+    // by hand. We can't use sea-query's cust_with_values to carry the
+    // BM25 args -- in this version, cust placeholder values aren't
+    // merged into the SelectStatement's bind vec, so the prepared
+    // statement ends up with placeholders that have no value. Instead:
+    // render the SeaORM query (with the BM25 ORDER BY but no LIMIT),
+    // string-insert ` AND <bm25-expr>` before `ORDER BY`, append the
+    // term to the values vec at position `prior + 1`, and tack on a
+    // clamped u64 LIMIT literal. LIMIT inline is safe because `limit`
+    // is a `u64` already clamped to FEED_LIMIT_MAX.
+    let page: Vec<post::Model>;
+    let next_cursor: Option<String>;
+    if let Some(term) = &search_term {
+        let backend = state.db.get_database_backend();
+        let (rendered_sql, rendered_values) = q
+            .order_by_desc(Expr::cust("paradedb.score(id)"))
+            .order_by_desc(post::Column::Id)
+            .as_query()
+            .to_owned()
+            .build_any(&*backend.get_query_builder());
+        let n = rendered_values.0.len() + 1;
+        let bm25_clause = format!(
+            " AND id @@@ paradedb.boolean(should => ARRAY[\
+             paradedb.match('body', ${n}, distance => 1), \
+             paradedb.match('body_ngram', ${n})])"
         );
+        let order_pos = rendered_sql.find(" ORDER BY").unwrap_or(rendered_sql.len());
+        let mut final_sql = String::with_capacity(rendered_sql.len() + bm25_clause.len() + 32);
+        final_sql.push_str(&rendered_sql[..order_pos]);
+        final_sql.push_str(&bm25_clause);
+        final_sql.push_str(&rendered_sql[order_pos..]);
+        final_sql.push_str(&format!(" LIMIT {}", limit));
+        let mut all_values = rendered_values.0;
+        all_values.push(sea_orm::Value::from(term.clone()));
+        let stmt = Statement::from_sql_and_values(backend, final_sql, all_values);
+        page = Post::find().from_raw_sql(stmt).all(&state.db).await?;
+        next_cursor = None;
+    } else {
+        q = q
+            .order_by_desc(post::Column::PublishedAt)
+            .order_by_desc(post::Column::Id);
+        if let Some(cursor) = query.cursor.as_deref().and_then(parse_cursor) {
+            let (cursor_published_at, cursor_id) = cursor;
+            q = q.filter(
+                sea_orm::Condition::any()
+                    .add(post::Column::PublishedAt.lt(cursor_published_at))
+                    .add(
+                        sea_orm::Condition::all()
+                            .add(post::Column::PublishedAt.eq(cursor_published_at))
+                            .add(post::Column::Id.lt(cursor_id)),
+                    ),
+            );
+        }
+        // Fetch limit+1 to detect whether more pages exist without a count query.
+        let rows = q.limit(limit + 1).all(&state.db).await?;
+        let has_more = rows.len() as u64 > limit;
+        page = rows.into_iter().take(limit as usize).collect();
+        next_cursor = if has_more {
+            page.last().map(|last| {
+                format!(
+                    "{}_{}",
+                    last.published_at.with_timezone(&Utc).to_rfc3339(),
+                    last.id
+                )
+            })
+        } else {
+            None
+        };
     }
 
-    // Fetch limit+1 to detect whether more pages exist without a count query.
-    let rows = q.limit(limit + 1).all(&state.db).await?;
-
-    let has_more = rows.len() as u64 > limit;
-    let page: Vec<post::Model> = rows.into_iter().take(limit as usize).collect();
-
-    let next_cursor = if has_more {
-        page.last().map(|last| {
-            format!(
-                "{}_{}",
-                last.published_at.with_timezone(&Utc).to_rfc3339(),
-                last.id
-            )
-        })
-    } else {
-        None
-    };
-
-    // Fetch authors and media in a batch each to avoid N+1.
+    // Hydrate the page in a single round-trip burst: authors, media,
+    // engagement counts, and categories are independent of each other,
+    // so they fly in parallel through the SeaORM connection pool. The
+    // top-comment authors batch sequences after engagement because it
+    // reads the `top_comments` ids that fetch_engagement_for_posts
+    // returns.
     let author_ids: Vec<Uuid> = page.iter().map(|p| p.author_id).collect();
     let post_ids: Vec<Uuid> = page.iter().map(|p| p.id).collect();
+    let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
 
-    let authors = if author_ids.is_empty() {
-        vec![]
-    } else {
-        User::find()
-            .filter(user::Column::Id.is_in(author_ids))
-            .all(&state.db)
-            .await?
-    };
+    let (authors, media_rows, engagement_by_post_raw, categories) = tokio::try_join!(
+        async {
+            if author_ids.is_empty() {
+                Ok::<Vec<user::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                User::find()
+                    .filter(user::Column::Id.is_in(author_ids.clone()))
+                    .all(&state.db)
+                    .await
+            }
+        },
+        async {
+            if post_ids.is_empty() {
+                Ok::<Vec<post_media::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                PostMedia::find()
+                    .filter(post_media::Column::PostId.is_in(post_ids.clone()))
+                    .order_by_asc(post_media::Column::Ordinal)
+                    .all(&state.db)
+                    .await
+            }
+        },
+        async {
+            fetch_engagement_for_posts(&state.db, &post_ids, ctx.viewer_id)
+                .await
+                .map_err(|e| sea_orm::DbErr::Custom(format!("engagement fetch failed: {:#}", e)))
+        },
+        async {
+            if category_ids.is_empty() {
+                Ok::<Vec<category::Model>, sea_orm::DbErr>(vec![])
+            } else {
+                Category::find()
+                    .filter(category::Column::Id.is_in(category_ids.clone()))
+                    .all(&state.db)
+                    .await
+            }
+        },
+    )?;
+
     let authors_by_id: HashMap<Uuid, user::Model> =
         authors.into_iter().map(|a| (a.id, a)).collect();
-
-    let media_rows = if post_ids.is_empty() {
-        vec![]
-    } else {
-        PostMedia::find()
-            .filter(post_media::Column::PostId.is_in(post_ids))
-            .order_by_asc(post_media::Column::Ordinal)
-            .all(&state.db)
-            .await?
-    };
     let mut media_by_post: HashMap<Uuid, Vec<post_media::Model>> = HashMap::new();
     for m in media_rows {
         media_by_post.entry(m.post_id).or_default().push(m);
     }
+    let categories_by_id: HashMap<Uuid, category::Model> =
+        categories.into_iter().map(|c| (c.id, c)).collect();
+    let mut engagement_by_post = engagement_by_post_raw;
 
-    // Engagement is fetched in batch keyed by post_id. Anonymous callers
-    // get reaction counts and comment counts but no `viewer_reaction_kinds`.
-    let post_ids_for_engagement: Vec<Uuid> = page.iter().map(|p| p.id).collect();
-    let mut engagement_by_post =
-        fetch_engagement_for_posts(&state.db, &post_ids_for_engagement, ctx.viewer_id).await?;
-
-    // Phase 9e: hydrate the page's categories in one batched query so the
-    // chip can render on each card without N+1.
-    let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
-    let categories_by_id: HashMap<Uuid, category::Model> = if category_ids.is_empty() {
-        HashMap::new()
-    } else {
-        Category::find()
-            .filter(category::Column::Id.is_in(category_ids))
-            .all(&state.db)
-            .await?
-            .into_iter()
-            .map(|c| (c.id, c))
-            .collect()
-    };
-
-    // Hydrate authors of any top_comments returned by the engagement
-    // batch so each PostCard can render the inline conversation context
-    // with display name + avatar without N+1.
+    // Top-comment authors depend on the engagement result (the comment
+    // ids it surfaces), so this one sequences after the parallel batch.
     let top_comment_authors =
         load_top_comment_authors(&state.db, engagement_by_post.values()).await?;
 

@@ -67,6 +67,8 @@ mod m20260512_000003_migrate_album_media_to_post_media;
 mod m20260512_000004_drop_albums_tables;
 mod m20260512_000005_create_post_media_reaction;
 mod m20260512_000006_create_post_media_comment;
+mod m20260514_000001_drop_tsvector_search;
+mod m20260514_000002_add_bm25_search;
 
 pub struct Migrator;
 
@@ -125,6 +127,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260512_000004_drop_albums_tables::Migration),
             Box::new(m20260512_000005_create_post_media_reaction::Migration),
             Box::new(m20260512_000006_create_post_media_comment::Migration),
+            Box::new(m20260514_000001_drop_tsvector_search::Migration),
+            Box::new(m20260514_000002_add_bm25_search::Migration),
         ]
     }
 }

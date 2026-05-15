@@ -72,9 +72,5 @@
   },
   "visibility": {
     "legend": "Visibilité"
-  },
-  "contentLang": {
-    "label": "Langue",
-    "hint": "Sert à tokeniser la publication pour la recherche."
   }
 }

@@ -5,7 +5,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchApi } from "../utils/api";
 import { recordCategoryVisit } from "../utils/browseHistory";
-import { LOCALE_NATIVE_NAMES } from "../i18n";
 import InviteSplash from "../components/InviteSplash";
 import Layout from "../components/Layout";
 import PostCard from "../components/PostCard";
@@ -31,7 +30,7 @@ export default function Feed() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { t, i18n } = useTranslation("feed");
+  const { t } = useTranslation("feed");
   const { t: tCommon } = useTranslation("common");
 
   // Local input state — committed to the URL only on submit so we don't
@@ -40,9 +39,6 @@ export default function Feed() {
   useEffect(() => {
     setSearchInput(q);
   }, [q]);
-
-  const lang = (i18n.resolvedLanguage || i18n.language || "en").split("-")[0];
-  const langNative = LOCALE_NATIVE_NAMES[lang] || LOCALE_NATIVE_NAMES.en;
 
   // MRU bookkeeping: every category visit moves that category up the
   // BrowseRail's recency list. Server already filters posts by slug.
@@ -71,10 +67,7 @@ export default function Feed() {
         qp.set("limit", String(FEED_LIMIT));
         if (nextCursor) qp.set("cursor", nextCursor);
         if (category) qp.set("category", category);
-        if (q) {
-          qp.set("q", q);
-          qp.set("lang", lang);
-        }
+        if (q) qp.set("q", q);
         const response = await fetchApi(`/api/feed?${qp.toString()}`);
         if (!response.ok) {
           throw new Error(t("feed.loadFailed"));
@@ -91,7 +84,7 @@ export default function Feed() {
         setLoading(false);
       }
     },
-    [category, q, lang, t],
+    [category, q, t],
   );
 
   // Re-load from page 0 whenever the active category or search changes.
@@ -132,7 +125,7 @@ export default function Feed() {
           className="feed-search-input"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
-          placeholder={t("feed.searchPlaceholder", { language: langNative })}
+          placeholder={t("feed.searchPlaceholder")}
           aria-label={t("feed.searchSubmitAria")}
         />
         {q && (
@@ -167,7 +160,7 @@ export default function Feed() {
 
       {!loading && posts.length === 0 && !error && q && (
         <section className="feed-empty">
-          <p>{t("feed.noResultsFor", { query: q, language: langNative })}</p>
+          <p>{t("feed.noResultsFor", { query: q })}</p>
           <p className="feed-empty-hint">
             <button
               type="button"

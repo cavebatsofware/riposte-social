@@ -72,9 +72,5 @@
   },
   "visibility": {
     "legend": "可见性"
-  },
-  "contentLang": {
-    "label": "语言",
-    "hint": "用于将帖子拆分为搜索词元。"
   }
 }
