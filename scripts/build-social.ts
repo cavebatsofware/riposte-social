@@ -1,5 +1,7 @@
 import { Glob } from "bun";
-import { cpSync } from "fs";
+import { cpSync, rmSync } from "fs";
+
+rmSync("./social-assets", { recursive: true, force: true });
 
 const result = await Bun.build({
   entrypoints: ["./social-frontend/index.html"],

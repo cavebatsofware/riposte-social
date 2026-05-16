@@ -9,4 +9,4 @@ email_hint: string | null,
 /**
  * Lifetime in hours. Capped at `MAX_INVITE_LIFETIME_DAYS`; defaults to one week.
  */
-expires_in_hours: bigint | null, };
+expires_in_hours: number | null, };

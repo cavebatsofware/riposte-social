@@ -26,6 +26,7 @@ pub struct CreateInviteRequest {
     /// and in the splash to help the visitor confirm the invite is for them.
     pub email_hint: Option<String>,
     /// Lifetime in hours. Capped at `MAX_INVITE_LIFETIME_DAYS`; defaults to one week.
+    #[ts(type = "number | null")]
     pub expires_in_hours: Option<i64>,
 }
 

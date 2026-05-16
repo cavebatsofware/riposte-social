@@ -1,4 +1,7 @@
 import { Glob } from "bun";
+import { rmSync } from "fs";
+
+rmSync("./admin-assets", { recursive: true, force: true });
 
 const result = await Bun.build({
   entrypoints: ["./admin-frontend/index.html"],

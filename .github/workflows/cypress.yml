@@ -1,5 +1,7 @@
 name: Cypress
 on: [pull_request]
+permissions:
+  contents: read
 jobs:
   feature:
     name: Feature + a11y
