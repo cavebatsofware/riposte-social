@@ -565,11 +565,7 @@ fn trim_url_punctuation(raw: &str) -> &str {
 /// so the key is a content hash. The first attachment URI keeps two
 /// same-day posts with different media from colliding on identical text
 /// bodies.
-pub(crate) fn compute_external_id(
-    timestamp: i64,
-    body: &str,
-    first_uri: Option<&str>,
-) -> String {
+pub(crate) fn compute_external_id(timestamp: i64, body: &str, first_uri: Option<&str>) -> String {
     let mut hasher = Blake2b512::new();
     hasher.update(timestamp.to_le_bytes());
     hasher.update(b"\x00");

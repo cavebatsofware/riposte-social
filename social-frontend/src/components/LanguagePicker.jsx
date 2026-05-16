@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetchApi } from "../utils/api";
+import { updateLocale } from "../features/profile/api";
 import { useAuth } from "../contexts/AuthContext";
 import { LOCALE_NATIVE_NAMES, SUPPORTED_LOCALES } from "../i18n";
 import PopoverPicker from "./PopoverPicker";
@@ -48,11 +48,7 @@ export default function LanguagePicker({ variant = "popover" }) {
     // login will re-sync if the server eventually saves.
     if (user) {
       try {
-        await fetchApi("/api/me/locale", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ locale: lng }),
-        });
+        await updateLocale(lng);
       } catch {
         // ignore; local switch stands
       }

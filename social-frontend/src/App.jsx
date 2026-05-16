@@ -1,17 +1,17 @@
 import { Routes, Route } from "react-router-dom";
-import Feed from "./pages/Feed";
-import Post from "./pages/Post";
-import Compose from "./pages/Compose";
-import Login from "./pages/Login";
-import InviteAccept from "./pages/InviteAccept";
-import Profile from "./pages/Profile";
-import SettingsProfile from "./pages/SettingsProfile";
-import SettingsSecurity from "./pages/SettingsSecurity";
-import Album from "./pages/Album";
-import ComposeAlbum from "./pages/ComposeAlbum";
-import Albums from "./pages/Albums";
-import Categories from "./pages/Categories";
-import People from "./pages/People";
+import Feed from "./features/feed/Feed";
+import Post from "./features/feed/Post";
+import Compose from "./features/compose/Compose";
+import ComposeAlbum from "./features/compose/ComposeAlbum";
+import Login from "./features/auth/Login";
+import InviteAccept from "./features/auth/InviteAccept";
+import Profile from "./features/profile/Profile";
+import SettingsProfile from "./features/profile/SettingsProfile";
+import SettingsSecurity from "./features/profile/SettingsSecurity";
+import People from "./features/profile/People";
+import Album from "./features/albums/Album";
+import Albums from "./features/albums/Albums";
+import Categories from "./features/categories/Categories";
 import CookieBanner from "./components/CookieBanner";
 
 /// The shared `<Layout>` (header + rails + main + ThemePicker) is mounted

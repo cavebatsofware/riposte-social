@@ -2,7 +2,9 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
-import { fetchApi } from "../utils/api";
+import { fetchAlbums } from "../features/albums/api";
+import { fetchCategories } from "../features/categories/api";
+import { fetchProfilesDirectory } from "../features/profile/api";
 import { readBrowseHistory } from "../utils/browseHistory";
 import "./BrowseRail.css";
 
@@ -62,7 +64,7 @@ export default function BrowseRail() {
     let cancelled = false;
     async function load() {
       try {
-        const cats = await fetchApi("/api/categories");
+        const cats = await fetchCategories();
         if (cats.ok) {
           const data = await cats.json();
           if (!cancelled) setCategories(data.categories || []);
@@ -74,7 +76,7 @@ export default function BrowseRail() {
       // by default); anonymous gets a curated list of public-tier
       // albums from the server.
       try {
-        const al = await fetchApi("/api/albums?limit=100");
+        const al = await fetchAlbums("limit=100");
         if (al.ok) {
           const data = await al.json();
           if (!cancelled) setAlbums(data.albums || []);
@@ -83,7 +85,7 @@ export default function BrowseRail() {
         // ignore
       }
       try {
-        const pp = await fetchApi("/api/profiles?limit=100");
+        const pp = await fetchProfilesDirectory(100);
         if (pp.ok) {
           const data = await pp.json();
           if (!cancelled) setPeople(data.profiles || []);

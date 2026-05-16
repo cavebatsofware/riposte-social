@@ -302,7 +302,6 @@ async fn lookup_handle_avatar_locale(
     }
 }
 
-
 /// Get CSRF token for the current session
 async fn get_csrf_token(session: Session) -> AppResult<Json<CsrfTokenResponse>> {
     let token = get_or_create_token(&session)
@@ -313,7 +312,6 @@ async fn get_csrf_token(session: Session) -> AppResult<Json<CsrfTokenResponse>> 
 }
 
 // ==================== Auth Config Endpoint ====================
-
 
 /// Returns auth configuration so the frontend knows whether to use OIDC or local login
 async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse> {
@@ -446,7 +444,6 @@ async fn get_authenticated_user(auth_session: &UserAuthSession) -> AppResult<sup
         .ok_or_else(|| AppError::AuthError("Not authenticated".to_string()))
 }
 
-
 /// Generate a new TOTP secret and QR code for MFA setup
 /// Requires full authentication (not pending MFA)
 async fn mfa_setup(
@@ -472,7 +469,6 @@ async fn mfa_setup(
         otpauth_url: setup.otpauth_url,
     }))
 }
-
 
 /// Confirm MFA setup by verifying the code matches the secret
 async fn mfa_confirm_setup(
@@ -511,7 +507,6 @@ async fn mfa_confirm_setup(
         totp_enabled: true,
     }))
 }
-
 
 /// Verify MFA code during login (after password authentication)
 async fn mfa_verify(
@@ -595,7 +590,6 @@ async fn mfa_verify(
     }))
 }
 
-
 /// Disable MFA for the user (requires password confirmation)
 async fn mfa_disable(
     State(state): State<AdminState>,
@@ -655,7 +649,6 @@ async fn mfa_disable(
 }
 
 // ==================== Password Management Endpoints ====================
-
 
 /// Change password for the authenticated user (requires current password)
 async fn change_password(
@@ -724,7 +717,6 @@ async fn change_password(
     }))
 }
 
-
 /// Request password reset (always returns requires_mfa: true for enumeration protection)
 async fn forgot_password(
     State(state): State<AdminState>,
@@ -741,7 +733,6 @@ async fn forgot_password(
         message: "Please enter your MFA code to continue".to_string(),
     }))
 }
-
 
 /// Verify MFA for password reset (uses strict verification with zero grace period)
 async fn forgot_password_verify_mfa(
@@ -845,7 +836,6 @@ async fn forgot_password_verify_mfa(
         message: "Password reset email sent. Please check your inbox.".to_string(),
     }))
 }
-
 
 /// Complete password reset using token
 async fn reset_password(

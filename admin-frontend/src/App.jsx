@@ -1,21 +1,21 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import VerifyEmail from "./pages/VerifyEmail";
-import MFAVerify from "./pages/MFAVerify";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import ForcePasswordChange from "./pages/ForcePasswordChange";
-import Dashboard from "./pages/Dashboard";
-import AccessCodes from "./pages/AccessCodes";
-import AccessLogs from "./pages/AccessLogs";
-import Users from "./pages/Users";
-import Imports from "./pages/Imports";
-import InviteCodes from "./pages/InviteCodes";
-import Moderation from "./pages/Moderation";
-import Settings from "./pages/Settings";
-import Profile from "./pages/Profile";
+import Login from "./features/auth/Login";
+import Register from "./features/auth/Register";
+import VerifyEmail from "./features/auth/VerifyEmail";
+import MFAVerify from "./features/auth/MFAVerify";
+import ForgotPassword from "./features/auth/ForgotPassword";
+import ResetPassword from "./features/auth/ResetPassword";
+import ForcePasswordChange from "./features/auth/ForcePasswordChange";
+import Dashboard from "./features/dashboard/Dashboard";
+import AccessCodes from "./features/access-codes/AccessCodes";
+import AccessLogs from "./features/access-logs/AccessLogs";
+import Users from "./features/users/Users";
+import Imports from "./features/imports/Imports";
+import InviteCodes from "./features/invites/InviteCodes";
+import Moderation from "./features/moderation/Moderation";
+import Settings from "./features/settings/Settings";
+import Profile from "./features/profile/Profile";
 import "./App.css";
 
 function ProtectedRoute({ children, allowForcePasswordChange = false }) {
