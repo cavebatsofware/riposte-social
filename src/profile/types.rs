@@ -14,11 +14,13 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
 /// Response shape for the caller's own profile. Includes `email` since
 /// the caller is reading their own row.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MeProfileResponse {
     pub user_id: Uuid,
     pub handle: String,
@@ -28,7 +30,9 @@ pub struct MeProfileResponse {
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
     pub role: String,
+    #[ts(type = "number")]
     pub follower_count: i64,
+    #[ts(type = "number")]
     pub following_count: i64,
 }
 
@@ -39,7 +43,8 @@ pub struct MeProfileResponse {
 /// `follows_you` and `you_follow` are populated for authenticated viewers
 /// only; both are `false` for anonymous reads since the relationship has
 /// no defined viewer.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct PublicProfileResponse {
     pub user_id: Uuid,
     pub handle: String,
@@ -48,7 +53,9 @@ pub struct PublicProfileResponse {
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
     pub role: String,
+    #[ts(type = "number")]
     pub follower_count: i64,
+    #[ts(type = "number")]
     pub following_count: i64,
     pub follows_you: bool,
     pub you_follow: bool,
@@ -56,7 +63,8 @@ pub struct PublicProfileResponse {
 
 /// Compact profile shape used by the list endpoint. Drops `bio` and
 /// `pronouns` since they aren't shown in the rail or directory grid.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ProfileSummary {
     pub user_id: Uuid,
     pub handle: String,
@@ -65,19 +73,23 @@ pub struct ProfileSummary {
     pub role: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ListProfilesResponse {
     pub profiles: Vec<ProfileSummary>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
 #[serde(default)]
+#[ts(export)]
 pub struct ListProfilesQuery {
+    #[ts(type = "number | null")]
     pub limit: Option<u64>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
 #[serde(default)]
+#[ts(export)]
 pub struct PatchMeProfileRequest {
     pub handle: Option<String>,
     pub display_name: Option<String>,
@@ -85,19 +97,22 @@ pub struct PatchMeProfileRequest {
     pub pronouns: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct AvatarUploadResponse {
     pub avatar_url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct PatchMeLocaleRequest {
     /// One of `crate::profile::locale::SUPPORTED_LOCALES`. Anything else
     /// returns 400.
     pub locale: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct LocaleResponse {
     pub locale: String,
 }

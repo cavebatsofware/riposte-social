@@ -22,9 +22,11 @@ use crate::posts::media::is_video_mime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct UpdatePostMediaRequest {
     /// Empty/whitespace clears the caption (NULL); a present value
     /// replaces it. Omitted means "leave alone".
@@ -32,21 +34,23 @@ pub struct UpdatePostMediaRequest {
     pub caption: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct MediaOrderItem {
     pub id: Uuid,
     pub ordinal: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct UpdatePostRequest {
     #[serde(default)]
     pub body: Option<String>,
     #[serde(default)]
     pub visibility: Option<String>,
-    /// Phase 9e: assign / move to a different category. Provide a UUID to
-    /// set; omit to leave alone. Pair with `clear_category=true` to
-    /// remove a categorization without a sentinel value.
+    /// Assign / move to a different category. Provide a UUID to set; omit
+    /// to leave alone. Pair with `clear_category=true` to remove a
+    /// categorization without a sentinel value.
     #[serde(default)]
     pub category_id: Option<Uuid>,
     /// Explicit boolean: set to true to clear the post's category.
@@ -55,7 +59,8 @@ pub struct UpdatePostRequest {
     pub clear_category: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct PostCategoryRef {
     pub id: Uuid,
     pub slug: String,
@@ -63,7 +68,8 @@ pub struct PostCategoryRef {
     pub color: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct PostResponse {
     pub id: Uuid,
     pub author_id: Uuid,
@@ -81,14 +87,17 @@ pub struct PostResponse {
     pub created_at: String,
     pub updated_at: String,
     pub media: Vec<PostMediaResponse>,
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
+    #[ts(type = "number")]
     pub comment_count: i64,
     pub category: Option<PostCategoryRef>,
     pub top_comments: Vec<CommentResponse>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct PostMediaResponse {
     pub id: Uuid,
     /// Browser-facing URL. Hits `/media/{media_id}` which checks tier
@@ -174,7 +183,8 @@ pub fn build_post_response(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct FeedQuery {
     /// Cursor in the form `{published_at_rfc3339}_{post_id}`. Returned in
     /// the previous page's `next_cursor`. Omitted on first page.
@@ -182,6 +192,7 @@ pub struct FeedQuery {
     pub cursor: Option<String>,
     /// Page size. Capped server-side.
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub limit: Option<u64>,
     /// Optional author filter.
     #[serde(default)]
@@ -196,7 +207,8 @@ pub struct FeedQuery {
     pub q: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct FeedResponse {
     pub posts: Vec<PostResponse>,
     pub next_cursor: Option<String>,

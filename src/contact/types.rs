@@ -14,8 +14,10 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct ContactFormRequest {
     pub name: String,
     pub email: String,
@@ -23,7 +25,8 @@ pub struct ContactFormRequest {
     pub message: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ContactFormResponse {
     pub success: bool,
     pub message: String,

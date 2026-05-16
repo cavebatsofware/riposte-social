@@ -20,21 +20,25 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use ts_rs::TS;
 use uuid::Uuid;
 
 // ==================== post comments ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateCommentRequest {
     pub body: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct EditCommentRequest {
     pub body: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CommentResponse {
     pub id: Uuid,
     pub post_id: Uuid,
@@ -48,19 +52,22 @@ pub struct CommentResponse {
     pub updated_at: String,
     pub edited_at: Option<String>,
     #[serde(default)]
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     #[serde(default)]
     pub viewer_reaction_kinds: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CommentListResponse {
     pub comments: Vec<CommentResponse>,
 }
 
 // ==================== post reactions ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateReactionRequest {
     pub kind: String,
 }
@@ -68,58 +75,72 @@ pub struct CreateReactionRequest {
 /// Compact "reactions on a post" wire summary. Used by both the post
 /// reaction endpoints and (via [`MediaEngagementResponse`]) the per-media
 /// lightbox.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ReactionStateResponse {
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
 }
 
 // ==================== comment reactions ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateCommentReactionRequest {
     pub kind: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CommentReactionStateResponse {
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
 }
 
 // ==================== media reactions ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateMediaReactionRequest {
     pub kind: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MediaReactionStateResponse {
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MediaEngagementResponse {
+    #[ts(type = "Record<string, number>")]
     pub reaction_counts: HashMap<String, i64>,
     pub viewer_reaction_kinds: Vec<String>,
+    #[ts(type = "number")]
     pub comment_count: i64,
 }
 
 // ==================== media comments ====================
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateMediaCommentRequest {
     pub body: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct EditMediaCommentRequest {
     pub body: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MediaCommentResponse {
     pub id: Uuid,
     pub media_id: Uuid,
@@ -134,7 +155,8 @@ pub struct MediaCommentResponse {
     pub edited_at: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MediaCommentListResponse {
     pub comments: Vec<MediaCommentResponse>,
 }
