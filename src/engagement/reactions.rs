@@ -19,6 +19,7 @@
 
 use crate::admin::UserAuth;
 use crate::engagement::aggregate::fetch_engagement_for_posts;
+use crate::engagement::types::{CreateReactionRequest, ReactionStateResponse};
 use crate::engagement::EngagementState;
 use crate::entities::{reaction, Reaction};
 use crate::errors::{AppError, AppResult};
@@ -31,25 +32,12 @@ use axum::{
 };
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{ColumnTrait, DbErr, EntityTrait, QueryFilter, Set};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 pub fn reaction_write_routes() -> Router<EngagementState> {
     Router::new()
         .route("/api/posts/{id}/reactions", post(create_reaction))
         .route("/api/posts/{id}/reactions/{kind}", delete(delete_reaction))
-}
-
-#[derive(Deserialize)]
-pub struct CreateReactionRequest {
-    pub kind: String,
-}
-
-#[derive(Serialize)]
-pub struct ReactionStateResponse {
-    pub reaction_counts: HashMap<String, i64>,
-    pub viewer_reaction_kinds: Vec<String>,
 }
 
 /// `POST /api/posts/{id}/reactions`. Idempotent: a second call with the

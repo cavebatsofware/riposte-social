@@ -13,13 +13,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::{
-    email::EmailService,
-    entities::{subscriber, Subscriber},
-    errors::AppResult,
-    security_callbacks::AccessLogEvent,
-    settings::SettingsService,
-};
+use crate::entities::{subscriber, Subscriber};
+use crate::errors::{AppError, AppResult};
+use crate::middleware::rate_limit::AccessLogEvent;
+use crate::subscriptions::types::{SubscribeRequest, SubscribeResponse, VerifyQuery};
+use crate::subscriptions::{is_valid_email, SubscribeState};
 use axum::{
     extract::{Query, State},
     http::StatusCode,
@@ -29,53 +27,8 @@ use axum::{
 };
 use basic_axum_rate_limit::SecurityContext;
 use chrono::{Duration, Utc};
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
-
-/// Validate email format: must have exactly one @, a non-empty local part,
-/// and a domain with at least one dot separating non-empty labels.
-pub fn is_valid_email(email: &str) -> bool {
-    if email.is_empty() || email.len() > 254 {
-        return false;
-    }
-    let parts: Vec<&str> = email.splitn(2, '@').collect();
-    if parts.len() != 2 {
-        return false;
-    }
-    let (local, domain) = (parts[0], parts[1]);
-    if local.is_empty() || local.len() > 64 || domain.is_empty() {
-        return false;
-    }
-    // Domain must have at least one dot with non-empty labels
-    let labels: Vec<&str> = domain.split('.').collect();
-    labels.len() >= 2 && labels.iter().all(|l| !l.is_empty())
-}
-
-#[derive(Clone)]
-pub struct SubscribeState {
-    pub email_service: Arc<EmailService>,
-    pub callbacks: crate::security_callbacks::AppRateLimitCallbacks,
-    pub db: DatabaseConnection,
-    pub settings: SettingsService,
-}
-
-#[derive(Deserialize)]
-pub struct SubscribeRequest {
-    email: String,
-}
-
-#[derive(Deserialize)]
-pub struct VerifyQuery {
-    token: String,
-}
-
-#[derive(Serialize)]
-pub struct SubscribeResponse {
-    success: bool,
-    message: String,
-}
 
 pub fn subscribe_routes() -> Router<SubscribeState> {
     Router::new()
@@ -88,7 +41,6 @@ async fn subscribe(
     Extension(security_context): Extension<SecurityContext>,
     Json(payload): Json<SubscribeRequest>,
 ) -> AppResult<impl IntoResponse> {
-    // Check if subscriptions feature is enabled
     if !state
         .settings
         .get_subscriptions_enabled()
@@ -104,7 +56,6 @@ async fn subscribe(
         ));
     }
 
-    // Validate email
     let email = payload.email.trim().to_lowercase();
 
     if !is_valid_email(&email) {
@@ -124,7 +75,7 @@ async fn subscribe(
         .parse::<std::net::IpAddr>()
         .map_err(|e| {
             tracing::error!("Failed to parse IP address: {}", e);
-            crate::errors::AppError::InternalError("Invalid IP address".to_string())
+            AppError::InternalError("Invalid IP address".to_string())
         })?;
 
     let has_recent_subscription = state
@@ -151,7 +102,6 @@ async fn subscribe(
         ));
     }
 
-    // Check if email already exists
     let existing_subscriber = Subscriber::find()
         .filter(subscriber::Column::Email.eq(&email))
         .one(&state.db)
@@ -172,7 +122,6 @@ async fn subscribe(
                 }),
             ));
         } else {
-            // Resend verification email
             if let Some(token) = &existing.verification_token {
                 let _ = state
                     .email_service
@@ -189,7 +138,6 @@ async fn subscribe(
         }
     }
 
-    // Create new subscriber with verification token
     let verification_token = Uuid::new_v4().to_string();
     let now = Utc::now();
 
@@ -206,7 +154,6 @@ async fn subscribe(
 
     match new_subscriber.insert(&state.db).await {
         Ok(_) => {
-            // Send verification email
             match state
                 .email_service
                 .send_subscription_confirmation(&email, &verification_token)
@@ -221,7 +168,7 @@ async fn subscribe(
                             access_code: subscribe_key.clone(),
                             action: "subscribe_submit".to_string(),
                             success: true,
-                            tokens: 0.0, // Not rate-limited
+                            tokens: 0.0,
                             admin_user_id: None,
                             admin_user_email: None,
                         })
@@ -248,7 +195,7 @@ async fn subscribe(
                             access_code: subscribe_key,
                             action: "subscribe_submit".to_string(),
                             success: false,
-                            tokens: 0.0, // Not rate-limited
+                            tokens: 0.0,
                             admin_user_id: None,
                             admin_user_email: None,
                         })
@@ -282,7 +229,6 @@ async fn verify_subscription(
     State(state): State<SubscribeState>,
     Query(query): Query<VerifyQuery>,
 ) -> Result<Redirect, Redirect> {
-    // Check if subscriptions feature is enabled
     if !state
         .settings
         .get_subscriptions_enabled()
@@ -292,7 +238,6 @@ async fn verify_subscription(
         return Err(Redirect::to("/?verified=invalid"));
     }
 
-    // Find subscriber with this verification token
     let subscriber = Subscriber::find()
         .filter(subscriber::Column::VerificationToken.eq(&query.token))
         .one(&state.db)
@@ -305,20 +250,17 @@ async fn verify_subscription(
 
     match subscriber {
         Some(sub) => {
-            // Check if already verified
             if sub.verified {
                 tracing::info!("Subscription already verified, redirecting to blog");
                 return Ok(Redirect::to("/blog?verified=already"));
             }
 
-            // Check if token is expired (7 days)
             let created_at = sub.created_at.with_timezone(&Utc);
             if Utc::now().signed_duration_since(created_at) > Duration::days(7) {
                 tracing::warn!("Verification token expired, redirecting to blog");
                 return Err(Redirect::to("/blog?verified=expired"));
             }
 
-            // Verify the subscription
             let mut active_sub: subscriber::ActiveModel = sub.into();
             active_sub.verified = Set(true);
             active_sub.verified_at = Set(Some(Utc::now().into()));

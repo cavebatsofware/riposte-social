@@ -18,6 +18,9 @@
 //! implies seeing its media, so the gate is post-level.
 
 use crate::admin::UserAuth;
+use crate::engagement::types::{
+    CreateMediaReactionRequest, MediaEngagementResponse, MediaReactionStateResponse,
+};
 use crate::engagement::EngagementState;
 use crate::entities::{
     post, post_media, post_media_reaction, reaction, PostMedia, PostMediaReaction,
@@ -36,8 +39,6 @@ use sea_orm::{
     prelude::DateTimeWithTimeZone, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
     FromQueryResult, JoinType, QueryFilter, QuerySelect, RelationTrait, Set,
 };
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use uuid::Uuid;
 
 pub fn media_reaction_routes() -> Router<EngagementState> {
@@ -57,24 +58,6 @@ pub fn media_engagement_read_routes() -> Router<EngagementState> {
         "/api/posts/{post_id}/media/{media_id}/engagement",
         get(get_media_engagement),
     )
-}
-
-#[derive(Deserialize)]
-pub struct CreateMediaReactionRequest {
-    pub kind: String,
-}
-
-#[derive(Serialize)]
-pub struct MediaReactionStateResponse {
-    pub reaction_counts: HashMap<String, i64>,
-    pub viewer_reaction_kinds: Vec<String>,
-}
-
-#[derive(Serialize)]
-pub struct MediaEngagementResponse {
-    pub reaction_counts: HashMap<String, i64>,
-    pub viewer_reaction_kinds: Vec<String>,
-    pub comment_count: i64,
 }
 
 /// `GET /api/posts/{post_id}/media/{media_id}/engagement`. Lazy-loaded by

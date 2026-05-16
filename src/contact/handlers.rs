@@ -13,38 +13,16 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::{
-    email::EmailService, errors::AppResult, security_callbacks::AccessLogEvent,
-    settings::SettingsService,
-};
+use crate::contact::types::{ContactFormRequest, ContactFormResponse};
+use crate::contact::ContactState;
+use crate::errors::{AppError, AppResult};
+use crate::middleware::rate_limit::AccessLogEvent;
+use crate::subscriptions::is_valid_email;
 use axum::{
     extract::State, http::StatusCode, response::IntoResponse, routing::post, Extension, Json,
     Router,
 };
 use basic_axum_rate_limit::SecurityContext;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-
-#[derive(Clone)]
-pub struct ContactState {
-    pub email_service: Arc<EmailService>,
-    pub callbacks: crate::security_callbacks::AppRateLimitCallbacks,
-    pub settings: SettingsService,
-}
-
-#[derive(Deserialize)]
-pub struct ContactFormRequest {
-    name: String,
-    email: String,
-    subject: String,
-    message: String,
-}
-
-#[derive(Serialize)]
-pub struct ContactFormResponse {
-    success: bool,
-    message: String,
-}
 
 pub fn contact_routes() -> Router<ContactState> {
     Router::new().route("/api/contact", post(submit_contact_form))
@@ -55,7 +33,6 @@ async fn submit_contact_form(
     Extension(security_context): Extension<SecurityContext>,
     Json(payload): Json<ContactFormRequest>,
 ) -> AppResult<impl IntoResponse> {
-    // Check if contact form feature is enabled
     if !state
         .settings
         .get_contact_form_enabled()
@@ -71,7 +48,6 @@ async fn submit_contact_form(
         ));
     }
 
-    // Validate input lengths
     if payload.name.trim().is_empty()
         || payload.name.len() > 100
         || payload.email.trim().is_empty()
@@ -90,8 +66,7 @@ async fn submit_contact_form(
         ));
     }
 
-    // Email validation
-    if !crate::subscribe::is_valid_email(&payload.email) {
+    if !is_valid_email(&payload.email) {
         return Ok((
             StatusCode::BAD_REQUEST,
             Json(ContactFormResponse {
@@ -101,7 +76,6 @@ async fn submit_contact_form(
         ));
     }
 
-    // Check if this IP has submitted a contact form in the last 24 hours
     let contact_key = format!("contact_form:{}", security_context.ip_address);
 
     let ip_addr = security_context
@@ -109,7 +83,7 @@ async fn submit_contact_form(
         .parse::<std::net::IpAddr>()
         .map_err(|e| {
             tracing::error!("Failed to parse IP address: {}", e);
-            crate::errors::AppError::InternalError("Invalid IP address".to_string())
+            AppError::InternalError("Invalid IP address".to_string())
         })?;
 
     let has_recent_submission = state
@@ -136,7 +110,6 @@ async fn submit_contact_form(
         ));
     }
 
-    // Send email
     match state
         .email_service
         .send_contact_form_email(
@@ -156,7 +129,7 @@ async fn submit_contact_form(
                     access_code: contact_key.clone(),
                     action: "contact_form_submit".to_string(),
                     success: true,
-                    tokens: 0.0, // Not rate-limited
+                    tokens: 0.0,
                     admin_user_id: None,
                     admin_user_email: None,
                 })
@@ -186,7 +159,7 @@ async fn submit_contact_form(
                     access_code: contact_key,
                     action: "contact_form_submit".to_string(),
                     success: false,
-                    tokens: 0.0, // Not rate-limited
+                    tokens: 0.0,
                     admin_user_id: None,
                     admin_user_email: None,
                 })

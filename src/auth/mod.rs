@@ -19,4 +19,5 @@
 //! administrators, posters, and commenters alike. Local password + MFA still
 //! lives under `admin::routes` for now and is wired to the same
 //! `UserAuthBackend`.
-pub mod oidc_routes;
+pub mod handlers;
+pub mod oidc;

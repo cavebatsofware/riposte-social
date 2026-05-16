@@ -15,21 +15,23 @@
  */
 //! Phase 8: profile management.
 //!
-//! Self-service endpoints for the authenticated viewer (`/api/me/profile`,
-//! `/api/me/avatar`) and a public read endpoint (`/api/profiles/{handle}`).
-//! Avatar bytes are served by the avatar route in this module.
-//!
-//! Handle constraints (length 3-30, lowercase ASCII / digits / `_` / `-`),
-//! bio (500 char) and pronouns (30 char) caps live here as the single
-//! source of truth, used both at write time and (via the migration backfill)
-//! at first deployment.
+//! Pure handle-shape utilities and the avatar-URL helper live here so any
+//! caller can use them without pulling in the DB / S3 wiring. Handle
+//! uniqueness checks and `mint_unique_handle` are in `queries.rs`; HTTP
+//! handlers are in `handlers.rs`.
 
+pub mod handlers;
 pub mod locale;
-pub mod routes;
+pub mod queries;
+pub mod types;
 
-use crate::entities::{user, User};
-use anyhow::Result;
-use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter};
+use crate::entities::user;
+use crate::s3::S3Service;
+use crate::settings::SettingsService;
+use sea_orm::DatabaseConnection;
+
+pub use handlers::{me_profile_routes, public_profile_routes};
+pub use queries::mint_unique_handle;
 
 /// Maximum length for a `handle`. GitHub uses 39, LinkedIn allows 100; 30
 /// is plenty here and keeps URLs and admin tables tidy.
@@ -45,6 +47,13 @@ pub const BIO_MAX_LEN: usize = 500;
 
 /// Pronouns cap. Short field; longer entries probably belong in the bio.
 pub const PRONOUNS_MAX_LEN: usize = 30;
+
+#[derive(Clone)]
+pub struct ProfileState {
+    pub db: DatabaseConnection,
+    pub s3: S3Service,
+    pub settings: SettingsService,
+}
 
 /// Validate a handle string against the app-level rules:
 /// - length in `[HANDLE_MIN_LEN, HANDLE_MAX_LEN]`
@@ -78,40 +87,11 @@ pub fn validate_handle_shape(handle: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Mint a unique handle for a new user. Strips disallowed chars from
-/// `seed` (typically the email local-part), pads short seeds, and appends
-/// a numeric suffix until uniqueness is found.
-///
-/// Used at every user-creation site so the NOT NULL handle column is always
-/// populated. Suffix collision uses an incrementing `-1`, `-2`, ...; the
-/// loop bounds the search so a pathological collision pattern still
-/// terminates.
-pub async fn mint_unique_handle<C: ConnectionTrait>(db: &C, seed: &str) -> Result<String> {
-    let base = sanitize_seed(seed);
-    if !is_handle_taken(db, &base).await? {
-        return Ok(base);
-    }
-    // Cap suffix exploration so we don't grind forever; 10000 candidates
-    // beyond the base is a very generous ceiling for collision resolution.
-    for n in 1..10_000u32 {
-        let suffix = format!("-{}", n);
-        let trimmed = base
-            .chars()
-            .take(HANDLE_MAX_LEN.saturating_sub(suffix.chars().count()))
-            .collect::<String>();
-        let candidate = format!("{}{}", trimmed, suffix);
-        if !is_handle_taken(db, &candidate).await? {
-            return Ok(candidate);
-        }
-    }
-    anyhow::bail!("Could not mint a unique handle for seed '{}'", seed)
-}
-
 /// Map an arbitrary seed string into something handle-shaped: lowercase,
 /// keep `[a-z0-9_-]`, replace anything else with `-`, collapse repeated
 /// dashes, trim leading/trailing dashes, and pad/truncate to the length
 /// window.
-fn sanitize_seed(seed: &str) -> String {
+pub(crate) fn sanitize_seed(seed: &str) -> String {
     let mut out = String::with_capacity(seed.len());
     for c in seed.chars() {
         let lc = c.to_ascii_lowercase();
@@ -121,7 +101,6 @@ fn sanitize_seed(seed: &str) -> String {
             out.push('-');
         }
     }
-    // Collapse runs of dashes.
     let mut collapsed = String::with_capacity(out.len());
     let mut prev_dash = false;
     for c in out.chars() {
@@ -141,14 +120,6 @@ fn sanitize_seed(seed: &str) -> String {
         padded.push('x');
     }
     padded.chars().take(HANDLE_MAX_LEN).collect()
-}
-
-async fn is_handle_taken<C: ConnectionTrait>(db: &C, candidate: &str) -> Result<bool> {
-    let found = User::find()
-        .filter(user::Column::Handle.eq(candidate))
-        .one(db)
-        .await?;
-    Ok(found.is_some())
 }
 
 /// Render the URL the social-frontend should use for a user's avatar.
@@ -209,7 +180,6 @@ mod tests {
 
     #[test]
     fn sanitize_seed_pads_short_input() {
-        // "a" + xx = "axx" (length 3 minimum)
         assert_eq!(sanitize_seed("a"), "axx");
     }
 

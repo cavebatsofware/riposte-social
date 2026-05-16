@@ -31,11 +31,23 @@
 //! free-form (whitespace-trimmed, length 1..=80). Slugs are derived from
 //! the name when not supplied at create-time, but the creator can override.
 
-pub mod routes;
+pub mod handlers;
+pub mod queries;
+pub mod types;
 
 use crate::admin::UserAuth;
 use crate::entities::category;
 use crate::entities::user::ROLE_ADMINISTRATOR;
+use crate::settings::SettingsService;
+use sea_orm::DatabaseConnection;
+
+pub use handlers::{category_management_routes, public_category_routes};
+
+#[derive(Clone)]
+pub struct CategoriesState {
+    pub db: DatabaseConnection,
+    pub settings: SettingsService,
+}
 
 /// Whether a user may *create* new categories. Admins always pass; posters
 /// pass only when the global gate is on. Commenters never can.

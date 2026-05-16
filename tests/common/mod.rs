@@ -23,12 +23,12 @@ pub use riposte_social::tests::{test_db_from_pool, test_email};
 
 use riposte_social::admin::UserAuthBackend;
 use riposte_social::app::{build_router, AppState, RouterDeps};
+use riposte_social::auth::oidc::{OidcConfig, OidcService};
 use riposte_social::email::EmailService;
 use riposte_social::entities::user;
 use riposte_social::middleware::access_log_middleware;
-use riposte_social::oidc::{OidcConfig, OidcService};
+use riposte_social::middleware::rate_limit::AppRateLimitCallbacks;
 use riposte_social::s3::S3Service;
-use riposte_social::security_callbacks::AppRateLimitCallbacks;
 use riposte_social::settings::SettingsService;
 
 use axum::extract::connect_info::MockConnectInfo;

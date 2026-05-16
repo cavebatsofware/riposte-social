@@ -13,13 +13,21 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
+use super::auth::totp;
 use super::auth::verify_password;
 use super::password::PasswordValidator;
-use super::totp;
+use super::types::{
+    AuthConfigResponse, ChangePasswordRequest, ChangePasswordResponse, CsrfTokenResponse,
+    FeatureFlags, ForgotPasswordRequest, ForgotPasswordResponse, ForgotPasswordVerifyMfaRequest,
+    ForgotPasswordVerifyMfaResponse, LoginRequest, MfaConfirmRequest, MfaConfirmResponse,
+    MfaDisableRequest, MfaDisableResponse, MfaSetupResponse, MfaVerifyRequest, MfaVerifyResponse,
+    RegisterRequest, RegisterResponse, ResetPasswordRequest, ResetPasswordResponse, UserResponse,
+    VerifyQuery, VerifyResponse,
+};
 use super::{Credentials, UserAuthBackend};
 use crate::email::EmailService;
 use crate::errors::{AppError, AppResult};
-use crate::security_callbacks::AppRateLimitCallbacks;
+use crate::middleware::rate_limit::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
 use axum::{
     extract::{Query, State},
@@ -32,7 +40,6 @@ use axum::{
 use axum_login::AuthSession;
 use axum_tower_sessions_csrf::get_or_create_token;
 use basic_axum_rate_limit::{rate_limit_middleware, RateLimiter};
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_sessions::Session;
 
@@ -80,24 +87,6 @@ pub fn admin_api_routes(
         .route("/api/me/mfa/confirm-setup", post(mfa_confirm_setup));
 
     rate_limited_routes.merge(standard_routes)
-}
-
-#[derive(Deserialize)]
-struct RegisterRequest {
-    email: String,
-    password: String,
-}
-
-#[derive(Deserialize)]
-struct LoginRequest {
-    email: String,
-    password: String,
-}
-
-#[derive(Serialize)]
-struct RegisterResponse {
-    message: String,
-    email: String,
 }
 
 async fn register(
@@ -223,17 +212,6 @@ async fn logout(auth_session: UserAuthSession) -> AppResult<StatusCode> {
     Ok(StatusCode::OK)
 }
 
-#[derive(Deserialize)]
-struct VerifyQuery {
-    token: String,
-}
-
-#[derive(Serialize)]
-struct VerifyResponse {
-    message: String,
-    email: String,
-}
-
 async fn verify_email(
     State(state): State<AdminState>,
     Query(query): Query<VerifyQuery>,
@@ -248,38 +226,6 @@ async fn verify_email(
         message: "Email verified successfully. You can now log in.".to_string(),
         email: admin.email,
     }))
-}
-
-#[derive(Serialize)]
-struct FeatureFlags {
-    access_codes_enabled: bool,
-    contact_form_enabled: bool,
-    subscriptions_enabled: bool,
-}
-
-#[derive(Serialize)]
-struct UserResponse {
-    id: uuid::Uuid,
-    email: String,
-    email_verified: bool,
-    totp_enabled: bool,
-    mfa_required: bool,
-    active: bool,
-    force_password_change: bool,
-    role: String,
-    /// Public handle for the caller. Surfaced here so the social-frontend's
-    /// header dropdown can deep-link to `/u/{handle}` without an extra
-    /// fetch.
-    handle: Option<String>,
-    /// Caller's avatar URL (`/avatars/{user_id}` when set, else None).
-    /// Same rationale as `handle`.
-    avatar_url: Option<String>,
-    /// Saved UI locale (Phase 11e). NULL when the user has never explicitly
-    /// chosen one — the frontend's i18next browser-language detector
-    /// fills the gap. Surfaced here so AuthContext can sync `i18n.changeLanguage`
-    /// once on first login.
-    locale: Option<String>,
-    features: FeatureFlags,
 }
 
 async fn me(
@@ -356,10 +302,6 @@ async fn lookup_handle_avatar_locale(
     }
 }
 
-#[derive(Serialize)]
-struct CsrfTokenResponse {
-    token: String,
-}
 
 /// Get CSRF token for the current session
 async fn get_csrf_token(session: Session) -> AppResult<Json<CsrfTokenResponse>> {
@@ -372,12 +314,6 @@ async fn get_csrf_token(session: Session) -> AppResult<Json<CsrfTokenResponse>> 
 
 // ==================== Auth Config Endpoint ====================
 
-#[derive(Serialize)]
-struct AuthConfigResponse {
-    oidc_enabled: bool,
-    login_url: Option<String>,
-    account_url: Option<String>,
-}
 
 /// Returns auth configuration so the frontend knows whether to use OIDC or local login
 async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse> {
@@ -510,12 +446,6 @@ async fn get_authenticated_user(auth_session: &UserAuthSession) -> AppResult<sup
         .ok_or_else(|| AppError::AuthError("Not authenticated".to_string()))
 }
 
-#[derive(Serialize)]
-struct MfaSetupResponse {
-    secret: String,
-    qr_code: String,
-    otpauth_url: String,
-}
 
 /// Generate a new TOTP secret and QR code for MFA setup
 /// Requires full authentication (not pending MFA)
@@ -543,17 +473,6 @@ async fn mfa_setup(
     }))
 }
 
-#[derive(Deserialize)]
-struct MfaConfirmRequest {
-    secret: String,
-    code: String,
-}
-
-#[derive(Serialize)]
-struct MfaConfirmResponse {
-    message: String,
-    totp_enabled: bool,
-}
 
 /// Confirm MFA setup by verifying the code matches the secret
 async fn mfa_confirm_setup(
@@ -593,17 +512,6 @@ async fn mfa_confirm_setup(
     }))
 }
 
-#[derive(Deserialize)]
-struct MfaVerifyRequest {
-    code: String,
-}
-
-#[derive(Serialize)]
-struct MfaVerifyResponse {
-    message: String,
-    id: uuid::Uuid,
-    email: String,
-}
 
 /// Verify MFA code during login (after password authentication)
 async fn mfa_verify(
@@ -687,16 +595,6 @@ async fn mfa_verify(
     }))
 }
 
-#[derive(Deserialize)]
-struct MfaDisableRequest {
-    password: String,
-}
-
-#[derive(Serialize)]
-struct MfaDisableResponse {
-    message: String,
-    totp_enabled: bool,
-}
 
 /// Disable MFA for the user (requires password confirmation)
 async fn mfa_disable(
@@ -758,16 +656,6 @@ async fn mfa_disable(
 
 // ==================== Password Management Endpoints ====================
 
-#[derive(Deserialize)]
-struct ChangePasswordRequest {
-    current_password: String,
-    new_password: String,
-}
-
-#[derive(Serialize)]
-struct ChangePasswordResponse {
-    message: String,
-}
 
 /// Change password for the authenticated user (requires current password)
 async fn change_password(
@@ -836,17 +724,6 @@ async fn change_password(
     }))
 }
 
-#[derive(Deserialize)]
-#[allow(dead_code)]
-struct ForgotPasswordRequest {
-    email: String,
-}
-
-#[derive(Serialize)]
-struct ForgotPasswordResponse {
-    requires_mfa: bool,
-    message: String,
-}
 
 /// Request password reset (always returns requires_mfa: true for enumeration protection)
 async fn forgot_password(
@@ -865,16 +742,6 @@ async fn forgot_password(
     }))
 }
 
-#[derive(Deserialize)]
-struct ForgotPasswordVerifyMfaRequest {
-    email: String,
-    code: String,
-}
-
-#[derive(Serialize)]
-struct ForgotPasswordVerifyMfaResponse {
-    message: String,
-}
 
 /// Verify MFA for password reset (uses strict verification with zero grace period)
 async fn forgot_password_verify_mfa(
@@ -979,16 +846,6 @@ async fn forgot_password_verify_mfa(
     }))
 }
 
-#[derive(Deserialize)]
-struct ResetPasswordRequest {
-    token: String,
-    new_password: String,
-}
-
-#[derive(Serialize)]
-struct ResetPasswordResponse {
-    message: String,
-}
 
 /// Complete password reset using token
 async fn reset_password(

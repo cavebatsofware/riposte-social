@@ -13,18 +13,18 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-pub mod access_codes;
-pub mod access_logs;
-pub mod auth;
-pub mod handlers;
-pub mod moderation;
-pub mod pagination;
-pub mod password;
-pub mod settings;
-pub mod types;
-pub mod users;
+//! Local + OIDC authentication. Splits into:
+//! - `backend.rs`     `AuthnBackend` impl and the surface UserAuthBackend exposes
+//! - `credentials.rs` argon2 password hashing and verification
+//! - `totp.rs`        TOTP secret generation, encryption, verification
+//! - `oidc.rs`        OIDC claims extraction, JWT validation, sub mapping
 
-pub use auth::{Credentials, UserAuth, UserAuthBackend};
+pub mod backend;
+pub mod credentials;
+pub mod oidc;
+pub mod totp;
 
-/// Session key for MFA verification status. Shared across routes and middleware.
-pub const MFA_VERIFIED_KEY: &str = "mfa_verified";
+pub use backend::{AuthError, Credentials, OidcAuthClaims, UserAuth, UserAuthBackend};
+#[cfg(feature = "e2e_testing")]
+pub use credentials::hash_password_for_seed;
+pub use credentials::{placeholder_password_hash, verify_password};

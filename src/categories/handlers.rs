@@ -18,18 +18,24 @@
 //! Read endpoint (`GET /api/categories`) is public; the response is
 //! filtered to categories the caller can read into via `ViewerCtx`.
 //!
-//! Write endpoints all live under `/api/categories/*` (no longer
-//! `/api/admin/*` since posters can manage their own categories). Each
-//! handler runs `can_create_category` / `can_manage_category` against
-//! the caller before doing anything; non-admin posters are also subject
-//! to the `poster_category_management_enabled` global gate.
+//! Write endpoints all live under `/api/categories/*`. Each handler runs
+//! `can_create_category` / `can_manage_category` against the caller; non-admin
+//! posters are also subject to the `poster_category_management_enabled`
+//! global gate.
 
 use crate::admin::UserAuth;
-use crate::categories::{can_create_category, can_manage_category, slugify, validate_slug_shape};
-use crate::entities::{category, category_member, user, Category, CategoryMember, User};
+use crate::categories::queries;
+use crate::categories::types::{
+    into_response, AddMemberRequest, CategoriesListResponse, CategoryResponse,
+    CreateCategoryRequest, MemberResponse, MembersListResponse, ReplaceMembersRequest,
+    UpdateCategoryRequest,
+};
+use crate::categories::{
+    can_create_category, can_manage_category, slugify, validate_slug_shape, CategoriesState,
+};
+use crate::entities::category;
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
-use crate::settings::SettingsService;
 use crate::visibility::{is_valid_category_visibility, VISIBILITY_USER_LIST};
 use axum::{
     extract::{Path, State},
@@ -38,26 +44,13 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set,
-    TransactionTrait,
-};
-use serde::{Deserialize, Serialize};
+use sea_orm::{Set, TransactionTrait};
 use uuid::Uuid;
-
-#[derive(Clone)]
-pub struct CategoriesState {
-    pub db: DatabaseConnection,
-    pub settings: SettingsService,
-}
 
 pub fn public_category_routes() -> Router<CategoriesState> {
     Router::new().route("/api/categories", get(list_categories))
 }
 
-/// Authenticated category-management routes. Each handler runs its own
-/// permission check (admin OR poster-with-gate-on AND owner). The route
-/// layer just enforces "must be logged in".
 pub fn category_management_routes() -> Router<CategoriesState> {
     Router::new()
         .route("/api/categories", post(create_category))
@@ -75,97 +68,6 @@ pub fn category_management_routes() -> Router<CategoriesState> {
         )
 }
 
-// ==================== wire format ====================
-
-#[derive(Serialize)]
-pub struct CategoryResponse {
-    pub id: Uuid,
-    pub name: String,
-    pub slug: String,
-    pub ordinal: i32,
-    pub color: Option<String>,
-    pub visibility: String,
-    pub created_by: Option<Uuid>,
-    /// Whether the caller can manage (edit / delete / change membership)
-    /// this category. Lets the social-frontend show or hide Manage
-    /// affordances per row without a second permission check.
-    pub manageable: bool,
-}
-
-fn into_response(m: category::Model, manageable: bool) -> CategoryResponse {
-    CategoryResponse {
-        id: m.id,
-        name: m.name,
-        slug: m.slug,
-        ordinal: m.ordinal,
-        color: m.color,
-        visibility: m.visibility,
-        created_by: m.created_by,
-        manageable,
-    }
-}
-
-#[derive(Deserialize)]
-pub struct CreateCategoryRequest {
-    pub name: String,
-    #[serde(default)]
-    pub slug: Option<String>,
-    #[serde(default)]
-    pub ordinal: Option<i32>,
-    #[serde(default)]
-    pub color: Option<String>,
-    #[serde(default)]
-    pub visibility: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-pub struct UpdateCategoryRequest {
-    #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub slug: Option<String>,
-    #[serde(default)]
-    pub ordinal: Option<i32>,
-    #[serde(default)]
-    pub color: Option<String>,
-    #[serde(default)]
-    pub visibility: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct CategoriesListResponse {
-    pub categories: Vec<CategoryResponse>,
-}
-
-#[derive(Serialize)]
-pub struct MemberResponse {
-    pub user_id: Uuid,
-    pub handle: String,
-    pub display_name: Option<String>,
-    pub created_at: String,
-}
-
-#[derive(Serialize)]
-pub struct MembersListResponse {
-    pub members: Vec<MemberResponse>,
-}
-
-#[derive(Deserialize)]
-pub struct ReplaceMembersRequest {
-    pub user_ids: Vec<Uuid>,
-}
-
-#[derive(Deserialize)]
-pub struct AddMemberRequest {
-    pub user_id: Uuid,
-}
-
-// ==================== handlers ====================
-
-/// `GET /api/categories`. Public read; the visibility filter from
-/// `ViewerCtx` is applied so callers don't see categories they can't
-/// read into. Each response row carries a `manageable` flag the
-/// frontend uses to show or hide management affordances.
 async fn list_categories(
     State(state): State<CategoriesState>,
     auth_session: UserAuthSession,
@@ -180,11 +82,7 @@ async fn list_categories(
         .await
         .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
 
-    let rows = Category::find()
-        .order_by_asc(category::Column::Ordinal)
-        .order_by_asc(category::Column::Name)
-        .all(&state.db)
-        .await?;
+    let rows = queries::list_categories_ordered(&state.db).await?;
 
     let visible: Vec<category::Model> = rows
         .into_iter()
@@ -204,8 +102,6 @@ async fn list_categories(
     Ok(Json(CategoriesListResponse { categories }))
 }
 
-/// `POST /api/categories`. Admin or poster (when the gate is on) creates
-/// a new category. `created_by` is set to the caller.
 async fn create_category(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
@@ -263,9 +159,7 @@ async fn create_category(
         )));
     }
 
-    if Category::find()
-        .filter(category::Column::Name.eq(&name))
-        .one(&state.db)
+    if queries::find_category_by_name(&state.db, &name)
         .await?
         .is_some()
     {
@@ -273,9 +167,7 @@ async fn create_category(
             "A category with that name already exists".to_string(),
         ));
     }
-    if Category::find()
-        .filter(category::Column::Slug.eq(&slug))
-        .one(&state.db)
+    if queries::find_category_by_slug(&state.db, &slug)
         .await?
         .is_some()
     {
@@ -295,33 +187,22 @@ async fn create_category(
         created_by: Set(Some(user.id)),
         ..Default::default()
     };
-    let row = active.insert(&txn).await?;
+    let row = queries::insert_category(&txn, active).await?;
 
-    // Auto-add the creator as a member when the new category is
-    // user_list. The category is brand new so there can be no existing
-    // membership row for it; a plain insert is correct here.
     if visibility == VISIBILITY_USER_LIST {
-        category_member::ActiveModel {
-            category_id: Set(row.id),
-            user_id: Set(user.id),
-            ..Default::default()
-        }
-        .insert(&txn)
-        .await?;
+        queries::insert_member(&txn, row.id, user.id).await?;
     }
     txn.commit().await?;
     Ok((StatusCode::CREATED, Json(into_response(row, true))))
 }
 
-/// `PATCH /api/categories/{id}`. Manageable by admin or owner-when-gate-on.
 async fn update_category(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
     Path(id): Path<Uuid>,
     Json(req): Json<UpdateCategoryRequest>,
 ) -> AppResult<Json<CategoryResponse>> {
-    let row = Category::find_by_id(id)
-        .one(&state.db)
+    let row = queries::find_category(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
 
@@ -356,37 +237,29 @@ async fn update_category(
                 "Name cannot be empty".to_string(),
             ));
         }
-        if trimmed != row.name {
-            let conflict = Category::find()
-                .filter(category::Column::Name.eq(trimmed))
-                .filter(category::Column::Id.ne(id))
-                .one(&state.db)
-                .await?;
-            if conflict.is_some() {
-                return Err(AppError::ValidationError(
-                    "A category with that name already exists".to_string(),
-                ));
-            }
+        if trimmed != row.name
+            && queries::find_category_by_name_excluding(&state.db, trimmed, id)
+                .await?
+                .is_some()
+        {
+            return Err(AppError::ValidationError(
+                "A category with that name already exists".to_string(),
+            ));
         }
     }
     if let Some(ref slug) = req.slug {
         let trimmed = slug.trim();
-        if trimmed != row.slug {
-            let conflict = Category::find()
-                .filter(category::Column::Slug.eq(trimmed))
-                .filter(category::Column::Id.ne(id))
-                .one(&state.db)
-                .await?;
-            if conflict.is_some() {
-                return Err(AppError::ValidationError(
-                    "A category with that slug already exists".to_string(),
-                ));
-            }
+        if trimmed != row.slug
+            && queries::find_category_by_slug_excluding(&state.db, trimmed, id)
+                .await?
+                .is_some()
+        {
+            return Err(AppError::ValidationError(
+                "A category with that slug already exists".to_string(),
+            ));
         }
     }
 
-    // Determine the new visibility (post-patch) up-front so we can
-    // run any membership-side housekeeping in the same transaction.
     let new_visibility: Option<String> = req.visibility.as_ref().map(|v| v.trim().to_string());
     let resulting_visibility = new_visibility
         .clone()
@@ -415,29 +288,15 @@ async fn update_category(
     if let Some(v) = req.visibility {
         active.visibility = Set(v.trim().to_string());
     }
-    let updated = active.update(&txn).await?;
+    let updated = queries::update_category(&txn, active).await?;
 
-    // When the category is now user_list, make sure the creator is in
-    // the member ACL so they don't lock themselves out. Cycling
-    // user_list -> public -> user_list can leave a stale member row
-    // from the first round, so the existence check keeps the insert
+    // Cycling user_list -> public -> user_list can leave a stale member
+    // row from the first round, so the existence check keeps the insert
     // idempotent against the (category_id, user_id) composite PK.
     if resulting_visibility == VISIBILITY_USER_LIST {
         if let Some(owner_id) = row.created_by {
-            let already_member = CategoryMember::find()
-                .filter(category_member::Column::CategoryId.eq(updated.id))
-                .filter(category_member::Column::UserId.eq(owner_id))
-                .one(&txn)
-                .await?
-                .is_some();
-            if !already_member {
-                category_member::ActiveModel {
-                    category_id: Set(updated.id),
-                    user_id: Set(owner_id),
-                    ..Default::default()
-                }
-                .insert(&txn)
-                .await?;
+            if !queries::member_exists(&txn, updated.id, owner_id).await? {
+                queries::insert_member(&txn, updated.id, owner_id).await?;
             }
         }
     }
@@ -446,16 +305,12 @@ async fn update_category(
     Ok(Json(into_response(updated, true)))
 }
 
-/// `DELETE /api/categories/{id}`. Manageable. Posts/albums.category_id is
-/// `ON DELETE SET NULL`, so deletion just unlinks rather than cascading.
-// TODO: this should cascade delete, current impl will create dangling rows.
 async fn delete_category(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
     Path(id): Path<Uuid>,
 ) -> AppResult<StatusCode> {
-    let row = Category::find_by_id(id)
-        .one(&state.db)
+    let row = queries::find_category(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
 
@@ -470,19 +325,16 @@ async fn delete_category(
         ));
     }
 
-    Category::delete_by_id(id).exec(&state.db).await?;
+    queries::delete_category(&state.db, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
-
-// ==================== membership ====================
 
 async fn ensure_can_manage(
     state: &CategoriesState,
     user: &UserAuth,
     id: Uuid,
 ) -> AppResult<category::Model> {
-    let row = Category::find_by_id(id)
-        .one(&state.db)
+    let row = queries::find_category(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("Category not found".to_string()))?;
     let gate_enabled = state
@@ -498,7 +350,6 @@ async fn ensure_can_manage(
     Ok(row)
 }
 
-/// `GET /api/categories/{id}/members`. Manageable.
 async fn list_members(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
@@ -506,22 +357,9 @@ async fn list_members(
 ) -> AppResult<Json<MembersListResponse>> {
     ensure_can_manage(&state, &user, id).await?;
 
-    let rows = CategoryMember::find()
-        .filter(category_member::Column::CategoryId.eq(id))
-        .all(&state.db)
-        .await?;
-
+    let rows = queries::list_members(&state.db, id).await?;
     let user_ids: Vec<Uuid> = rows.iter().map(|r| r.user_id).collect();
-    let users = if user_ids.is_empty() {
-        vec![]
-    } else {
-        User::find()
-            .filter(user::Column::Id.is_in(user_ids))
-            .all(&state.db)
-            .await?
-    };
-    let by_id: std::collections::HashMap<Uuid, user::Model> =
-        users.into_iter().map(|u| (u.id, u)).collect();
+    let by_id = queries::load_users_by_ids(&state.db, user_ids).await?;
 
     let members = rows
         .into_iter()
@@ -538,11 +376,6 @@ async fn list_members(
     Ok(Json(MembersListResponse { members }))
 }
 
-/// `PUT /api/categories/{id}/members`. Manageable. Replaces the whole
-/// list in one transaction. Rejects any payload that omits the
-/// category's creator — the creator is always implicitly a member of
-/// their own `user_list` category and cannot be removed while it
-/// exists.
 async fn replace_members(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
@@ -551,8 +384,6 @@ async fn replace_members(
 ) -> AppResult<Json<MembersListResponse>> {
     let cat = ensure_can_manage(&state, &user, id).await?;
 
-    // De-dup the input list before inserting; user-provided uniqueness
-    // is not guaranteed.
     let mut want = req.user_ids.clone();
     want.sort();
     want.dedup();
@@ -566,26 +397,15 @@ async fn replace_members(
     }
 
     let txn = state.db.begin().await?;
-    CategoryMember::delete_many()
-        .filter(category_member::Column::CategoryId.eq(id))
-        .exec(&txn)
-        .await?;
+    queries::delete_all_members(&txn, id).await?;
     for uid in &want {
-        category_member::ActiveModel {
-            category_id: Set(id),
-            user_id: Set(*uid),
-            ..Default::default()
-        }
-        .insert(&txn)
-        .await?;
+        queries::insert_member(&txn, id, *uid).await?;
     }
     txn.commit().await?;
 
     list_members(State(state), Extension(user), Path(id)).await
 }
 
-/// `POST /api/categories/{id}/members`. Manageable. Idempotent: re-adding
-/// an existing member is a no-op (returns the unchanged member list).
 async fn add_member(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
@@ -594,37 +414,16 @@ async fn add_member(
 ) -> AppResult<Json<MembersListResponse>> {
     ensure_can_manage(&state, &user, id).await?;
 
-    // Insert-or-ignore via existence check; the composite PK would error
-    // on duplicate but we want idempotent semantics for the API.
-    let existing = CategoryMember::find()
-        .filter(category_member::Column::CategoryId.eq(id))
-        .filter(category_member::Column::UserId.eq(req.user_id))
-        .one(&state.db)
-        .await?;
-    if existing.is_none() {
-        // Confirm the user actually exists before creating the row.
-        let user_exists = User::find_by_id(req.user_id)
-            .one(&state.db)
-            .await?
-            .is_some();
-        if !user_exists {
+    if !queries::member_exists(&state.db, id, req.user_id).await? {
+        if !queries::user_exists(&state.db, req.user_id).await? {
             return Err(AppError::ValidationError("User not found".to_string()));
         }
-        category_member::ActiveModel {
-            category_id: Set(id),
-            user_id: Set(req.user_id),
-            ..Default::default()
-        }
-        .insert(&state.db)
-        .await?;
+        queries::insert_member(&state.db, id, req.user_id).await?;
     }
 
     list_members(State(state), Extension(user), Path(id)).await
 }
 
-/// `DELETE /api/categories/{id}/members/{user_id}`. Manageable. Rejects
-/// removal of the category's creator — they remain a member as long as
-/// the category exists.
 async fn remove_member(
     State(state): State<CategoriesState>,
     Extension(user): Extension<UserAuth>,
@@ -636,10 +435,6 @@ async fn remove_member(
             "the category creator cannot be removed".to_string(),
         ));
     }
-    CategoryMember::delete_many()
-        .filter(category_member::Column::CategoryId.eq(id))
-        .filter(category_member::Column::UserId.eq(member_id))
-        .exec(&state.db)
-        .await?;
+    queries::delete_member(&state.db, id, member_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

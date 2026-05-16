@@ -13,30 +13,19 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Albums (Phase 9d) — first-class media collections.
-//!
-//! Albums are explicitly *not* posts. They never appear in `/api/feed`;
-//! they're discovered via the left-rail Albums group and rendered at
-//! `/album/:id`. Each album has a name, optional description, ordered
-//! media items with per-item captions, a cover, the same four-value
-//! visibility enum as posts, and an FB import dedup key.
-//!
-//! Visibility filtering reuses [`crate::posts::can_read_post`] so the
-//! private-tier author override behaves the same as it does for posts.
-
 pub mod handlers;
-pub mod queries;
 pub mod types;
 
-use crate::s3::S3Service;
+use crate::email::EmailService;
+use crate::middleware::rate_limit::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
-use sea_orm::DatabaseConnection;
+use std::sync::Arc;
 
-pub use handlers::{album_read_routes, album_write_routes};
+pub use handlers::contact_routes;
 
 #[derive(Clone)]
-pub struct AlbumsState {
-    pub db: DatabaseConnection,
-    pub s3: S3Service,
+pub struct ContactState {
+    pub email_service: Arc<EmailService>,
+    pub callbacks: AppRateLimitCallbacks,
     pub settings: SettingsService,
 }

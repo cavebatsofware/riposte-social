@@ -16,21 +16,33 @@
 //! Post CRUD, feed query, and media upload.
 //!
 //! Posts have four visibility tiers (`public`, `commenters`, `posters`,
-//! `private`). `public` / `commenters` / `posters` are tier-gated by role;
-//! `private` is author-only and bypasses the role tier entirely. The feed
-//! query filters so anonymous visitors only see public posts, commenters
-//! see public + commenter-visible, posters/admins see all three role tiers,
-//! and the author of a private post sees their own private posts on top of
-//! whatever their role grants.
+//! `private`). The feed query filters so anonymous visitors only see
+//! public posts, commenters see public + commenter-visible, posters/admins
+//! see all three role tiers, and the author of a private post sees their
+//! own private posts on top of whatever their role grants.
 //!
 //! Bodies are authored in markdown and rendered server-side via
 //! `pulldown-cmark` with `ammonia` sanitization before being sent to clients.
 
+pub mod handlers;
 pub mod markdown;
-pub mod routes;
-pub mod shared;
+pub mod media;
+pub mod queries;
+pub mod types;
 
+use crate::s3::S3Service;
+use crate::settings::SettingsService;
+use sea_orm::DatabaseConnection;
+
+pub use handlers::{post_read_routes, post_write_routes};
 // Visibility logic lives in `crate::visibility`. Re-exported here so the
 // older `crate::posts::FeedTier` / `crate::posts::can_read_post` import
 // paths used across the codebase (and tests) keep working.
 pub use crate::visibility::{can_read_post, FeedTier};
+
+#[derive(Clone)]
+pub struct PostsState {
+    pub db: DatabaseConnection,
+    pub s3: S3Service,
+    pub settings: SettingsService,
+}

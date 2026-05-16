@@ -13,7 +13,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use crate::{app::AppState, middleware::UserInfo, security_callbacks::AccessLogEvent};
+use crate::{
+    app::AppState,
+    middleware::{rate_limit::AccessLogEvent, UserInfo},
+};
 use axum::{
     extract::State,
     http::{Request, StatusCode},

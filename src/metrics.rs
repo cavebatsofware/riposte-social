@@ -6,7 +6,7 @@ use prometheus::{
 use sea_orm::DatabaseConnection;
 use std::sync::LazyLock;
 
-use crate::security_callbacks::AppRateLimitCallbacks;
+use crate::middleware::rate_limit::AppRateLimitCallbacks;
 
 // Request counters
 pub static HTTP_REQUESTS_TOTAL: LazyLock<IntCounter> = LazyLock::new(|| {

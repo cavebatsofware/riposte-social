@@ -35,13 +35,11 @@ pub mod invites;
 pub mod metrics;
 pub mod middleware;
 pub mod migration;
-pub mod oidc;
 pub mod posts;
 pub mod profile;
 pub mod s3;
-pub mod security_callbacks;
 pub mod settings;
-pub mod subscribe;
+pub mod subscriptions;
 pub mod visibility;
 
 #[cfg(any(test, feature = "e2e_testing"))]

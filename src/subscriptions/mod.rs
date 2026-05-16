@@ -13,30 +13,39 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Albums (Phase 9d) — first-class media collections.
-//!
-//! Albums are explicitly *not* posts. They never appear in `/api/feed`;
-//! they're discovered via the left-rail Albums group and rendered at
-//! `/album/:id`. Each album has a name, optional description, ordered
-//! media items with per-item captions, a cover, the same four-value
-//! visibility enum as posts, and an FB import dedup key.
-//!
-//! Visibility filtering reuses [`crate::posts::can_read_post`] so the
-//! private-tier author override behaves the same as it does for posts.
-
 pub mod handlers;
-pub mod queries;
 pub mod types;
 
-use crate::s3::S3Service;
+use crate::email::EmailService;
+use crate::middleware::rate_limit::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
 use sea_orm::DatabaseConnection;
+use std::sync::Arc;
 
-pub use handlers::{album_read_routes, album_write_routes};
+pub use handlers::subscribe_routes;
+
+/// Validate email format: must have exactly one @, a non-empty local part,
+/// and a domain with at least one dot separating non-empty labels.
+pub fn is_valid_email(email: &str) -> bool {
+    if email.is_empty() || email.len() > 254 {
+        return false;
+    }
+    let parts: Vec<&str> = email.splitn(2, '@').collect();
+    if parts.len() != 2 {
+        return false;
+    }
+    let (local, domain) = (parts[0], parts[1]);
+    if local.is_empty() || local.len() > 64 || domain.is_empty() {
+        return false;
+    }
+    let labels: Vec<&str> = domain.split('.').collect();
+    labels.len() >= 2 && labels.iter().all(|l| !l.is_empty())
+}
 
 #[derive(Clone)]
-pub struct AlbumsState {
+pub struct SubscribeState {
+    pub email_service: Arc<EmailService>,
+    pub callbacks: AppRateLimitCallbacks,
     pub db: DatabaseConnection,
-    pub s3: S3Service,
     pub settings: SettingsService,
 }

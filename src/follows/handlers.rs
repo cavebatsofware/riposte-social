@@ -20,35 +20,24 @@
 //! - `GET    /api/users/{user_id}/followers`     paginated list of followers
 //! - `GET    /api/users/{user_id}/following`     paginated list of followees
 //! - `GET    /api/me/follows/state?user_ids=...` bulk follow-state lookup
-//!
-//! Writes require `require_authenticated`. Reads require auth too: the
-//! follower graph isn't part of the public-feed surface today.
 
 use crate::admin::UserAuth;
-use crate::entities::{follow, user, Follow, User};
 use crate::errors::{AppError, AppResult};
-use crate::follows::fetch_follow_states;
-use crate::profile::avatar_url_for;
+use crate::follows::queries;
+use crate::follows::types::{
+    BulkStateEntry, BulkStateQuery, BulkStateResponse, FollowStateResponse, FollowsListResponse,
+    ListQuery,
+};
+use crate::follows::FollowsState;
 use axum::{
     extract::{Path, Query, State},
     response::Json,
     routing::{get, post},
     Extension, Router,
 };
-use chrono::Utc;
-use sea_orm::sea_query::OnConflict;
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, JoinType, QueryFilter, QueryOrder,
-    QuerySelect, RelationTrait, Set,
-};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use chrono::{DateTime, FixedOffset, Utc};
+use sea_orm::DatabaseConnection;
 use uuid::Uuid;
-
-#[derive(Clone)]
-pub struct FollowsState {
-    pub db: DatabaseConnection,
-}
 
 const LIST_LIMIT_DEFAULT: u64 = 30;
 const LIST_LIMIT_MAX: u64 = 100;
@@ -72,55 +61,6 @@ pub fn follows_read_routes() -> Router<FollowsState> {
         .route("/api/me/follows/state", get(get_follow_state))
 }
 
-// ==================== wire format ====================
-
-#[derive(Serialize)]
-pub struct FollowStateResponse {
-    pub you_follow: bool,
-    pub follows_you: bool,
-}
-
-#[derive(Serialize)]
-pub struct UserSummary {
-    pub user_id: Uuid,
-    pub handle: String,
-    pub display_name: Option<String>,
-    pub avatar_url: Option<String>,
-    pub role: String,
-}
-
-#[derive(Serialize)]
-pub struct FollowsListResponse {
-    pub users: Vec<UserSummary>,
-    pub next_cursor: Option<String>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-pub struct ListQuery {
-    pub cursor: Option<String>,
-    pub limit: Option<u64>,
-}
-
-#[derive(Deserialize)]
-pub struct BulkStateQuery {
-    /// Comma-separated UUIDs.
-    pub user_ids: String,
-}
-
-#[derive(Serialize)]
-pub struct BulkStateEntry {
-    pub you_follow: bool,
-    pub follows_you: bool,
-}
-
-#[derive(Serialize)]
-pub struct BulkStateResponse {
-    pub states: HashMap<Uuid, BulkStateEntry>,
-}
-
-// ==================== handlers ====================
-
 async fn create_follow(
     State(state): State<FollowsState>,
     Extension(user): Extension<UserAuth>,
@@ -133,28 +73,11 @@ async fn create_follow(
     }
     ensure_target_visible(&state.db, target_id).await?;
 
-    // OnConflict::DoNothing bypasses ActiveModelBehavior::before_save,
-    // which is why created_at is set inline.
-    let am = follow::ActiveModel {
-        follower_id: Set(user.id),
-        followed_id: Set(target_id),
-        created_at: Set(Utc::now().into()),
-    };
-    let conflict = OnConflict::columns([follow::Column::FollowerId, follow::Column::FollowedId])
-        .do_nothing()
-        .to_owned();
-    let outcome = Follow::insert(am)
-        .on_conflict(conflict)
-        .exec(&state.db)
-        .await;
-    match outcome {
-        Ok(_) => {
-            crate::metrics::FOLLOWS_TOTAL
-                .with_label_values(&["add"])
-                .inc();
-        }
-        Err(DbErr::RecordNotInserted) => {}
-        Err(e) => return Err(e.into()),
+    let inserted = queries::upsert_follow(&state.db, user.id, target_id, Utc::now().into()).await?;
+    if inserted {
+        crate::metrics::FOLLOWS_TOTAL
+            .with_label_values(&["add"])
+            .inc();
     }
 
     Ok(Json(load_pair_state(&state.db, user.id, target_id).await?))
@@ -172,12 +95,8 @@ async fn delete_follow(
     }
     ensure_target_visible(&state.db, target_id).await?;
 
-    let result = Follow::delete_many()
-        .filter(follow::Column::FollowerId.eq(user.id))
-        .filter(follow::Column::FollowedId.eq(target_id))
-        .exec(&state.db)
-        .await?;
-    if result.rows_affected > 0 {
+    let removed = queries::delete_follow(&state.db, user.id, target_id).await?;
+    if removed > 0 {
         crate::metrics::FOLLOWS_TOTAL
             .with_label_values(&["remove"])
             .inc();
@@ -190,8 +109,7 @@ async fn delete_follow(
 /// by `(created_at, follower_id)` so newest follower appears first and
 /// ties don't lose rows. The active-user gate is pushed into the SQL
 /// query via an INNER JOIN so paginated counts stay consistent across
-/// pages; post-filtering after LIMIT would let cursors terminate early
-/// when soft-deleted rows fall inside the fetched window.
+/// pages.
 async fn list_followers(
     State(state): State<FollowsState>,
     Extension(_user): Extension<UserAuth>,
@@ -203,30 +121,11 @@ async fn list_followers(
         .limit
         .unwrap_or(LIST_LIMIT_DEFAULT)
         .clamp(1, LIST_LIMIT_MAX);
+    let cursor = query.cursor.as_deref().and_then(parse_cursor);
 
-    let mut q = Follow::find()
-        .filter(follow::Column::FollowedId.eq(target_id))
-        .join(JoinType::InnerJoin, follow::Relation::Follower.def())
-        .filter(user::Column::Active.eq(true))
-        .order_by_desc(follow::Column::CreatedAt)
-        .order_by_desc(follow::Column::FollowerId);
-
-    if let Some((c_at, c_id)) = query.cursor.as_deref().and_then(parse_cursor) {
-        q = q.filter(
-            sea_orm::Condition::any()
-                .add(follow::Column::CreatedAt.lt(c_at))
-                .add(
-                    sea_orm::Condition::all()
-                        .add(follow::Column::CreatedAt.eq(c_at))
-                        .add(follow::Column::FollowerId.lt(c_id)),
-                ),
-        );
-    }
-
-    // Fetch limit+1 to detect a next page without a count query.
-    let rows = q.limit(limit + 1).all(&state.db).await?;
+    let rows = queries::list_followers_page(&state.db, target_id, cursor, limit + 1).await?;
     let has_more = rows.len() as u64 > limit;
-    let page: Vec<&follow::Model> = rows.iter().take(limit as usize).collect();
+    let page: Vec<&_> = rows.iter().take(limit as usize).collect();
     let next_cursor = if has_more {
         page.last()
             .map(|r| format_cursor(r.created_at, r.follower_id))
@@ -234,7 +133,7 @@ async fn list_followers(
         None
     };
     let kept_ids: Vec<Uuid> = page.iter().map(|r| r.follower_id).collect();
-    let users = fetch_user_summaries(&state.db, &kept_ids).await?;
+    let users = queries::fetch_user_summaries(&state.db, &kept_ids).await?;
     Ok(Json(FollowsListResponse { users, next_cursor }))
 }
 
@@ -249,29 +148,11 @@ async fn list_following(
         .limit
         .unwrap_or(LIST_LIMIT_DEFAULT)
         .clamp(1, LIST_LIMIT_MAX);
+    let cursor = query.cursor.as_deref().and_then(parse_cursor);
 
-    let mut q = Follow::find()
-        .filter(follow::Column::FollowerId.eq(target_id))
-        .join(JoinType::InnerJoin, follow::Relation::Followed.def())
-        .filter(user::Column::Active.eq(true))
-        .order_by_desc(follow::Column::CreatedAt)
-        .order_by_desc(follow::Column::FollowedId);
-
-    if let Some((c_at, c_id)) = query.cursor.as_deref().and_then(parse_cursor) {
-        q = q.filter(
-            sea_orm::Condition::any()
-                .add(follow::Column::CreatedAt.lt(c_at))
-                .add(
-                    sea_orm::Condition::all()
-                        .add(follow::Column::CreatedAt.eq(c_at))
-                        .add(follow::Column::FollowedId.lt(c_id)),
-                ),
-        );
-    }
-
-    let rows = q.limit(limit + 1).all(&state.db).await?;
+    let rows = queries::list_following_page(&state.db, target_id, cursor, limit + 1).await?;
     let has_more = rows.len() as u64 > limit;
-    let page: Vec<&follow::Model> = rows.iter().take(limit as usize).collect();
+    let page: Vec<&_> = rows.iter().take(limit as usize).collect();
     let next_cursor = if has_more {
         page.last()
             .map(|r| format_cursor(r.created_at, r.followed_id))
@@ -279,7 +160,7 @@ async fn list_following(
         None
     };
     let kept_ids: Vec<Uuid> = page.iter().map(|r| r.followed_id).collect();
-    let users = fetch_user_summaries(&state.db, &kept_ids).await?;
+    let users = queries::fetch_user_summaries(&state.db, &kept_ids).await?;
     Ok(Json(FollowsListResponse { users, next_cursor }))
 }
 
@@ -288,10 +169,6 @@ async fn get_follow_state(
     Extension(user): Extension<UserAuth>,
     Query(query): Query<BulkStateQuery>,
 ) -> AppResult<Json<BulkStateResponse>> {
-    // Cap on segment count first so a caller can't defeat BULK_STATE_MAX
-    // by padding the param with thousands of invalid tokens. Empty
-    // segments (trailing comma, double comma) are tolerated and skipped
-    // before counting.
     let segments: Vec<&str> = query
         .user_ids
         .split(',')
@@ -312,11 +189,11 @@ async fn get_follow_state(
         ids.push(parsed);
     }
 
-    let mut deduped: Vec<Uuid> = ids;
+    let mut deduped = ids;
     deduped.sort();
     deduped.dedup();
 
-    let states = fetch_follow_states(&state.db, user.id, &deduped).await?;
+    let states = queries::fetch_follow_states(&state.db, user.id, &deduped).await?;
     let states = states
         .into_iter()
         .map(|(id, s)| {
@@ -332,14 +209,11 @@ async fn get_follow_state(
     Ok(Json(BulkStateResponse { states }))
 }
 
-// ==================== helpers ====================
-
 /// Same 404 shape for missing rows and soft-deleted users so existence
 /// isn't disclosed for inactive accounts. When per-user visibility lands
 /// later, this is the single seam that needs to grow.
 async fn ensure_target_visible(db: &DatabaseConnection, target_id: Uuid) -> AppResult<()> {
-    let row = User::find_by_id(target_id)
-        .one(db)
+    let row = queries::find_active_user(db, target_id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
     if !row.active {
@@ -353,7 +227,7 @@ async fn load_pair_state(
     viewer_id: Uuid,
     target_id: Uuid,
 ) -> AppResult<FollowStateResponse> {
-    let map = fetch_follow_states(db, viewer_id, &[target_id]).await?;
+    let map = queries::fetch_follow_states(db, viewer_id, &[target_id]).await?;
     let s = map.get(&target_id).copied().unwrap_or_default();
     Ok(FollowStateResponse {
         you_follow: s.you_follow,
@@ -361,41 +235,13 @@ async fn load_pair_state(
     })
 }
 
-async fn fetch_user_summaries(
-    db: &DatabaseConnection,
-    ids: &[Uuid],
-) -> Result<Vec<UserSummary>, sea_orm::DbErr> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-    let rows = User::find()
-        .filter(user::Column::Id.is_in(ids.iter().copied()))
-        .all(db)
-        .await?;
-    let by_id: HashMap<Uuid, user::Model> = rows.into_iter().map(|m| (m.id, m)).collect();
-    // Preserve input order so cursor pagination reads in the server-
-    // determined sort, not the random map iteration order.
-    Ok(ids
-        .iter()
-        .filter_map(|id| {
-            by_id.get(id).map(|m| UserSummary {
-                user_id: m.id,
-                handle: m.handle.clone(),
-                display_name: m.display_name.clone(),
-                avatar_url: avatar_url_for(m),
-                role: m.role.clone(),
-            })
-        })
-        .collect())
-}
-
-fn parse_cursor(cursor: &str) -> Option<(chrono::DateTime<chrono::FixedOffset>, Uuid)> {
+fn parse_cursor(cursor: &str) -> Option<(DateTime<FixedOffset>, Uuid)> {
     let (ts, id) = cursor.rsplit_once('_')?;
-    let parsed_ts = chrono::DateTime::parse_from_rfc3339(ts).ok()?;
+    let parsed_ts = DateTime::parse_from_rfc3339(ts).ok()?;
     let parsed_id = Uuid::parse_str(id).ok()?;
     Some((parsed_ts, parsed_id))
 }
 
-fn format_cursor(created_at: chrono::DateTime<chrono::FixedOffset>, id: Uuid) -> String {
+fn format_cursor(created_at: DateTime<FixedOffset>, id: Uuid) -> String {
     format!("{}_{}", created_at.with_timezone(&Utc).to_rfc3339(), id)
 }

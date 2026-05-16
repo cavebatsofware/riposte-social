@@ -29,6 +29,9 @@
 //! changes.
 
 use crate::admin::UserAuth;
+use crate::engagement::types::{
+    CommentListResponse, CommentResponse, CreateCommentRequest, EditCommentRequest,
+};
 use crate::engagement::{
     comment_reactions::fetch_comment_engagement, CommentEngagement, EngagementState,
 };
@@ -46,7 +49,6 @@ use axum::{
 };
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -65,53 +67,6 @@ pub fn comment_write_routes() -> Router<EngagementState> {
 
 pub fn comment_read_routes() -> Router<EngagementState> {
     Router::new().route("/api/posts/{id}/comments", get(list_comments))
-}
-
-#[derive(Deserialize)]
-pub struct CreateCommentRequest {
-    pub body: String,
-}
-
-#[derive(Deserialize)]
-pub struct EditCommentRequest {
-    pub body: String,
-}
-
-#[derive(Serialize)]
-pub struct CommentResponse {
-    pub id: Uuid,
-    pub post_id: Uuid,
-    pub user_id: Uuid,
-    /// Author's chosen display name, when set. Email is intentionally not
-    /// exposed: comments are visible to every reader of the parent post,
-    /// and on public posts that includes anonymous visitors. Clients fall
-    /// back to a generic label when display_name is absent.
-    pub author_display: Option<String>,
-    /// Author's public handle. Used by the social-frontend to link the
-    /// avatar/byline to `/u/{handle}`.
-    pub author_handle: Option<String>,
-    /// Author's avatar URL, derived in `profile::avatar_url_for`.
-    pub author_avatar_url: Option<String>,
-    pub body: String,
-    pub body_html: String,
-    pub created_at: String,
-    pub updated_at: String,
-    /// Set when the author has edited the body. Distinct from `updated_at`,
-    /// which moves on any DB write (e.g. soft-delete).
-    pub edited_at: Option<String>,
-    /// Per-kind reaction counts on this comment. Kinds with zero count are
-    /// omitted; an empty map means no reactions yet.
-    #[serde(default)]
-    pub reaction_counts: HashMap<String, i64>,
-    /// Reaction kinds the viewing caller has applied to this comment.
-    /// Empty for anonymous callers and for callers who haven't reacted.
-    #[serde(default)]
-    pub viewer_reaction_kinds: Vec<String>,
-}
-
-#[derive(Serialize)]
-pub struct CommentListResponse {
-    pub comments: Vec<CommentResponse>,
 }
 
 pub(crate) fn build_comment_response(

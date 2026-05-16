@@ -22,20 +22,20 @@
 //! - `DELETE /api/me/avatar`            remove avatar, drop S3 object
 //! - `GET    /api/profiles/{handle}`    public profile by handle
 //! - `GET    /avatars/{user_id}`        serve cropped avatar bytes
-//!
-//! `PATCH` and uploads are gated by `require_authenticated`. The public
-//! profile read uses the same `public_feed_enabled` gate as the feed: when
-//! anonymous reads are off, `/api/profiles/{handle}` returns the same 404
-//! shape as a missing user, so existence isn't disclosed.
 
 use crate::admin::UserAuth;
-use crate::entities::{user, User};
+use crate::entities::user;
 use crate::errors::{AppError, AppResult};
 use crate::middleware::admin_auth::UserAuthSession;
-use crate::profile::{
-    avatar_url_for, locale, validate_handle_shape, BIO_MAX_LEN, PRONOUNS_MAX_LEN,
+use crate::profile::queries;
+use crate::profile::types::{
+    AvatarUploadResponse, ListProfilesQuery, ListProfilesResponse, LocaleResponse,
+    MeProfileResponse, PatchMeLocaleRequest, PatchMeProfileRequest, ProfileSummary,
+    PublicProfileResponse,
 };
-use crate::s3::S3Service;
+use crate::profile::{
+    avatar_url_for, locale, validate_handle_shape, ProfileState, BIO_MAX_LEN, PRONOUNS_MAX_LEN,
+};
 use crate::settings::SettingsService;
 use axum::{
     body::Body,
@@ -45,16 +45,11 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder,
-    QuerySelect, Set,
-};
-use serde::{Deserialize, Serialize};
+use sea_orm::Set;
 use std::io::Cursor;
 use uuid::Uuid;
 
-/// Hard cap on avatar uploads. 5 MiB is plenty for a webp/jpeg square; a
-/// well-shot phone photo lands well under this.
+/// Hard cap on avatar uploads. 5 MiB is plenty for a webp/jpeg square.
 const AVATAR_MAX_BYTES: usize = 5 * 1024 * 1024;
 
 /// Side length of the cropped, resized avatar. 512px serves both retina
@@ -63,23 +58,13 @@ const AVATAR_MAX_BYTES: usize = 5 * 1024 * 1024;
 const AVATAR_OUTPUT_SIDE: u32 = 512;
 
 /// Reject obviously absurd inputs before we spend memory decoding them.
-/// 8000^2 RGBA is ~256 MiB; anything beyond that is a bomb attempt, not
-/// a real photo.
+/// 8000^2 RGBA is ~256 MiB; anything beyond that is a bomb attempt.
 const AVATAR_MAX_INPUT_DIMENSION: u32 = 8000;
 
-/// Allowed mime types for the upload. Browsers feed us these from
-/// `<input type="file" accept="image/*">`; SVG and HEIC stay out because
-/// they have unsafe / patent-encumbered codecs.
+/// Browsers feed us these from `<input type="file" accept="image/*">`; SVG
+/// and HEIC stay out because they have unsafe / patent-encumbered codecs.
 const AVATAR_ALLOWED_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp"];
 
-#[derive(Clone)]
-pub struct ProfileState {
-    pub db: DatabaseConnection,
-    pub s3: S3Service,
-    pub settings: SettingsService,
-}
-
-/// Self-service routes (gated by `require_authenticated` at app.rs).
 pub fn me_profile_routes() -> Router<ProfileState> {
     Router::new()
         .route(
@@ -95,8 +80,6 @@ pub fn me_profile_routes() -> Router<ProfileState> {
         )
 }
 
-/// Public profile reads + avatar serving. No auth required; the public-feed
-/// gate filters anonymous callers when the site is in invite-only mode.
 pub fn public_profile_routes() -> Router<ProfileState> {
     Router::new()
         .route("/api/profiles", get(list_profiles))
@@ -104,109 +87,11 @@ pub fn public_profile_routes() -> Router<ProfileState> {
         .route("/avatars/{user_id}", get(serve_avatar))
 }
 
-// ==================== wire format ====================
-
-/// Response shape for the caller's own profile. Includes `email` since
-/// the caller is reading their own row.
-#[derive(Serialize)]
-pub struct MeProfileResponse {
-    pub user_id: Uuid,
-    pub handle: String,
-    pub email: String,
-    pub display_name: Option<String>,
-    pub bio: Option<String>,
-    pub pronouns: Option<String>,
-    pub avatar_url: Option<String>,
-    pub role: String,
-    pub follower_count: i64,
-    pub following_count: i64,
-}
-
-/// Response shape for public profile reads. Email is intentionally omitted:
-/// public profiles are visible to anyone who can reach the page; the
-/// recipient's email is not.
-///
-/// `follows_you` and `you_follow` are populated for authenticated viewers
-/// only; they're both `false` for anonymous reads since the relationship
-/// has no defined viewer.
-#[derive(Serialize)]
-pub struct PublicProfileResponse {
-    pub user_id: Uuid,
-    pub handle: String,
-    pub display_name: Option<String>,
-    pub bio: Option<String>,
-    pub pronouns: Option<String>,
-    pub avatar_url: Option<String>,
-    pub role: String,
-    pub follower_count: i64,
-    pub following_count: i64,
-    pub follows_you: bool,
-    pub you_follow: bool,
-}
-
-/// Compact profile shape used by the list endpoint. Drops `bio` and
-/// `pronouns` since they aren't shown in the rail or directory grid;
-/// callers fetch the full `PublicProfileResponse` when navigating to a
-/// profile.
-#[derive(Serialize)]
-pub struct ProfileSummary {
-    pub user_id: Uuid,
-    pub handle: String,
-    pub display_name: Option<String>,
-    pub avatar_url: Option<String>,
-    pub role: String,
-}
-
-#[derive(Serialize)]
-pub struct ListProfilesResponse {
-    pub profiles: Vec<ProfileSummary>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-pub struct ListProfilesQuery {
-    pub limit: Option<u64>,
-}
-
-#[derive(Deserialize, Default)]
-#[serde(default)]
-pub struct PatchMeProfileRequest {
-    /// New handle. Validated for shape + uniqueness; only included when the
-    /// caller is changing it.
-    pub handle: Option<String>,
-    /// Sets or replaces display_name. To clear it, send an empty string.
-    pub display_name: Option<String>,
-    /// Sets or replaces bio. Empty string clears.
-    pub bio: Option<String>,
-    /// Sets or replaces pronouns. Empty string clears.
-    pub pronouns: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct AvatarUploadResponse {
-    pub avatar_url: String,
-}
-
-#[derive(Deserialize)]
-pub struct PatchMeLocaleRequest {
-    /// One of `crate::profile::locale::SUPPORTED_LOCALES`. Anything else
-    /// returns 400.
-    pub locale: String,
-}
-
-#[derive(Serialize)]
-pub struct LocaleResponse {
-    pub locale: String,
-}
-
-// ==================== handlers ====================
-
 async fn get_me_profile(
     State(state): State<ProfileState>,
     Extension(user_auth): Extension<UserAuth>,
 ) -> AppResult<Json<MeProfileResponse>> {
-    let model = User::find_by_id(user_auth.id)
-        .one(&state.db)
+    let model = queries::find_user(&state.db, user_auth.id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
@@ -227,10 +112,6 @@ async fn get_me_profile(
     }))
 }
 
-/// `PATCH /api/me/locale`. Single-purpose write that runs on every
-/// language switch from the social-frontend's LanguagePicker. Cheaper than
-/// going through `/api/me/profile` (which validates handle uniqueness and
-/// other fields). Idempotent — re-saving the same locale is a no-op write.
 async fn patch_me_locale(
     State(state): State<ProfileState>,
     Extension(user_auth): Extension<UserAuth>,
@@ -243,8 +124,7 @@ async fn patch_me_locale(
         )));
     }
 
-    let model = User::find_by_id(user_auth.id)
-        .one(&state.db)
+    let model = queries::find_user(&state.db, user_auth.id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
@@ -256,7 +136,7 @@ async fn patch_me_locale(
 
     let mut active: user::ActiveModel = model.into();
     active.locale = Set(Some(req.locale.clone()));
-    active.update(&state.db).await?;
+    queries::update_user(&state.db, active).await?;
     Ok(Json(LocaleResponse { locale: req.locale }))
 }
 
@@ -265,24 +145,15 @@ async fn patch_me_profile(
     Extension(user_auth): Extension<UserAuth>,
     Json(req): Json<PatchMeProfileRequest>,
 ) -> AppResult<Json<MeProfileResponse>> {
-    let model = User::find_by_id(user_auth.id)
-        .one(&state.db)
+    let model = queries::find_user(&state.db, user_auth.id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
-    // Validate up front so we don't half-apply changes.
     if let Some(ref h) = req.handle {
         let trimmed = h.trim();
         if trimmed != model.handle {
             validate_handle_shape(trimmed).map_err(AppError::ValidationError)?;
-            // Uniqueness: we exclude the caller's row since "set to my
-            // current handle" is a no-op rather than a collision.
-            let conflict = User::find()
-                .filter(user::Column::Handle.eq(trimmed))
-                .filter(user::Column::Id.ne(model.id))
-                .one(&state.db)
-                .await?;
-            if conflict.is_some() {
+            if queries::handle_taken_by_other(&state.db, trimmed, model.id).await? {
                 return Err(AppError::ValidationError(
                     "That handle is already taken".to_string(),
                 ));
@@ -334,7 +205,7 @@ async fn patch_me_profile(
             Some(trimmed.to_string())
         });
     }
-    let updated = active.update(&state.db).await?;
+    let updated = queries::update_user(&state.db, active).await?;
 
     let follower_count = crate::follows::count_followers(&state.db, updated.id).await? as i64;
     let following_count = crate::follows::count_following(&state.db, updated.id).await? as i64;
@@ -353,11 +224,6 @@ async fn patch_me_profile(
     }))
 }
 
-/// `GET /api/profiles` returns activated, active users visible to the
-/// caller. Anonymous callers are gated by `public_feed_enabled` (same as
-/// the per-handle read). The caller's own row is excluded so the rail and
-/// directory show *other* members; callers reach their own profile via the
-/// avatar menu.
 async fn list_profiles(
     State(state): State<ProfileState>,
     auth_session: UserAuthSession,
@@ -368,16 +234,7 @@ async fn list_profiles(
     let limit = query.limit.unwrap_or(50).clamp(1, 200);
     let viewer_id = auth_session.user().await.map(|u| u.id);
 
-    let mut q = User::find()
-        .filter(user::Column::Active.eq(true))
-        .filter(user::Column::ActivatedAt.is_not_null())
-        .order_by_asc(user::Column::Handle)
-        .limit(limit);
-    if let Some(vid) = viewer_id {
-        q = q.filter(user::Column::Id.ne(vid));
-    }
-
-    let rows = q.all(&state.db).await?;
+    let rows = queries::list_active_profiles_excluding(&state.db, viewer_id, limit).await?;
     let profiles = rows
         .into_iter()
         .map(|m| ProfileSummary {
@@ -398,14 +255,10 @@ async fn get_profile_by_handle(
 ) -> AppResult<Json<PublicProfileResponse>> {
     enforce_public_profile_gate(&state.settings, &auth_session).await?;
 
-    let model = User::find()
-        .filter(user::Column::Handle.eq(&handle))
-        .one(&state.db)
+    let model = queries::find_user_by_handle(&state.db, &handle)
         .await?
         .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))?;
 
-    // Inactive users disappear from the public profile surface (same as
-    // login is rejected for them). Soft-delete equivalent.
     if !model.active {
         return Err(AppError::NotFound("Profile not found".to_string()));
     }
@@ -445,7 +298,6 @@ async fn post_me_avatar(
     Extension(user_auth): Extension<UserAuth>,
     mut multipart: Multipart,
 ) -> AppResult<Json<AvatarUploadResponse>> {
-    // Read the single `file` field.
     let mut file_bytes: Option<Vec<u8>> = None;
     let mut file_mime: Option<String> = None;
     while let Some(field) = multipart
@@ -481,16 +333,13 @@ async fn post_me_avatar(
     }
     let bytes = file_bytes
         .ok_or_else(|| AppError::ValidationError("Missing required field: file".to_string()))?;
-    let _ = file_mime; // mime check already enforced above
+    let _ = file_mime;
 
-    // CPU-bound: decode + crop + resize + encode happens on a blocking
-    // worker so the async runtime stays responsive.
     let normalized = tokio::task::spawn_blocking(move || normalize_avatar_bytes(&bytes))
         .await
         .map_err(|e| AppError::InternalError(format!("avatar worker join failed: {}", e)))?
         .map_err(AppError::ValidationError)?;
 
-    // Upload first; on failure we don't change the row.
     let new_key = format!("avatars/{}/{}.webp", user_auth.id, Uuid::new_v4());
     state
         .s3
@@ -499,18 +348,16 @@ async fn post_me_avatar(
         .map_err(|e| AppError::InternalError(format!("Failed to upload avatar: {:#}", e)))?;
 
     // Swap the row's avatar_s3_key. Best-effort delete the previous object
-    // after the row update commits (a stale object is harmless storage; a
-    // missing row pointer would break image loads, so prefer the latter
-    // failure mode).
+    // after the row update commits; a stale object is harmless storage, a
+    // missing row pointer would break image loads.
     let prev_key = {
-        let model = User::find_by_id(user_auth.id)
-            .one(&state.db)
+        let model = queries::find_user(&state.db, user_auth.id)
             .await?
             .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
         let prev = model.avatar_s3_key.clone();
         let mut active: user::ActiveModel = model.into();
         active.avatar_s3_key = Set(Some(new_key.clone()));
-        active.update(&state.db).await?;
+        queries::update_user(&state.db, active).await?;
         prev
     };
     if let Some(prev) = prev_key {
@@ -530,8 +377,7 @@ async fn delete_me_avatar(
     State(state): State<ProfileState>,
     Extension(user_auth): Extension<UserAuth>,
 ) -> AppResult<StatusCode> {
-    let model = User::find_by_id(user_auth.id)
-        .one(&state.db)
+    let model = queries::find_user(&state.db, user_auth.id)
         .await?
         .ok_or_else(|| AppError::NotFound("User not found".to_string()))?;
 
@@ -542,7 +388,7 @@ async fn delete_me_avatar(
 
     let mut active: user::ActiveModel = model.into();
     active.avatar_s3_key = Set(None);
-    active.update(&state.db).await?;
+    queries::update_user(&state.db, active).await?;
 
     if let Some(prev_key) = prev {
         if let Err(e) = state.s3.delete_object_at(&prev_key).await {
@@ -564,8 +410,7 @@ async fn serve_avatar(
 ) -> AppResult<Response> {
     enforce_public_profile_gate(&state.settings, &auth_session).await?;
 
-    let model = User::find_by_id(user_id)
-        .one(&state.db)
+    let model = queries::find_user(&state.db, user_id)
         .await?
         .ok_or_else(|| AppError::NotFound("Avatar not found".to_string()))?;
     if !model.active {
@@ -596,12 +441,9 @@ async fn serve_avatar(
         .into_response())
 }
 
-// ==================== helpers ====================
-
 /// Anonymous reads of profiles and avatars are gated by the same
-/// `public_feed_enabled` switch as the feed itself. Authed callers (any
-/// tier) bypass. Settings read failures fail closed — same convention as
-/// the feed gate in `posts/routes.rs`.
+/// `public_feed_enabled` switch as the feed itself. Settings read
+/// failures fail closed.
 async fn enforce_public_profile_gate(
     settings: &SettingsService,
     auth_session: &UserAuthSession,
@@ -620,11 +462,7 @@ async fn enforce_public_profile_gate(
 }
 
 /// Decode arbitrary input bytes, center-crop to a square, resize to
-/// `AVATAR_OUTPUT_SIDE`, and encode as webp. Returns the encoded bytes.
-///
-/// Errors are returned as user-visible messages — they always indicate the
-/// input the user uploaded, so surfacing the reason ("could not decode
-/// image", "image too large") is fine.
+/// `AVATAR_OUTPUT_SIDE`, and encode as webp.
 fn normalize_avatar_bytes(input: &[u8]) -> Result<Vec<u8>, String> {
     use image::imageops::{crop_imm, resize, FilterType};
     use image::ImageReader;
@@ -647,14 +485,11 @@ fn normalize_avatar_bytes(input: &[u8]) -> Result<Vec<u8>, String> {
         ));
     }
 
-    // Center-crop to a square.
     let side = w.min(h);
     let x_off = (w - side) / 2;
     let y_off = (h - side) / 2;
     let square = crop_imm(&img, x_off, y_off, side, side).to_image();
 
-    // Resize to the canonical output size. Lanczos3 is the highest-quality
-    // option in `image`'s built-in filters.
     let resized = if side != AVATAR_OUTPUT_SIDE {
         resize(
             &square,
@@ -666,7 +501,6 @@ fn normalize_avatar_bytes(input: &[u8]) -> Result<Vec<u8>, String> {
         square
     };
 
-    // Encode as webp.
     let mut out = Vec::new();
     let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut out);
     image::ImageEncoder::write_image(
@@ -704,7 +538,6 @@ mod tests {
     fn normalize_centers_and_resizes() {
         let png = synth_png(1024);
         let webp = normalize_avatar_bytes(&png).unwrap();
-        // Re-decode and check dimensions.
         let img = image::load_from_memory(&webp).unwrap();
         assert_eq!(img.width(), AVATAR_OUTPUT_SIDE);
         assert_eq!(img.height(), AVATAR_OUTPUT_SIDE);

@@ -30,6 +30,7 @@ use crate::errors::{AppError, AppResult};
 use crate::imports::{
     self,
     facebook::{run_facebook_import, FacebookImportParams},
+    types::ImportJobResponse,
 };
 use crate::s3::S3Service;
 use axum::{
@@ -39,9 +40,7 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use chrono::Utc;
 use sea_orm::{DatabaseConnection, EntityTrait, Order, PaginatorTrait, QueryOrder};
-use serde::Serialize;
 use std::io::Write;
 use uuid::Uuid;
 
@@ -65,51 +64,6 @@ pub fn imports_routes() -> Router<ImportsState> {
             "/api/admin/imports/facebook",
             post(create_facebook_import).layer(DefaultBodyLimit::max(ARCHIVE_MAX_BYTES)),
         )
-}
-
-#[derive(Serialize)]
-pub struct ImportJobResponse {
-    pub id: Uuid,
-    pub kind: String,
-    pub status: String,
-    pub created_by: Uuid,
-    pub parent_job_id: Option<Uuid>,
-    pub params: serde_json::Value,
-    pub progress: serde_json::Value,
-    /// Structured per-job log. Shape: `{ entries: [{ts, level, msg, ctx?}],
-    /// dropped: N }`. The admin UI renders this as a chronological event
-    /// list so an operator can see exactly where an import went wrong.
-    pub log: serde_json::Value,
-    pub error: Option<String>,
-    pub last_heartbeat_at: Option<String>,
-    pub started_at: Option<String>,
-    pub finished_at: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-impl From<import_job::Model> for ImportJobResponse {
-    fn from(m: import_job::Model) -> Self {
-        let utc = Utc;
-        Self {
-            id: m.id,
-            kind: m.kind,
-            status: m.status,
-            created_by: m.created_by,
-            parent_job_id: m.parent_job_id,
-            params: m.params,
-            progress: m.progress,
-            log: m.log,
-            error: m.error,
-            last_heartbeat_at: m
-                .last_heartbeat_at
-                .map(|t| t.with_timezone(&utc).to_rfc3339()),
-            started_at: m.started_at.map(|t| t.with_timezone(&utc).to_rfc3339()),
-            finished_at: m.finished_at.map(|t| t.with_timezone(&utc).to_rfc3339()),
-            created_at: m.created_at.with_timezone(&utc).to_rfc3339(),
-            updated_at: m.updated_at.with_timezone(&utc).to_rfc3339(),
-        }
-    }
 }
 
 async fn list_imports(

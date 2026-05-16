@@ -13,18 +13,20 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-pub mod access_codes;
-pub mod access_logs;
-pub mod auth;
-pub mod handlers;
-pub mod moderation;
-pub mod pagination;
-pub mod password;
-pub mod settings;
-pub mod types;
-pub mod users;
+use serde::{Deserialize, Serialize};
 
-pub use auth::{Credentials, UserAuth, UserAuthBackend};
+#[derive(Deserialize)]
+pub struct SubscribeRequest {
+    pub email: String,
+}
 
-/// Session key for MFA verification status. Shared across routes and middleware.
-pub const MFA_VERIFIED_KEY: &str = "mfa_verified";
+#[derive(Deserialize)]
+pub struct VerifyQuery {
+    pub token: String,
+}
+
+#[derive(Serialize)]
+pub struct SubscribeResponse {
+    pub success: bool,
+    pub message: String,
+}

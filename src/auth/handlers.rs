@@ -14,9 +14,9 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use crate::admin::auth::{Credentials, UserAuthBackend};
+use crate::auth::oidc::OidcService;
 use crate::entities::user;
 use crate::errors::{AppError, AppResult};
-use crate::oidc::OidcService;
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Redirect, Response},
@@ -171,7 +171,8 @@ pub async fn oidc_callback(
     // Resolve the IdP's effective tier from its role claims (most-privileged
     // wins). The backend uses this purely to validate against the DB-
     // authoritative role; it never uses the claim to assign role.
-    let idp_tier = crate::oidc::resolve_idp_tier(&user_info.roles, &state.oidc_service.config);
+    let idp_tier =
+        crate::auth::oidc::resolve_idp_tier(&user_info.roles, &state.oidc_service.config);
 
     let creds = Credentials::Oidc {
         sub: user_info.sub,
