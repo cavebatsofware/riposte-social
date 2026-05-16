@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Visibility badges</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .card { padding: 22px 28px; display: grid; gap: 14px; }
+  .group { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.08em; width: 100px; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .public      { background: var(--color-badge-public-bg);      color: var(--color-badge-public-fg); }
+  .commenters  { background: var(--color-badge-commenters-bg);  color: var(--color-badge-commenters-fg); }
+  .posters     { background: var(--color-badge-posters-bg);     color: var(--color-badge-posters-fg); }
+  .private     { background: var(--color-overlay);              color: var(--color-muted); }
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; background: var(--color-overlay); color: var(--color-text); border: 1px solid var(--color-border); }
+  .danger { font-size: 13px; padding: 8px 12px; border-radius: 6px; background: var(--color-danger-bg); color: var(--color-danger); border: 1px solid var(--color-danger-border); }
+</style></head>
+<body><div class="card">
+  <div class="group">
+    <div class="label">Visibility</div>
+    <span class="pill public">Public</span>
+    <span class="pill commenters">Commenters</span>
+    <span class="pill posters">Posters</span>
+    <span class="pill private">Private</span>
+  </div>
+  <div class="group">
+    <div class="label">Category</div>
+    <span class="chip">Family</span>
+    <span class="chip" style="background: rgba(180, 70, 30, 0.16)">Trip 2025</span>
+    <span class="chip" style="background: rgba(45, 74, 55, 0.16)">Garden</span>
+  </div>
+  <div class="group">
+    <div class="label">Alert</div>
+    <div class="danger">Failed to load feed.</div>
+  </div>
+</div></body></html>

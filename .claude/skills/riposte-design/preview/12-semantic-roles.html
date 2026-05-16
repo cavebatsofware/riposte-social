@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Semantic roles</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 12px; }
+  .card { padding: 18px 22px; display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 24px; row-gap: 6px; }
+  .row { display: grid; grid-template-columns: 24px 1fr auto; gap: 10px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--color-divider); }
+  .row:nth-last-child(-n+2) { border-bottom: none; }
+  .sw { width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--color-border); }
+  .name { font-weight: 500; }
+  .tok { font-family: var(--font-mono); color: var(--color-muted); font-size: 11px; }
+</style></head>
+<body><div class="card">
+  <div class="row"><div class="sw" style="background: var(--color-bg)"></div><div class="name">App background</div><div class="tok">--color-bg</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-surface)"></div><div class="name">Card surface</div><div class="tok">--color-surface</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-surface-2)"></div><div class="name">Inset / hover fill</div><div class="tok">--color-surface-2</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-border)"></div><div class="name">Card / input border</div><div class="tok">--color-border</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-divider)"></div><div class="name">Inner divider</div><div class="tok">--color-divider</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-text)"></div><div class="name">Primary text</div><div class="tok">--color-text</div></div>
+
+  <div class="row"><div class="sw" style="background: var(--color-muted)"></div><div class="name">Muted text</div><div class="tok">--color-muted</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-primary)"></div><div class="name">Primary action</div><div class="tok">--color-primary</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-primary-hover)"></div><div class="name">Primary hover</div><div class="tok">--color-primary-hover</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-on-primary)"></div><div class="name">On-primary text</div><div class="tok">--color-on-primary</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-link-underline)"></div><div class="name">Link underline</div><div class="tok">--color-link-underline</div></div>
+  <div class="row"><div class="sw" style="background: var(--color-danger)"></div><div class="name">Danger</div><div class="tok">--color-danger</div></div>
+</div></body></html>

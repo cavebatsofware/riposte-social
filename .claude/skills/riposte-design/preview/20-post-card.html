@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Post card</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .wrap { padding: 18px 24px; }
+  .post-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 10px; padding: 20px 24px; box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
+  .post-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-avatar-bg); color: var(--color-avatar-fg); display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; letter-spacing: 0.04em; flex-shrink: 0; }
+  .meta-main { flex: 1; min-width: 0; }
+  .author { font-weight: 600; font-size: 15px; color: var(--color-text); }
+  .meta-line { display: flex; align-items: center; gap: 6px; color: var(--color-muted); font-size: 14px; margin-top: 1px; }
+  .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--color-muted); opacity: 0.5; }
+  .pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.06em; background: var(--color-badge-public-bg); color: var(--color-badge-public-fg); }
+  .open { color: var(--color-muted); text-decoration: none; font-size: 14px; padding: 4px 10px; border-radius: 4px; }
+  .body { color: var(--color-text); font-size: 16px; line-height: 1.65; }
+  .actions { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--color-divider); display: flex; justify-content: space-between; align-items: center; color: var(--color-muted); font-size: 14px; }
+  .reaction-btn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px; border: 1px solid transparent; border-radius: 999px; color: var(--color-primary); background: var(--color-overlay); font-weight: 600; font-size: 14px; }
+  .reaction-summary { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+  .reaction-summary-badge { padding: 1px 6px; border-radius: 999px; background: var(--color-overlay); display: inline-flex; gap: 2px; }
+</style></head>
+<body><div class="wrap"><article class="post-card">
+  <header class="post-meta">
+    <div class="avatar">GD</div>
+    <div class="meta-main">
+      <div class="author">Grant DeFayette</div>
+      <div class="meta-line">
+        <span>2 days ago</span>
+        <span class="dot"></span>
+        <span class="pill">Public</span>
+      </div>
+    </div>
+    <a class="open" href="#">Open post</a>
+  </header>
+  <div class="body">Thank you everyone for the birthday wishes! I hope you all had a great weekend.</div>
+  <footer class="actions">
+    <div style="display: flex; align-items: center">
+      <button class="reaction-btn"><span>❤️</span><span>Love</span></button>
+      <span class="reaction-summary">
+        <span class="reaction-summary-badge"><span>❤️</span><span>3</span></span>
+      </span>
+    </div>
+    <span>1 comment</span>
+  </footer>
+</article></div></body></html>

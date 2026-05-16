@@ -1,0 +1,86 @@
+/* Skeleton placeholder shown while a feed page or permalink is loading.
+   Matches the visual rhythm of `.post-card` so the swap to real content
+   is non-jarring. */
+
+.skeleton-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  margin-bottom: var(--spacing-4);
+}
+
+.skeleton-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-overlay);
+  flex-shrink: 0;
+}
+
+.skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  flex: 1;
+}
+
+.skeleton-line {
+  display: block;
+  height: 0.75rem;
+  background: var(--color-overlay);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-line-sm { width: 30%; }
+.skeleton-line-md { width: 45%; }
+.skeleton-line-3q { width: 75%; }
+.skeleton-line-full { width: 100%; }
+
+.skeleton-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  margin-bottom: var(--spacing-4);
+}
+
+.skeleton-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--color-overlay);
+  border-radius: var(--radius-md);
+}
+
+/* Subtle shimmer. Suppressed when the user prefers reduced motion — the
+   placeholder still indicates "loading" via its existence and the
+   surrounding "Loading feed" label. */
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton-avatar,
+  .skeleton-line,
+  .skeleton-media {
+    background: linear-gradient(
+      90deg,
+      var(--color-overlay) 0%,
+      var(--color-divider) 50%,
+      var(--color-overlay) 100%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s linear infinite;
+  }
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

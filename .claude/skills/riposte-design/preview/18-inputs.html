@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Form controls</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .card { padding: 22px 28px; display: grid; gap: 14px; }
+  .field { display: grid; gap: 6px; }
+  label { font-size: 13px; font-weight: 600; color: var(--color-text); }
+  input, textarea {
+    font: inherit; font-size: 14px;
+    padding: 8px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    outline: none;
+  }
+  textarea { min-height: 64px; resize: vertical; font-family: inherit; }
+  input:focus, textarea:focus { outline: 2px solid var(--color-primary); outline-offset: -1px; border-color: var(--color-primary); }
+  .search-row { display: flex; gap: 8px; align-items: center; }
+  .search-row input { flex: 1; border-radius: 4px; padding: 6px 10px; font-size: 13px; background: var(--color-bg); }
+  .clear { background: transparent; border: 1px solid var(--color-border); border-radius: 50%; width: 28px; height: 28px; font-size: 18px; color: var(--color-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+</style></head>
+<body><div class="card">
+  <div class="field">
+    <label for="e">Email</label>
+    <input id="e" type="email" placeholder="you@example.com" value="grant@cavebatsofware.com" />
+  </div>
+  <div class="field">
+    <label for="b">Comment</label>
+    <textarea id="b" placeholder="Markdown is supported."></textarea>
+  </div>
+  <div class="search-row">
+    <input type="search" placeholder="Search categories…" value="garden" />
+    <button class="clear" aria-label="Clear">×</button>
+  </div>
+</div></body></html>

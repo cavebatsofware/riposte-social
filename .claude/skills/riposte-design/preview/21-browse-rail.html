@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Browse rail</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .wrap { padding: 16px 20px; display: grid; grid-template-columns: 240px 240px; gap: 18px; align-items: start; }
+  .group { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 6px; overflow: hidden; }
+  .group-header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-weight: 600; font-size: 14px; color: var(--color-text); border-bottom: 1px solid var(--color-divider); }
+  .chev { font-size: 12px; color: var(--color-muted); }
+  .body { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .search { font-size: 13px; padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-bg); color: var(--color-text); margin: 4px 0; }
+  .overflow { color: var(--color-muted); font-size: 12px; font-weight: 500; padding: 4px 8px; text-decoration: none; }
+  .link { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 4px; color: var(--color-text); text-decoration: none; font-size: 14px; }
+  .link.active { background: var(--color-overlay); font-weight: 600; }
+  .link:hover { background: var(--color-overlay); }
+  .swatch { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.15); }
+  .cover { width: 24px; height: 24px; border-radius: 4px; background: var(--color-media-bg); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--color-muted); }
+</style></head>
+<body><div class="wrap">
+
+  <section class="group">
+    <header class="group-header"><span class="chev">▾</span><span>Categories</span></header>
+    <div class="body">
+      <input class="search" type="search" placeholder="Search categories…" />
+      <a class="overflow" href="#">Show all categories →</a>
+      <a class="link active" href="#"><span class="swatch" style="background: black"></span><span>All posts</span></a>
+      <a class="link" href="#"><span class="swatch" style="background: #2d4a37"></span><span>Family</span></a>
+      <a class="link" href="#"><span class="swatch" style="background: #8e4a1f"></span><span>Trip 2025</span></a>
+      <a class="link" href="#"><span class="swatch" style="background: #5b1f4d"></span><span>Garden</span></a>
+    </div>
+  </section>
+
+  <section class="group">
+    <header class="group-header"><span class="chev">▾</span><span>Albums</span></header>
+    <div class="body">
+      <input class="search" type="search" placeholder="Search albums…" />
+      <a class="overflow" href="#">Show all albums →</a>
+      <a class="link" href="#"><span class="cover"></span><span>Profile pictures</span></a>
+      <a class="link" href="#"><span class="cover"></span><span>Mobile uploads</span></a>
+      <a class="link" href="#"><span class="cover"></span><span>Birthday weekend</span></a>
+    </div>
+  </section>
+
+</div></body></html>

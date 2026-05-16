@@ -1,0 +1,70 @@
+{
+  "siteName": "Riposte Social",
+  "skipToContent": "Skip to content",
+  "homeAria": "Riposte Social home",
+  "primaryNav": "Primary",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "menuTitle": "Menu",
+  "loading": "Loading…",
+  "loadMore": "Load more",
+  "backToFeed": "← Back to feed",
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving…",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "remove": "Remove"
+  },
+  "nav": {
+    "feed": "Feed",
+    "compose": "Compose",
+    "newAlbum": "New album"
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out"
+  },
+  "userMenu": {
+    "openAria": "Open account menu",
+    "viewProfile": "View profile",
+    "settings": "Settings",
+    "admin": "Admin",
+    "following": "Following",
+    "followers": "Followers",
+    "fallbackName": "Account"
+  },
+  "theme": {
+    "title": "Theme",
+    "toggleAria": "Choose theme",
+    "dialogAria": "Choose theme",
+    "colorwayAria": "Colorway",
+    "modeAria": "Light or dark",
+    "colorways": {
+      "forest": "Forest & Cream",
+      "warm": "Warm Editorial",
+      "plum": "Plum & Apricot",
+      "avernus": "Avernus & Clouds",
+      "mineral": "Rocks & Minerals",
+      "daltonia": "Red-Green Accessible",
+      "tritan": "Blue-Yellow Accessible",
+      "achroma": "High Contrast"
+    },
+    "mode": {
+      "light": "Light",
+      "dark": "Dark"
+    }
+  },
+  "language": {
+    "toggleAria": "Change language",
+    "title": "Language",
+    "menuAria": "Choose language"
+  },
+  "cookieBanner": {
+    "regionLabel": "Cookie notice",
+    "text": "Riposte Social uses cookies that are strictly necessary for sign-in and security. We do not use tracking, analytics, or advertising cookies.",
+    "ack": "OK"
+  }
+}
