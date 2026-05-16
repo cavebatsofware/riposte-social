@@ -32,7 +32,11 @@ for await (const file of jsGlob.scan("./social-assets")) {
     stdout: "inherit",
     stderr: "inherit",
   });
-  await proc.exited;
+  const code = await proc.exited;
+  if (code !== 0) {
+    console.error(`gzip failed (exit ${code}): social-assets/${file}`);
+    process.exit(code);
+  }
 }
 
 const localeGlob = new Glob("**/*.json");
@@ -41,5 +45,9 @@ for await (const file of localeGlob.scan("./social-assets/locales")) {
     stdout: "inherit",
     stderr: "inherit",
   });
-  await proc.exited;
+  const code = await proc.exited;
+  if (code !== 0) {
+    console.error(`gzip failed (exit ${code}): social-assets/${file}`);
+    process.exit(code);
+  }
 }

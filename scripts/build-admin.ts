@@ -27,5 +27,9 @@ for await (const file of glob.scan("./admin-assets")) {
     stdout: "inherit",
     stderr: "inherit",
   });
-  await proc.exited;
+  const code = await proc.exited;
+  if (code !== 0) {
+    console.error(`gzip failed (exit ${code}): admin-assets/${file}`);
+    process.exit(code);
+  }
 }
