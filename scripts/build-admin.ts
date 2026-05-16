@@ -1,5 +1,5 @@
 import { Glob } from "bun";
-import { rmSync } from "fs";
+import { readFileSync, rmSync, writeFileSync } from "fs";
 
 rmSync("./admin-assets", { recursive: true, force: true });
 
@@ -26,13 +26,5 @@ if (!result.success) {
 
 const glob = new Glob("assets/**/*.{js,css}");
 for await (const file of glob.scan("./admin-assets")) {
-  const proc = Bun.spawn(["gzip", "-k", "-f", `admin-assets/${file}`], {
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const code = await proc.exited;
-  if (code !== 0) {
-    console.error(`gzip failed (exit ${code}): admin-assets/${file}`);
-    process.exit(code);
-  }
+  writeFileSync(`admin-assets/${file}.gz`, Bun.gzipSync(readFileSync(`admin-assets/${file}`)));
 }

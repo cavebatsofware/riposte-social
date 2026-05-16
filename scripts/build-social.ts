@@ -1,5 +1,5 @@
 import { Glob } from "bun";
-import { cpSync, rmSync } from "fs";
+import { cpSync, readFileSync, rmSync, writeFileSync } from "fs";
 
 rmSync("./social-assets", { recursive: true, force: true });
 
@@ -28,28 +28,16 @@ cpSync("social-frontend/public/locales", "social-assets/locales", {
   recursive: true,
 });
 
+function gzip(path: string) {
+  writeFileSync(`${path}.gz`, Bun.gzipSync(readFileSync(path)));
+}
+
 const jsGlob = new Glob("app/**/*.{js,css}");
 for await (const file of jsGlob.scan("./social-assets")) {
-  const proc = Bun.spawn(["gzip", "-k", "-f", `social-assets/${file}`], {
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const code = await proc.exited;
-  if (code !== 0) {
-    console.error(`gzip failed (exit ${code}): social-assets/${file}`);
-    process.exit(code);
-  }
+  gzip(`social-assets/${file}`);
 }
 
 const localeGlob = new Glob("**/*.json");
 for await (const file of localeGlob.scan("./social-assets/locales")) {
-  const proc = Bun.spawn(["gzip", "-k", "-f", `social-assets/locales/${file}`], {
-    stdout: "inherit",
-    stderr: "inherit",
-  });
-  const code = await proc.exited;
-  if (code !== 0) {
-    console.error(`gzip failed (exit ${code}): social-assets/${file}`);
-    process.exit(code);
-  }
+  gzip(`social-assets/locales/${file}`);
 }
