@@ -16,14 +16,17 @@
 use crate::entities::invite_code;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateInviteRequest {
     /// Optional name/email hint for the recipient. Surfaces in the admin list
     /// and in the splash to help the visitor confirm the invite is for them.
     pub email_hint: Option<String>,
     /// Lifetime in hours. Capped at `MAX_INVITE_LIFETIME_DAYS`; defaults to one week.
+    #[ts(type = "number | null")]
     pub expires_in_hours: Option<i64>,
 }
 
@@ -32,7 +35,8 @@ pub struct CreateInviteRequest {
 /// out-of-band). Listing and revoke responses leave it `None` because the
 /// DB only stores the hash and there is no way to recover the plaintext
 /// after issuance.
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct InviteResponse {
     pub id: Uuid,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,26 +87,30 @@ impl From<invite_code::Model> for InviteResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CurrentInviteResponse {
     pub code: String,
     pub email_hint: Option<String>,
     pub expires_at: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct ConfirmInviteRequest {
     pub code: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct AcceptInvitePasswordRequest {
     pub code: String,
     pub email: String,
     pub new_password: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct AcceptInvitePasswordResponse {
     pub id: Uuid,
     pub email: String,

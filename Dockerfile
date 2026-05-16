@@ -1,23 +1,23 @@
 # Frontend build stage. Builds both the admin SPA (admin-assets/) and the
 # social SPA (social-assets/). The two share package.json + node_modules
-# and are produced from one `npm run build` call (admin then social).
-FROM node:26.1-trixie-slim AS frontend-builder
+# and are produced from one `bun run build` call (admin then social).
+FROM oven/bun:1.3.14-slim AS frontend-builder
 
 WORKDIR /app
 
-# Copy package files and install dependencies.
-COPY package*.json ./
-RUN npm ci
+# Copy lockfile + manifest and install dependencies.
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
-# Copy vite configs + both frontend source trees.
-COPY vite.config.js ./
-COPY vite.social.config.js ./
+# Copy build scripts, tsconfig, and both frontend source trees.
+COPY scripts ./scripts
+COPY tsconfig.json ./
 COPY admin-frontend ./admin-frontend
 COPY social-frontend ./social-frontend
 
-# Build both frontends. `npm run build` chains build:admin and build:social
+# Build both frontends. `bun run build` chains build:admin and build:social
 # per package.json scripts and emits to admin-assets/ and social-assets/.
-RUN npm run build
+RUN bun run build
 
 # Rust build stage. Debian 13 (trixie) image so the runtime stage can
 # share the same glibc; default target is x86_64-unknown-linux-gnu.

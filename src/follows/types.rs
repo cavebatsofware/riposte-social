@@ -15,15 +15,18 @@
  */
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct FollowStateResponse {
     pub you_follow: bool,
     pub follows_you: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct UserSummary {
     pub user_id: Uuid,
     pub handle: String,
@@ -32,32 +35,38 @@ pub struct UserSummary {
     pub role: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct FollowsListResponse {
     pub users: Vec<UserSummary>,
     pub next_cursor: Option<String>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
 #[serde(default)]
+#[ts(export)]
 pub struct ListQuery {
     pub cursor: Option<String>,
+    #[ts(type = "number | null")]
     pub limit: Option<u64>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct BulkStateQuery {
     /// Comma-separated UUIDs.
     pub user_ids: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct BulkStateEntry {
     pub you_follow: bool,
     pub follows_you: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct BulkStateResponse {
     pub states: HashMap<Uuid, BulkStateEntry>,
 }

@@ -17,9 +17,11 @@ use crate::entities::{category, post, post_media, user};
 use crate::posts::media;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
+#[ts(export)]
 pub struct UpdateAlbumRequest {
     #[serde(default)]
     pub name: Option<String>,
@@ -37,7 +39,8 @@ pub struct UpdateAlbumRequest {
     pub clear_category: bool,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
+#[ts(export)]
 pub struct UpdateAlbumMediaRequest {
     #[serde(default)]
     pub caption: Option<String>,
@@ -48,7 +51,8 @@ pub struct UpdateAlbumMediaRequest {
     pub ordinal: Option<i32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct AlbumMediaResponse {
     pub id: Uuid,
     pub album_id: Uuid,
@@ -82,7 +86,8 @@ impl AlbumMediaResponse {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct AlbumResponse {
     pub id: Uuid,
     pub author_id: Uuid,
@@ -105,6 +110,7 @@ pub struct AlbumResponse {
     pub created_at: String,
     pub updated_at: String,
     pub media: Vec<AlbumMediaResponse>,
+    #[ts(type = "number")]
     pub photo_count: i64,
     pub category_id: Option<Uuid>,
 }
@@ -152,11 +158,13 @@ pub fn build_album_response(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct ListAlbumsQuery {
     #[serde(default)]
     pub cursor: Option<String>,
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub limit: Option<u64>,
     #[serde(default)]
     pub author: Option<Uuid>,
@@ -166,13 +174,15 @@ pub struct ListAlbumsQuery {
     pub category: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ListAlbumsResponse {
     pub albums: Vec<AlbumSummary>,
     pub next_cursor: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct AlbumSummary {
     pub id: Uuid,
     pub author_id: Uuid,
@@ -183,5 +193,6 @@ pub struct AlbumSummary {
     pub cover_url: Option<String>,
     pub visibility: String,
     pub published_at: String,
+    #[ts(type = "number")]
     pub photo_count: i64,
 }

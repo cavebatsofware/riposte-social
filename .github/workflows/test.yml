@@ -1,5 +1,7 @@
 name: Cargo Test
 on: [pull_request]
+permissions:
+  contents: read
 jobs:
   test:
     name: Test
@@ -36,16 +38,14 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 25
+      - uses: oven-sh/setup-bun@v2
       # Build the social SPA bundle. `serve_invite_landing` reads
       # `social-assets/index.html` from disk at request time, so any test
       # that hits `/invite/{code}` (e.g. invite_public_tests.rs) needs
       # the file present before `cargo test` runs.
       - name: Build social frontend
         run: |
-          npm ci
-          npm run build:social
+          bun install --frozen-lockfile
+          bun run build:social
       - name: Run tests
         run: cargo test --verbose --workspace

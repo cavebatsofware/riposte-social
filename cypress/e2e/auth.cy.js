@@ -17,39 +17,39 @@
 /// piggyback on the same cy.login() fixture.
 
 describe("auth flow (seeded test admin)", () => {
-  beforeEach(() => {
-    // Wait for the SPA shell to mount before any selector assertions
-    // run; cy.visit only resolves on `load`, not on React commit.
+  it("anonymous header shows the Sign in link", () => {
     cy.visit("/");
     cy.get("main#main-content", { timeout: 10000 }).should("exist");
-  });
-
-  it("anonymous header shows the Sign in link", () => {
     cy.get(".layout-auth-btn").should("contain.text", "Sign in");
     cy.get(".user-menu-trigger").should("not.exist");
   });
 
-  it("after cy.login(), the same route shows the user menu", () => {
-    cy.login().then((user) => {
-      expect(user.role).to.equal("administrator");
-      expect(user.email_verified).to.be.true;
-      // The handle is derived from TEST_ADMIN_EMAIL's local-part, so
-      // assert non-empty rather than equal to a fixed string. This
-      // keeps the spec usable when the seeded fixture is overridden
-      // via the env vars CONTRIBUTING.md documents.
-      expect(user.handle).to.be.a("string").and.not.be.empty;
+  describe("authed admin", () => {
+    beforeEach(() => {
+      // Login before any page load so cy.request() sets the session
+      // cookie on a clean browser jar (no prior anonymous cookie to
+      // conflict with). Pattern mirrors settings_profile.cy.js.
+      cy.login().then((user) => {
+        expect(user.role).to.equal("administrator");
+        expect(user.email_verified).to.be.true;
+        // Handle is derived from TEST_ADMIN_EMAIL's local-part; assert
+        // non-empty so the spec works with any seeded fixture.
+        expect(user.handle).to.be.a("string").and.not.be.empty;
+      });
+      cy.visit("/");
+      cy.get("main#main-content", { timeout: 10000 }).should("exist");
     });
-    cy.visit("/");
-    cy.get("main#main-content", { timeout: 10000 }).should("exist");
-    cy.get(".user-menu-trigger").should("exist");
-    cy.get(".layout-auth-btn").should("not.exist");
-  });
 
-  it("authed admin can reach /compose with the body textarea and visibility legend", () => {
-    cy.login();
-    cy.visit("/compose");
-    cy.get("#compose-body", { timeout: 10000 }).should("exist");
-    cy.get(".compose-card").should("exist");
-    cy.contains("Visibility").should("exist");
+    it("the same route shows the user menu after login", () => {
+      cy.get(".user-menu-trigger").should("exist");
+      cy.get(".layout-auth-btn").should("not.exist");
+    });
+
+    it("authed admin can reach /compose with the body textarea and visibility legend", () => {
+      cy.visit("/compose");
+      cy.get("#compose-body", { timeout: 10000 }).should("exist");
+      cy.get(".compose-card").should("exist");
+      cy.contains("Visibility").should("exist");
+    });
   });
 });

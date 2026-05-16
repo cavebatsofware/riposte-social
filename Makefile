@@ -363,14 +363,14 @@ test-app-logs:
 .PHONY: cypress-feature
 cypress-feature: test-app-up
 	@echo "🧪 Running Cypress feature specs..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run e2e:feature:docker
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run e2e:feature:docker
 	@echo "✅ Feature specs complete"
 
 # Run the a11y smoke at the gate level (serious + critical impacts).
 .PHONY: cypress-a11y
 cypress-a11y: test-app-up
 	@echo "♿ Running Cypress a11y smoke (ci strictness)..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run a11y:smoke:docker
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run a11y:smoke:docker
 	@echo "✅ a11y smoke complete"
 
 # Run the a11y smoke at strict (every axe impact level surfaced).
@@ -378,14 +378,14 @@ cypress-a11y: test-app-up
 .PHONY: cypress-a11y-strict
 cypress-a11y-strict: test-app-up
 	@echo "♿ Running Cypress a11y smoke (strict strictness)..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run a11y:smoke:strict:docker
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run a11y:smoke:strict:docker
 	@echo "✅ a11y smoke (strict) complete"
 
 # Run every Cypress spec against the test stack.
 .PHONY: cypress-all
 cypress-all: test-app-up
 	@echo "🧪 Running all Cypress specs..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} npm run e2e:docker
+	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run e2e:docker
 	@echo "✅ All Cypress specs complete"
 
 #
@@ -407,13 +407,13 @@ dev: db-up frontend-build
 .PHONY: admin-watch
 admin-watch:
 	@echo "⚛️  Starting Admin frontend in watch mode..."
-	@npm run build:watch
+	@bun run build:watch
 
 # Social frontend watch mode (auto-rebuild on changes)
 .PHONY: social-watch
 social-watch:
 	@echo "⚛️  Starting Social frontend in watch mode..."
-	@npm run build:watch:social
+	@bun run build:watch:social
 
 # Rust watch mode (auto-reload on changes using cargo-watch). Builds
 # with the `e2e_testing` feature so the DEV_MODE runtime override
@@ -464,7 +464,7 @@ setup:
 		echo "✅ .env file already exists"; \
 	fi
 	@echo "📦 Installing admin frontend dependencies..."
-	npm install
+	bun install
 	@echo "🔄 Running migrations..."
 	@$(MAKE) db-migrate
 	@echo ""
@@ -480,9 +480,9 @@ admin-build:
 	@echo "🔨 Building admin frontend..."
 	@if [ ! -d "node_modules" ]; then \
 		echo "📦 Installing dependencies first..."; \
-		npm install; \
+		bun install; \
 	fi
-	npm run build:admin
+	bun run build:admin
 	@echo "✅ Admin frontend built to admin-assets/"
 
 # Build social frontend for production
@@ -491,9 +491,9 @@ social-build:
 	@echo "🔨 Building social frontend..."
 	@if [ ! -d "node_modules" ]; then \
 		echo "📦 Installing dependencies first..."; \
-		npm install; \
+		bun install; \
 	fi
-	npm run build:social
+	bun run build:social
 	@echo "✅ Social frontend built to social-assets/"
 
 # Build public Astro site

@@ -14,18 +14,22 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct SubscribeRequest {
     pub email: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export, rename = "SubscriptionVerifyQuery")]
 pub struct VerifyQuery {
     pub token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct SubscribeResponse {
     pub success: bool,
     pub message: String,

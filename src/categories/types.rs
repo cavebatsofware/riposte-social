@@ -15,9 +15,11 @@
  */
 use crate::entities::category;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CategoryResponse {
     pub id: Uuid,
     pub name: String,
@@ -45,7 +47,8 @@ pub fn into_response(m: category::Model, manageable: bool) -> CategoryResponse {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct CreateCategoryRequest {
     pub name: String,
     #[serde(default)]
@@ -58,7 +61,8 @@ pub struct CreateCategoryRequest {
     pub visibility: Option<String>,
 }
 
-#[derive(Deserialize, Default)]
+#[derive(Deserialize, Default, TS)]
+#[ts(export)]
 pub struct UpdateCategoryRequest {
     #[serde(default)]
     pub name: Option<String>,
@@ -72,12 +76,14 @@ pub struct UpdateCategoryRequest {
     pub visibility: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct CategoriesListResponse {
     pub categories: Vec<CategoryResponse>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MemberResponse {
     pub user_id: Uuid,
     pub handle: String,
@@ -85,17 +91,20 @@ pub struct MemberResponse {
     pub created_at: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct MembersListResponse {
     pub members: Vec<MemberResponse>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct ReplaceMembersRequest {
     pub user_ids: Vec<Uuid>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, TS)]
+#[ts(export)]
 pub struct AddMemberRequest {
     pub user_id: Uuid,
 }

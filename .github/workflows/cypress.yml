@@ -1,5 +1,7 @@
 name: Cypress
 on: [pull_request]
+permissions:
+  contents: read
 jobs:
   feature:
     name: Feature + a11y
@@ -48,15 +50,13 @@ jobs:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 25
+      - uses: oven-sh/setup-bun@v2
 
-      - name: Install node dependencies
-        run: npm ci
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build social frontend
-        run: npm run build:social
+        run: bun run build:social
 
       # Build the app binary with the e2e_testing feature so the
       # SEED_TEST_ADMIN code path and the DEV_MODE runtime overrides
@@ -87,7 +87,7 @@ jobs:
       - name: Run Cypress
         env:
           CYPRESS_BASE_URL: http://localhost:3001
-        run: npx cypress run
+        run: bunx cypress run
 
       # Upload any artifacts cypress wrote (only present when capture
       # env vars were set or specs failed). Empty-directory uploads

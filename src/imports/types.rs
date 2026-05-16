@@ -18,20 +18,25 @@
 use crate::entities::import_job;
 use chrono::Utc;
 use serde::Serialize;
+use ts_rs::TS;
 use uuid::Uuid;
 
-#[derive(Serialize)]
+#[derive(Serialize, TS)]
+#[ts(export)]
 pub struct ImportJobResponse {
     pub id: Uuid,
     pub kind: String,
     pub status: String,
     pub created_by: Uuid,
     pub parent_job_id: Option<Uuid>,
+    #[ts(type = "unknown")]
     pub params: serde_json::Value,
+    #[ts(type = "unknown")]
     pub progress: serde_json::Value,
     /// Structured per-job log. Shape: `{ entries: [{ts, level, msg, ctx?}],
     /// dropped: N }`. The admin UI renders this as a chronological event
     /// list so an operator can see exactly where an import went wrong.
+    #[ts(type = "unknown")]
     pub log: serde_json::Value,
     pub error: Option<String>,
     pub last_heartbeat_at: Option<String>,
