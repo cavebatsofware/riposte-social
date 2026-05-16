@@ -1,13 +1,30 @@
-// ESLint flat config. Scoped to the social-frontend with the
-// `eslint-plugin-jsx-a11y` recommended ruleset. Admin-frontend is
-// intentionally excluded; add it to the `files` glob to bring it under
-// the same lint surface.
-
 const js = require("@eslint/js");
-const jsxA11y = require("eslint-plugin-jsx-a11y");
+const tseslint = require("typescript-eslint");
+const a11yPlugin = require("@barrierbreak/eslint-plugin-a11yinspect");
 const reactPlugin = require("eslint-plugin-react");
 const reactHooks = require("eslint-plugin-react-hooks");
 const globals = require("globals");
+
+const frontends = [
+  "social-frontend/**/*.{js,jsx}",
+  "admin-frontend/**/*.{js,jsx}",
+];
+
+const frontendsTsx = [
+  "social-frontend/**/*.{ts,tsx}",
+  "admin-frontend/**/*.{ts,tsx}",
+];
+
+const sharedPlugins = {
+  a11yinspect: a11yPlugin,
+  react: reactPlugin,
+  "react-hooks": reactHooks,
+};
+
+const sharedGlobals = {
+  ...globals.browser,
+  ...globals.es2024,
+};
 
 module.exports = [
   {
@@ -17,44 +34,47 @@ module.exports = [
       "social-assets/",
       "target/",
       "scripts/",
-      "admin-frontend/",
-      "vite.config.js",
-      "vite.social.config.js",
       "eslint.config.js",
     ],
   },
   js.configs.recommended,
+  // JS/JSX: both frontends
   {
-    files: ["social-frontend/**/*.{js,jsx}"],
+    files: frontends,
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      parserOptions: {
-        ecmaFeatures: { jsx: true },
-      },
-      globals: {
-        ...globals.browser,
-        ...globals.es2024,
-      },
+      parserOptions: { ecmaFeatures: { jsx: true } },
+      globals: sharedGlobals,
+    },
+    plugins: sharedPlugins,
+    settings: { react: { version: "detect" } },
+    rules: {
+      ...a11yPlugin.configs.recommended.rules,
+      "react/jsx-uses-vars": "error",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+    },
+  },
+  // TS/TSX: both frontends
+  {
+    files: frontendsTsx,
+    languageOptions: {
+      parser: tseslint.parser,
+      ecmaVersion: "latest",
+      sourceType: "module",
+      parserOptions: { ecmaFeatures: { jsx: true } },
+      globals: sharedGlobals,
     },
     plugins: {
-      "jsx-a11y": jsxA11y,
-      react: reactPlugin,
-      "react-hooks": reactHooks,
+      ...sharedPlugins,
+      "@typescript-eslint": tseslint.plugin,
     },
-    settings: {
-      react: { version: "detect" },
-    },
+    settings: { react: { version: "detect" } },
     rules: {
-      // jsx-a11y recommended set
-      ...jsxA11y.configs.recommended.rules,
-      // Most React rules duplicate what TypeScript / careful review
-      // already catch, but a few are ARIA-adjacent. Keep the set
-      // minimal so the lint signal stays a11y-focused.
+      ...a11yPlugin.configs.recommended.rules,
       "react/jsx-uses-vars": "error",
-      // The base ESLint rules surface a few real bugs (no-unused-vars,
-      // no-undef). Tune as we hit noise.
-      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
   },
 ];
