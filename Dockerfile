@@ -1,7 +1,7 @@
 # Frontend build stage. Builds both the admin SPA (admin-assets/) and the
 # social SPA (social-assets/). The two share package.json + node_modules
 # and are produced from one `bun run build` call (admin then social).
-FROM oven/bun:1-slim AS frontend-builder
+FROM oven/bun:1.3.14-slim AS frontend-builder
 
 WORKDIR /app
 
