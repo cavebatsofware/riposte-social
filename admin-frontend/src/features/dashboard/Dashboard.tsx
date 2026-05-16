@@ -38,7 +38,7 @@ function Dashboard() {
   // Line chart configuration for hourly access rates
   const accessRateChartOptions = {
     chart: {
-      type: "line",
+      type: "line" as const,
       height: 350,
       toolbar: {
         show: true,
@@ -48,7 +48,7 @@ function Dashboard() {
       },
     },
     stroke: {
-      curve: "smooth",
+      curve: "smooth" as const,
       width: 3,
     },
     colors: ["#3498db"],
@@ -71,7 +71,7 @@ function Dashboard() {
     },
     title: {
       text: "Access Rate (Last 24 Hours)",
-      align: "left",
+      align: "left" as const,
       style: {
         fontSize: "18px",
         fontWeight: "600",
@@ -98,7 +98,7 @@ function Dashboard() {
   // Bar chart configuration for recent access codes
   const recentCodesChartOptions = {
     chart: {
-      type: "bar",
+      type: "bar" as const,
       height: 350,
       toolbar: {
         show: true,
@@ -133,7 +133,7 @@ function Dashboard() {
     },
     title: {
       text: "Most Used Access Codes (Last 24 Hours)",
-      align: "left",
+      align: "left" as const,
       style: {
         fontSize: "18px",
         fontWeight: "600",

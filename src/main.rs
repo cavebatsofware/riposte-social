@@ -218,6 +218,15 @@ async fn main() -> anyhow::Result<()> {
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(TimeDuration::days(1)))
         .with_same_site(SameSite::Lax);
+    // Under e2e_testing + DEV_MODE=true the app runs over plain HTTP, so the
+    // Secure flag must be off or cy.request() cookies won't propagate to the
+    // browser for cy.visit() calls.
+    #[cfg(feature = "e2e_testing")]
+    let session_layer = if env::var("DEV_MODE").as_deref() == Ok("true") {
+        session_layer.with_secure(false)
+    } else {
+        session_layer
+    };
 
     // Setup admin auth backend
     let admin_backend = admin::UserAuthBackend::new(state.db.clone());
@@ -286,7 +295,7 @@ async fn main() -> anyhow::Result<()> {
                     header::CACHE_CONTROL,
                     header::HeaderValue::from_static("public, max-age=3600"),
                 ))
-                .service(ServeDir::new("./social-assets/locales")),
+                .service(ServeDir::new("./social-assets/locales").precompressed_gzip()),
         )
         // Social SPA fallback: any unmatched path serves index.html so React
         // Router handles client-side routing.

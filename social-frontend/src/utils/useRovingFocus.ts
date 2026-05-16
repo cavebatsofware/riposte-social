@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 
 /// Wire roving-focus keyboard navigation onto a popover container.
 ///
@@ -18,8 +18,8 @@ import { useEffect } from "react";
 /// without an extra Tab. Consumers that need a focus trap should
 /// compose with `useFocusTrap`.
 export function useRovingFocus(
-  containerRef,
-  active,
+  containerRef: RefObject<HTMLElement | null>,
+  active: boolean,
   {
     selector = '[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]',
     orientation = "vertical",
@@ -32,8 +32,8 @@ export function useRovingFocus(
     const container = containerRef.current;
     if (!container) return undefined;
 
-    function items() {
-      return Array.from(container.querySelectorAll(selector)).filter(
+    function items(): HTMLElement[] {
+      return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
         (el) => !el.hasAttribute("disabled"),
       );
     }
@@ -63,8 +63,8 @@ export function useRovingFocus(
       if (![nextKey, prevKey, "Home", "End"].includes(e.key)) return;
       const list = items();
       if (list.length === 0) return;
-      const current = document.activeElement;
-      const idx = list.indexOf(current);
+      const current = document.activeElement as HTMLElement | null;
+      const idx = list.indexOf(current as HTMLElement);
       let next;
       if (e.key === "Home") {
         next = 0;

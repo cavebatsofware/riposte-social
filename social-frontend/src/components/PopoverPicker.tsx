@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 
 /// Shared toggle-button + popover shell used by `LanguagePicker` and
 /// `ThemePicker`. Owns the close-on-outside-interaction listeners
@@ -33,9 +33,20 @@ export default function PopoverPicker({
   toggleAriaLabel,
   toggleIcon,
   popoverAriaLabel,
-  popoverRef,
-  inlineRef,
+  popoverRef = null,
+  inlineRef = null,
   children,
+}: {
+  variant?: string;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  className: string;
+  toggleAriaLabel: string;
+  toggleIcon: React.ReactNode;
+  popoverAriaLabel: string;
+  popoverRef?: React.Ref<HTMLDivElement> | null;
+  inlineRef?: React.Ref<HTMLDivElement> | null;
+  children: React.ReactNode;
 }) {
   const containerRef = useRef(null);
   const triggerRef = useRef(null);

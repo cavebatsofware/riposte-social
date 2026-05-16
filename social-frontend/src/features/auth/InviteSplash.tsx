@@ -20,7 +20,7 @@ export default function InviteSplash() {
   const [dismissed, setDismissed] = useState(false);
   const { t } = useTranslation("auth");
   const open = !loading && !dismissed && invite != null && !user;
-  const trapRef = useFocusTrap(open, {
+  const trapRef = useFocusTrap<HTMLDivElement>(open, {
     onEscape: () => handleDecline(),
     restoreFocus: false,
   });

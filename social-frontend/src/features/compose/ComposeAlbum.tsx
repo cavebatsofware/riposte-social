@@ -260,7 +260,7 @@ export default function ComposeAlbum() {
       }
       // Edit: stage of patches.
       // 1) PATCH metadata (name/desc/visibility/category) if any changed.
-      const patchBody = {
+      const patchBody: { name: string; description: string; visibility: string; category_id?: string; clear_category?: boolean } = {
         name,
         description: description,
         visibility,

@@ -15,7 +15,7 @@ import { useTranslation } from "react-i18next";
 
 export const VISIBILITIES = ["private", "public", "commenters", "posters"];
 
-export default function VisibilityPicker({ value, onChange, legend }) {
+export default function VisibilityPicker({ value, onChange, legend }: { value: string; onChange: (id: string) => void; legend?: string }) {
   // Pull `compose` for the legend wording and `feed` for each tier's
   // name + description (the same labels that render on PostCard badges
   // and in the VisibilityMenu, so a single edit ripples everywhere).

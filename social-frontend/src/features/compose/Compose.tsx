@@ -121,7 +121,7 @@ export default function Compose() {
       const empty = t("body.previewEmpty");
       return `<p class="muted">${empty}</p>`;
     }
-    const raw = marked.parse(body, { breaks: true, gfm: true });
+    const raw = marked.parse(body, { breaks: true, gfm: true }) as string;
     return DOMPurify.sanitize(raw);
   }, [body, t]);
 
@@ -232,7 +232,7 @@ export default function Compose() {
         // Send category_id when set, or `clear_category: true` to drop
         // an existing assignment (the empty-string option in the picker
         // becomes a clear).
-        const patchBody = { body, visibility };
+        const patchBody: { body: string; visibility: string; category_id?: string; clear_category?: boolean } = { body, visibility };
         if (categoryId) {
           patchBody.category_id = categoryId;
         } else {

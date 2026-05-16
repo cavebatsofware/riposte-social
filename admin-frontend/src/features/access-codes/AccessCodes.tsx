@@ -236,7 +236,7 @@ function AccessCodes() {
                   onChange={(e) =>
                     setNewCode({ ...newCode, description: e.target.value })
                   }
-                  rows="8"
+                  rows={8}
                   placeholder="Add a longer description here (a few pages of text)"
                 />
                 <small>Optional longer description for this access code</small>

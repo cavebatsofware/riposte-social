@@ -19,7 +19,7 @@ export function formatRelativeTime(iso, locale) {
   if (!iso) return "";
   const d = new Date(iso);
   const now = new Date();
-  const diffSec = Math.floor((now - d) / 1000);
+  const diffSec = Math.floor((now.getTime() - d.getTime()) / 1000);
   const lng = locale || "en";
   const rtf = new Intl.RelativeTimeFormat(lng, { numeric: "auto" });
 

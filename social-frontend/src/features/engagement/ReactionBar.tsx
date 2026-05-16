@@ -161,7 +161,7 @@ export default function ReactionBar({ target, state, compact = false }) {
     }
   }
 
-  async function runRequest({ remove, add }) {
+  async function runRequest({ remove, add }: { remove?: string; add?: string }) {
     const optimisticCounts = { ...counts };
     let optimisticKinds = [...viewerKinds];
     if (remove) {

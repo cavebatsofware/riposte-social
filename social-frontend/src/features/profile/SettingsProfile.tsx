@@ -31,7 +31,7 @@ export default function SettingsProfile() {
   const { t } = useTranslation("settings");
   const { t: tCommon } = useTranslation("common");
 
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<{ handle: string; display_name?: string; bio?: string; pronouns?: string; avatar_url?: string } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
   const [handle, setHandle] = useState("");
@@ -83,7 +83,7 @@ export default function SettingsProfile() {
     setError("");
     setSuccess("");
     try {
-      const body = {};
+      const body: { handle?: string; display_name?: string; bio?: string; pronouns?: string } = {};
       if (handle !== profile.handle) body.handle = handle;
       if (displayName !== (profile.display_name || ""))
         body.display_name = displayName;

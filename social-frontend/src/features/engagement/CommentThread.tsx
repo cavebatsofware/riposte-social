@@ -394,12 +394,19 @@ function CommentItem({ target, comment, viewer, onDelete, onEdit }) {
 /// references its tab via `aria-labelledby` and is itself focusable so
 /// keyboard users can land in the panel after tabbing past the tabs.
 function CommentMarkdownArea({
-  id,
+  id = "",
   value,
   onChange,
   rows = 3,
   maxLength = 4000,
-  placeholder,
+  placeholder = "",
+}: {
+  id?: string;
+  value: string;
+  onChange: (v: string) => void;
+  rows?: number;
+  maxLength?: number;
+  placeholder?: string;
 }) {
   const { t } = useTranslation("feed");
   const [tab, setTab] = useState("write");
@@ -415,7 +422,7 @@ function CommentMarkdownArea({
       const empty = t("comments.editor.previewEmpty");
       return `<p class="muted">${empty}</p>`;
     }
-    const raw = marked.parse(value, { breaks: true, gfm: true });
+    const raw = marked.parse(value, { breaks: true, gfm: true }) as string;
     return DOMPurify.sanitize(raw);
   }, [value, t]);
 

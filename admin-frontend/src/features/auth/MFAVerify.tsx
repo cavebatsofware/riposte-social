@@ -66,7 +66,7 @@ function MFAVerify() {
               onChange={handleCodeChange}
               placeholder="000000"
               className="mfa-code-input"
-              maxLength="6"
+              maxLength={6}
               autoFocus
               required
             />

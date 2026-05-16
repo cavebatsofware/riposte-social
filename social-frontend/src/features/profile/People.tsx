@@ -142,7 +142,7 @@ function GraphTab({ viewerId, variant, t, tCommon }) {
       setLoading(true);
       setError("");
       try {
-        const response = await fetchUserConnections(viewerId, variant);
+        const response = await fetchUserConnections(viewerId, variant, "");
         if (!response.ok) throw new Error(t("people.loadFailed"));
         const data = await response.json();
         if (cancelled) return;

@@ -78,7 +78,7 @@ function InviteCodes() {
 
   async function handleCreate({ email_hint, expires_in_hours }) {
     setError("");
-    const body = {};
+    const body: { email_hint?: string; expires_in_hours?: number } = {};
     if (email_hint && email_hint.trim()) {
       body.email_hint = email_hint.trim();
     }
@@ -335,7 +335,7 @@ function CreateInviteModal({ onSubmit, onClose }) {
                 min={1}
                 max={30 * 24}
                 value={expiresInHours}
-                onChange={(e) => setExpiresInHours(e.target.value)}
+                onChange={(e) => setExpiresInHours(Number(e.target.value))}
               />
               <small className="form-hint">
                 Default 168 (7 days). Maximum 720 (30 days).

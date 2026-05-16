@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
@@ -224,7 +224,7 @@ function PostBody({ safeHtml, variant }) {
 /// badge rather than an inline `<video controls>`, since the lightbox
 /// provides controls + autoplay when the user clicks in. Keeps the
 /// behavior consistent across post and album surfaces.
-function MediaItem({ m, index, className, onOpen }) {
+function MediaItem({ m, index, className = "", onOpen }: { m: any; index: number; className?: string; onOpen: (i: number, e: React.MouseEvent) => void }) {
   const { t } = useTranslation("feed");
   const inner =
     m.media_kind === "video" ? (

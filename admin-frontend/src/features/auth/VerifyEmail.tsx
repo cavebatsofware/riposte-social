@@ -9,10 +9,10 @@ function VerifyEmail() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    verifyEmail();
+    handleVerifyEmail();
   }, []);
 
-  async function verifyEmail() {
+  async function handleVerifyEmail() {
     const token = searchParams.get('token');
 
     if (!token) {

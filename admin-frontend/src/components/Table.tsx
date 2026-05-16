@@ -16,10 +16,18 @@ function Table({
   columns,
   data,
   getRowKey = (row) => row.id,
-  getRowClassName,
+  getRowClassName = null,
   loading = false,
   emptyMessage = "No data available",
-  pagination,
+  pagination = null,
+}: {
+  columns: any;
+  data: any;
+  getRowKey?: (row: any) => any;
+  getRowClassName?: ((row: any) => string) | null;
+  loading?: boolean;
+  emptyMessage?: string;
+  pagination?: { page: number; totalPages: number; onPageChange: (p: number) => void } | null;
 }) {
   if (loading) {
     return <div className="loading">Loading...</div>;

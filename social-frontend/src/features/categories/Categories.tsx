@@ -125,7 +125,7 @@ export default function Categories() {
       setError(t("categories.nameRequired"));
       return;
     }
-    const body = {
+    const body: { name: string; visibility: string; slug?: string; color?: string } = {
       name: newName.trim(),
       visibility: newVisibility,
     };
@@ -452,7 +452,7 @@ function MemberModal({ category, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const trapRef = useFocusTrap(true, { onEscape: onClose });
+  const trapRef = useFocusTrap<HTMLDivElement>(true, { onEscape: onClose });
 
   useEffect(() => {
     let cancelled = false;

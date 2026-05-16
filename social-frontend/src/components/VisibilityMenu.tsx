@@ -10,7 +10,7 @@ const OPTION_IDS = ["private", "public", "commenters", "posters"];
 /// `<VisibilityBadge>`. Selecting an option PATCHes
 /// `/api/posts/{id}` and calls `onChange(newVisibility)` so the parent
 /// can sync any cached copy.
-export default function VisibilityMenu({ post, onChange }) {
+export default function VisibilityMenu({ post, onChange }: { post: { id: string; visibility: string }; onChange?: (v: string) => void }) {
   const { t } = useTranslation("feed");
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);

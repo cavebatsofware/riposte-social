@@ -2,9 +2,9 @@
  * Fetch wrapper that automatically includes CSRF token from session.
  */
 
-let csrfToken = null;
+let csrfToken: string | null = null;
 
-async function ensureCsrfToken() {
+async function ensureCsrfToken(): Promise<string | null> {
   if (csrfToken) return csrfToken;
 
   const response = await fetch("/api/auth/csrf-token", {
@@ -19,14 +19,16 @@ async function ensureCsrfToken() {
   return csrfToken;
 }
 
-export function clearCsrfToken() {
+export function clearCsrfToken(): void {
   csrfToken = null;
 }
 
-export async function fetchApi(url, options = {}) {
-  const headers = { ...options.headers };
+export async function fetchApi(url: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string> | undefined),
+  };
 
-  if (["POST", "PUT", "DELETE", "PATCH"].includes(options.method?.toUpperCase())) {
+  if (["POST", "PUT", "DELETE", "PATCH"].includes((options.method ?? "").toUpperCase())) {
     const token = await ensureCsrfToken();
     if (token) {
       headers["x-csrf-token"] = token;

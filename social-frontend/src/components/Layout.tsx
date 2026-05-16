@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -30,7 +30,13 @@ import "./Layout.css";
 /// link is fail-closed: it only renders when
 /// `siteConfig.poster_posting_enabled === true` for poster users (admins
 /// always retain access).
-export default function Layout({ leftRail, rightRail, children }) {
+interface LayoutProps {
+  leftRail?: React.ReactNode;
+  rightRail?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
   const { user, loading: authLoading, logout } = useAuth();
   const { config: site } = useSiteConfig();
   const location = useLocation();

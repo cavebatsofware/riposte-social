@@ -294,7 +294,7 @@ function Users() {
 }
 
 function EditUserModal({ user, onSave, onClose }) {
-  const [updates, setUpdates] = useState({});
+  const [updates, setUpdates] = useState<{ active?: boolean; email_verified?: boolean; reset_mfa_lockout?: boolean; disable_mfa?: boolean }>({});
   const [loading, setLoading] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);

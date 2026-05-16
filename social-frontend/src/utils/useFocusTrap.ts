@@ -46,9 +46,9 @@ const FOCUSABLE_SELECTOR = [
   "[tabindex]:not([tabindex=\"-1\"])",
 ].join(",");
 
-function getFocusable(container) {
+function getFocusable(container: HTMLElement): HTMLElement[] {
   if (!container) return [];
-  const nodes = container.querySelectorAll(FOCUSABLE_SELECTOR);
+  const nodes = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
   return Array.from(nodes).filter((el) => {
     if (el.hasAttribute("disabled")) return false;
     if (el.getAttribute("aria-hidden") === "true") return false;
@@ -61,9 +61,14 @@ function getFocusable(container) {
   });
 }
 
-export function useFocusTrap(active, { onEscape, restoreFocus = true } = {}) {
-  const containerRef = useRef(null);
-  const restoreRef = useRef(null);
+interface FocusTrapOptions {
+  onEscape?: (e: KeyboardEvent) => void;
+  restoreFocus?: boolean;
+}
+
+export function useFocusTrap<T extends HTMLElement = HTMLElement>(active: boolean, { onEscape, restoreFocus = true }: FocusTrapOptions = {}) {
+  const containerRef = useRef<T | null>(null);
+  const restoreRef = useRef<HTMLElement | null>(null);
   const onEscapeRef = useRef(onEscape);
 
   useEffect(() => {

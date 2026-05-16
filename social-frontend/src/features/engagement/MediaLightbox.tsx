@@ -19,7 +19,7 @@ import "./MediaLightbox.css";
 ///   where engagement isn't applicable.
 /// `onClose`, `onIndex`: parent-supplied callbacks.
 export default function MediaLightbox({ items, index, postId, onClose, onIndex }) {
-  const overlayRef = useFocusTrap(true, { onEscape: onClose });
+  const overlayRef = useFocusTrap<HTMLDivElement>(true, { onEscape: onClose });
   const touchStartRef = useRef(null);
   const { t } = useTranslation("browse");
 

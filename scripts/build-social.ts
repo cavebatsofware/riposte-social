@@ -26,9 +26,18 @@ cpSync("social-frontend/public/locales", "social-assets/locales", {
   recursive: true,
 });
 
-const glob = new Glob("app/**/*.{js,css}");
-for await (const file of glob.scan("./social-assets")) {
+const jsGlob = new Glob("app/**/*.{js,css}");
+for await (const file of jsGlob.scan("./social-assets")) {
   const proc = Bun.spawn(["gzip", "-k", "-f", `social-assets/${file}`], {
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+  await proc.exited;
+}
+
+const localeGlob = new Glob("**/*.json");
+for await (const file of localeGlob.scan("./social-assets/locales")) {
+  const proc = Bun.spawn(["gzip", "-k", "-f", `social-assets/locales/${file}`], {
     stdout: "inherit",
     stderr: "inherit",
   });
