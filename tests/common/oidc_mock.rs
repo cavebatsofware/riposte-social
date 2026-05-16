@@ -36,7 +36,7 @@ use openidconnect::{
     Audience, EndUserEmail, IdToken, IdTokenClaims, IssuerUrl, JsonWebKeyId, Nonce, StandardClaims,
     SubjectIdentifier,
 };
-use riposte_social::oidc::{KeycloakClaims, OidcConfig, OidcService};
+use riposte_social::auth::oidc::{KeycloakClaims, OidcConfig, OidcService};
 use rsa::pkcs1::{EncodeRsaPrivateKey, LineEnding};
 use rsa::traits::PublicKeyParts;
 use rsa::{RsaPrivateKey, RsaPublicKey};

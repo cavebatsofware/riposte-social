@@ -39,7 +39,8 @@
 //! schema but not used yet; introducing them costs no DDL.
 
 pub mod facebook;
-pub mod routes;
+pub mod handlers;
+pub mod types;
 
 use crate::entities::{import_job, ImportJob};
 use sea_orm::{ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Set};

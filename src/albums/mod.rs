@@ -24,4 +24,19 @@
 //! Visibility filtering reuses [`crate::posts::can_read_post`] so the
 //! private-tier author override behaves the same as it does for posts.
 
-pub mod routes;
+pub mod handlers;
+pub mod queries;
+pub mod types;
+
+use crate::s3::S3Service;
+use crate::settings::SettingsService;
+use sea_orm::DatabaseConnection;
+
+pub use handlers::{album_read_routes, album_write_routes};
+
+#[derive(Clone)]
+pub struct AlbumsState {
+    pub db: DatabaseConnection,
+    pub s3: S3Service,
+    pub settings: SettingsService,
+}

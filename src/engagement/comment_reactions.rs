@@ -19,6 +19,7 @@
 //! to a comment on a post they should not be able to read.
 
 use crate::admin::UserAuth;
+use crate::engagement::types::{CommentReactionStateResponse, CreateCommentReactionRequest};
 use crate::engagement::EngagementState;
 use crate::entities::reaction;
 use crate::entities::{comment, comment_reaction, post, Comment, CommentReaction, Post};
@@ -31,7 +32,6 @@ use axum::{
 };
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -45,17 +45,6 @@ pub fn comment_reaction_routes() -> Router<EngagementState> {
             "/api/posts/{post_id}/comments/{comment_id}/reactions/{kind}",
             delete(delete_comment_reaction),
         )
-}
-
-#[derive(Deserialize)]
-pub struct CreateCommentReactionRequest {
-    pub kind: String,
-}
-
-#[derive(Serialize)]
-pub struct CommentReactionStateResponse {
-    pub reaction_counts: HashMap<String, i64>,
-    pub viewer_reaction_kinds: Vec<String>,
 }
 
 async fn create_comment_reaction(

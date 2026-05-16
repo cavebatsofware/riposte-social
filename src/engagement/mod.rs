@@ -32,6 +32,7 @@ pub mod comments;
 pub mod media_comments;
 pub mod media_reactions;
 pub mod reactions;
+pub mod types;
 
 pub use aggregate::{
     fetch_engagement_for_media, fetch_engagement_for_posts, MediaEngagement, PostEngagement,

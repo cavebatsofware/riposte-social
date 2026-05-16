@@ -16,6 +16,7 @@
 use crate::admin::{self, UserAuthBackend};
 use crate::albums;
 use crate::auth;
+use crate::auth::oidc::{OidcConfig, OidcService};
 use crate::categories;
 use crate::email::EmailService;
 use crate::engagement;
@@ -24,16 +25,15 @@ use crate::errors::{AppError, AppResult};
 use crate::follows;
 use crate::imports;
 use crate::invites;
+use crate::middleware::rate_limit::AppRateLimitCallbacks;
 use crate::middleware::{
     csrf_middleware, require_admin, require_admin_or_poster, require_authenticated,
 };
-use crate::oidc::{OidcConfig, OidcService};
 use crate::posts;
 use crate::profile;
 use crate::s3::S3Service;
-use crate::security_callbacks::AppRateLimitCallbacks;
 use crate::settings::SettingsService;
-use crate::{contact, subscribe};
+use crate::{contact, subscriptions};
 use anyhow::Result;
 use axum::extract::{Path, State};
 use axum::http::{header, StatusCode};
@@ -420,29 +420,29 @@ pub fn build_router(deps: RouterDeps) -> Router {
     };
 
     // Admin routes
-    let admin_state = admin::routes::AdminState {
+    let admin_state = admin::handlers::AdminState {
         auth_backend: admin_backend.clone(),
         email_service: email_service.clone(),
         settings: state.settings.clone(),
         oidc_enabled,
         oidc_account_url,
     };
-    let admin_routes = admin::routes::admin_api_routes(state.auth_rate_limiter.clone())
+    let admin_routes = admin::handlers::admin_api_routes(state.auth_rate_limiter.clone())
         .with_state(admin_state)
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
     // OIDC routes — shared across all user tiers (admin, poster, commenter).
-    let oidc_state = auth::oidc_routes::OidcState {
+    let oidc_state = auth::handlers::OidcState {
         oidc_service: state.oidc.clone(),
         db: state.db.clone(),
         settings: state.settings.clone(),
     };
     let oidc_routes = Router::new()
-        .route("/api/auth/oidc/login", get(auth::oidc_routes::oidc_login))
+        .route("/api/auth/oidc/login", get(auth::handlers::oidc_login))
         .route(
             "/api/auth/oidc/callback",
-            get(auth::oidc_routes::oidc_callback),
+            get(auth::handlers::oidc_callback),
         )
         .with_state(oidc_state)
         .layer(from_fn_with_state(
@@ -475,12 +475,12 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(auth_layer.clone());
 
     // Admin user management routes
-    let admin_user_state = admin::admin_users::AdminUserState {
+    let admin_user_state = admin::users::AdminUserState {
         db: state.db.clone(),
         auth_backend: admin_backend.clone(),
         email_service: email_service.clone(),
     };
-    let admin_user_routes = admin::admin_users::admin_user_routes()
+    let admin_user_routes = admin::users::admin_user_routes()
         .with_state(admin_user_state)
         .layer(from_fn(require_admin))
         .layer(from_fn(require_authenticated))
@@ -502,12 +502,12 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // status. The POST handler streams the upload to a tempfile then
     // spawns a tokio worker — see `src/imports/routes.rs` for the full
     // lifecycle and `src/imports/facebook.rs` for the worker.
-    let imports_state = imports::routes::ImportsState {
+    let imports_state = imports::handlers::ImportsState {
         db: state.db.clone(),
         s3: state.s3.clone(),
         settings: state.settings.clone(),
     };
-    let imports_routes = imports::routes::imports_routes()
+    let imports_routes = imports::handlers::imports_routes()
         .with_state(imports_state)
         .layer(from_fn(require_admin))
         .layer(from_fn(require_authenticated))
@@ -545,53 +545,53 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // Posts: write endpoints require authentication + admin/poster role; the
     // PATCH/DELETE handlers additionally check author-or-admin. Read
     // endpoints are public; visibility is filtered against the caller's tier.
-    let posts_state = posts::routes::PostsState {
+    let posts_state = posts::PostsState {
         db: state.db.clone(),
         s3: state.s3.clone(),
         settings: state.settings.clone(),
     };
-    let post_write_routes = posts::routes::post_write_routes()
+    let post_write_routes = posts::post_write_routes()
         .with_state(posts_state.clone())
         .layer(from_fn(require_admin_or_poster))
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
-    let post_read_routes = posts::routes::post_read_routes()
+    let post_read_routes = posts::post_read_routes()
         .with_state(posts_state)
         .layer(auth_layer.clone());
 
     // Albums (Phase 9d): media-only collections, parallel to posts but
     // never merged into the feed. Author/admin gate on the write side
     // mirrors posts; reads are public with the same visibility predicate.
-    let albums_state = albums::routes::AlbumsState {
+    let albums_state = albums::AlbumsState {
         db: state.db.clone(),
         s3: state.s3.clone(),
         settings: state.settings.clone(),
     };
-    let album_write_routes = albums::routes::album_write_routes()
+    let album_write_routes = albums::album_write_routes()
         .with_state(albums_state.clone())
         .layer(from_fn(require_admin_or_poster))
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
-    let album_read_routes = albums::routes::album_read_routes()
+    let album_read_routes = albums::album_read_routes()
         .with_state(albums_state)
         .layer(auth_layer.clone());
 
     // Categories (Phase 9e). Public list is readable by anyone (used by
     // the social-frontend's left rail); CRUD is admin-only.
-    let categories_state = categories::routes::CategoriesState {
+    let categories_state = categories::CategoriesState {
         db: state.db.clone(),
         settings: state.settings.clone(),
     };
-    let public_category_routes = categories::routes::public_category_routes()
+    let public_category_routes = categories::public_category_routes()
         .with_state(categories_state.clone())
         .layer(auth_layer.clone());
     // Category management is open to admin OR poster (subject to the
     // `poster_category_management_enabled` gate). The route layer just
     // enforces "must be logged in"; per-row permission checks happen
     // inside each handler against `can_manage_category`.
-    let category_management_routes = categories::routes::category_management_routes()
+    let category_management_routes = categories::category_management_routes()
         .with_state(categories_state)
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
@@ -599,32 +599,32 @@ pub fn build_router(deps: RouterDeps) -> Router {
 
     // Profile: self-service writes for the authenticated viewer; public
     // reads for profile pages and avatar serving.
-    let profile_state = profile::routes::ProfileState {
+    let profile_state = profile::ProfileState {
         db: state.db.clone(),
         s3: state.s3.clone(),
         settings: state.settings.clone(),
     };
-    let me_profile_routes = profile::routes::me_profile_routes()
+    let me_profile_routes = profile::me_profile_routes()
         .with_state(profile_state.clone())
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
-    let public_profile_routes = profile::routes::public_profile_routes()
+    let public_profile_routes = profile::public_profile_routes()
         .with_state(profile_state)
         .layer(auth_layer.clone());
 
     // Follows: directed follower-graph edges. Writes are CSRF-gated and
     // require authentication. Reads are auth-only too because the graph
     // isn't part of the public-feed surface today.
-    let follows_state = follows::routes::FollowsState {
+    let follows_state = follows::FollowsState {
         db: state.db.clone(),
     };
-    let follows_write_routes = follows::routes::follows_write_routes()
+    let follows_write_routes = follows::follows_write_routes()
         .with_state(follows_state.clone())
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
-    let follows_read_routes = follows::routes::follows_read_routes()
+    let follows_read_routes = follows::follows_read_routes()
         .with_state(follows_state)
         .layer(from_fn(require_authenticated))
         .layer(auth_layer.clone());
@@ -668,13 +668,13 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(session_layer.clone());
 
     // Subscribe routes (need session_layer for CSRF token validation)
-    let subscribe_state = subscribe::SubscribeState {
+    let subscribe_state = subscriptions::SubscribeState {
         email_service: email_service.clone(),
         callbacks: state.callbacks.clone(),
         db: state.db.clone(),
         settings: state.settings.clone(),
     };
-    let subscribe_routes = subscribe::subscribe_routes()
+    let subscribe_routes = subscriptions::subscribe_routes()
         .with_state(subscribe_state)
         .layer(from_fn(csrf_middleware))
         .layer(session_layer.clone());

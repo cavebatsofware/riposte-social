@@ -19,6 +19,10 @@
 
 use crate::admin::UserAuth;
 use crate::engagement::media_reactions::{load_visible_media, lookup_media};
+use crate::engagement::types::{
+    CreateMediaCommentRequest, EditMediaCommentRequest, MediaCommentListResponse,
+    MediaCommentResponse,
+};
 use crate::engagement::EngagementState;
 use crate::entities::{post_media_comment, user, User};
 use crate::errors::{AppError, AppResult};
@@ -33,7 +37,6 @@ use axum::{
 };
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
@@ -56,36 +59,6 @@ pub fn media_comment_read_routes() -> Router<EngagementState> {
         "/api/posts/{post_id}/media/{media_id}/comments",
         get(list_media_comments),
     )
-}
-
-#[derive(Deserialize)]
-pub struct CreateMediaCommentRequest {
-    pub body: String,
-}
-
-#[derive(Deserialize)]
-pub struct EditMediaCommentRequest {
-    pub body: String,
-}
-
-#[derive(Serialize)]
-pub struct MediaCommentResponse {
-    pub id: Uuid,
-    pub media_id: Uuid,
-    pub user_id: Uuid,
-    pub author_display: Option<String>,
-    pub author_handle: Option<String>,
-    pub author_avatar_url: Option<String>,
-    pub body: String,
-    pub body_html: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub edited_at: Option<String>,
-}
-
-#[derive(Serialize)]
-pub struct MediaCommentListResponse {
-    pub comments: Vec<MediaCommentResponse>,
 }
 
 fn build_media_comment_response(

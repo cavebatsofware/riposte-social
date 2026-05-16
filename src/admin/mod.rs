@@ -15,14 +15,14 @@
  */
 pub mod access_codes;
 pub mod access_logs;
-pub mod admin_users;
 pub mod auth;
+pub mod handlers;
 pub mod moderation;
 pub mod pagination;
 pub mod password;
-pub mod routes;
 pub mod settings;
-pub mod totp;
+pub mod types;
+pub mod users;
 
 pub use auth::{Credentials, UserAuth, UserAuthBackend};
 

@@ -17,6 +17,7 @@ use uuid::Uuid;
 
 pub mod access_log;
 pub mod admin_auth;
+pub mod rate_limit;
 
 pub use access_log::access_log_middleware;
 pub use admin_auth::{

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { fetchApi } from "../utils/api";
+import { patchPostVisibility } from "../features/feed/api";
 import useRovingFocus from "../utils/useRovingFocus";
 
 const OPTION_IDS = ["private", "public", "commenters", "posters"];
@@ -62,11 +62,7 @@ export default function VisibilityMenu({ post, onChange }) {
     setSubmitting(true);
     setError("");
     try {
-      const response = await fetchApi(`/api/posts/${post.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ visibility: id }),
-      });
+      const response = await patchPostVisibility(post.id, id);
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || t("visibility.menuFailed"));
