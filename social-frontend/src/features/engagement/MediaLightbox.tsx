@@ -22,9 +22,21 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
   const overlayRef = useFocusTrap<HTMLDivElement>(true, { onEscape: onClose });
   const touchStartRef = useRef(null);
   const { t } = useTranslation("browse");
+  const [zoomed, setZoomed] = useState(false);
 
   const total = items.length;
   const item = items[index];
+
+  // Reset to fitted view whenever the user moves to a different item.
+  useEffect(() => {
+    setZoomed(false);
+  }, [index]);
+
+  // Scroll to the top of the overlay whenever zoom state changes so the
+  // image is always in frame on both enter and exit.
+  useEffect(() => {
+    overlayRef.current?.scrollTo(0, 0);
+  }, [zoomed]);
 
   const goPrev = useCallback(() => {
     if (total === 0) return;
@@ -71,6 +83,8 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     const start = touchStartRef.current;
     if (!start) return;
     touchStartRef.current = null;
+    // In zoomed state horizontal swipe pans the image; let native scroll handle it.
+    if (zoomed) return;
     const dx = (e.changedTouches[0]?.clientX ?? start.x) - start.x;
     const dy = (e.changedTouches[0]?.clientY ?? start.y) - start.y;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
@@ -110,7 +124,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={overlayRef}
-      className="media-lightbox"
+      className={`media-lightbox${zoomed ? " zoomed" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={t("lightbox.viewerAria")}
@@ -126,6 +140,17 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
       >
         ×
       </button>
+
+      {item.media_kind !== "video" && (
+        <button
+          type="button"
+          className="media-lightbox-zoom-toggle"
+          aria-pressed={zoomed}
+          onClick={() => setZoomed((z) => !z)}
+        >
+          {zoomed ? t("lightbox.exitFullSize") : t("lightbox.viewFullSize")}
+        </button>
+      )}
 
       {total > 1 && (
         <>
@@ -195,7 +220,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
         </span>
       </figure>
 
-      {postId && <MediaEngagementPanel postId={postId} mediaId={item.id} />}
+      {postId && !zoomed && <MediaEngagementPanel postId={postId} mediaId={item.id} />}
     </div>
   );
 }

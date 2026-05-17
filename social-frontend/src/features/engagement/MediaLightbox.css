@@ -6,24 +6,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  padding: var(--spacing-4);
   overflow-y: auto;
 }
 
 .media-lightbox-figure {
   margin: 0;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  /* Exactly (100vh - 24px) so the engagement panel peeks 24px below the fold */
+  min-height: calc(100vh - 24px);
+  max-height: calc(100vh - 24px);
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* Top padding clears the close button (top: 12px, height: 40px) */
+  padding: 60px var(--spacing-4) var(--spacing-3);
+  box-sizing: border-box;
   gap: var(--spacing-2);
 }
 
 .media-lightbox-media {
+  /* Grow to fill available figure height; object-fit keeps aspect ratio */
+  flex: 1 1 auto;
+  min-height: 0;
   max-width: 95vw;
-  max-height: 70vh;
   object-fit: contain;
   border-radius: var(--radius-md);
   background: #000;
@@ -55,6 +60,42 @@
   flex: 0 0 auto;
   color: rgba(255, 255, 255, 0.7);
   font-variant-numeric: tabular-nums;
+}
+
+.media-lightbox-zoom-toggle {
+  position: absolute;
+  bottom: var(--spacing-3);
+  left: var(--spacing-3);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.media-lightbox-zoom-toggle:hover {
+  background: rgba(0, 0, 0, 0.75);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.media-lightbox.zoomed {
+  overflow: auto;
+  align-items: flex-start;
+}
+
+.media-lightbox.zoomed .media-lightbox-figure {
+  max-height: none;
+  width: max-content;
+  min-width: 100%;
+}
+
+.media-lightbox.zoomed .media-lightbox-media {
+  flex: 0 0 auto;
+  max-width: none;
 }
 
 .media-lightbox-close {
@@ -116,14 +157,10 @@
     height: 36px;
     font-size: 24px;
   }
-  .media-lightbox-media {
-    max-height: 60vh;
-  }
 }
 
 .media-lightbox-engagement {
   width: min(800px, 95vw);
-  margin-top: var(--spacing-4);
   background: var(--color-surface, #fff);
   color: var(--color-text);
   border-radius: var(--radius-md);
