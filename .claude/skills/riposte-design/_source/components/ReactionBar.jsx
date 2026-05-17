@@ -7,7 +7,7 @@ import useRovingFocus from "../utils/useRovingFocus";
 /// The Facebook-6 reaction set. Order is the display order in the picker
 /// strip. The first entry is the default kind a user gets when they click
 /// the bare button without picking. Server-side allowlist is the source
-/// of truth  see `src/entities/reaction.rs::ALLOWED_KINDS`.
+/// of truth; see `src/entities/reaction.rs::ALLOWED_KINDS`.
 ///
 /// `id` and `emoji` stay here (universal across locales); the display
 /// label is resolved per-render via `t("feed:reactions.kind.{id}")` so

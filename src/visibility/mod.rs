@@ -227,7 +227,7 @@ impl ViewerCtx {
     ///     AND (author_id = viewer
     ///          OR category_id IN (:accessible_category_ids)))
     /// ```
-    /// Categorized rows defer to the category set OR the post's author 
+    /// Categorized rows defer to the category set OR the post's author
     /// the author-override safety net keeps a row visible to whoever
     /// wrote it (covers admin-into-someone-else's-cat and demoted-admin
     /// edge cases). Uncategorized rows fall back to the row's own
