@@ -150,7 +150,6 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
         <button
           type="button"
           className="media-lightbox-zoom-toggle"
-          aria-pressed={zoomed}
           onClick={() => setZoomed((z) => !z)}
         >
           {zoomed ? t("lightbox.exitFullSize") : t("lightbox.viewFullSize")}
@@ -225,7 +224,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
         </span>
       </figure>
 
-      {postId && !zoomed && <MediaEngagementPanel postId={postId} mediaId={item.id} />}
+      {postId && <MediaEngagementPanel postId={postId} mediaId={item.id} hidden={zoomed} />}
     </div>
   );
 }
@@ -235,7 +234,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
 /// changes (i.e. the user moves to a different item via prev/next), so
 /// the feed and album payloads don't have to ship engagement state for
 /// every photo up front.
-function MediaEngagementPanel({ postId, mediaId }) {
+function MediaEngagementPanel({ postId, mediaId, hidden = false }) {
   const { t } = useTranslation("feed");
   const [state, setState] = useState({
     id: mediaId,
@@ -286,6 +285,7 @@ function MediaEngagementPanel({ postId, mediaId }) {
     <section
       className="media-lightbox-engagement"
       aria-label={t("mediaEngagement.panelAria")}
+      hidden={hidden}
     >
       <ReactionBar
         target={{ kind: "media", postId, mediaId }}

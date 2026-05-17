@@ -1,7 +1,7 @@
 .media-lightbox {
   /* Used by .media-lightbox-figure padding to clear the close button.
      Update if close button top offset or height changes. */
-  --_close-clearance: 60px;
+  --_close-clearance: calc(var(--spacing-3) * 2 + 40px);
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.92);
@@ -88,6 +88,12 @@
 .media-lightbox.zoomed {
   overflow: auto;
   align-items: flex-start;
+}
+
+.media-lightbox.zoomed .media-lightbox-close,
+.media-lightbox.zoomed .media-lightbox-nav {
+  position: fixed;
+  z-index: 101;
 }
 
 .media-lightbox.zoomed .media-lightbox-figure {
