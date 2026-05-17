@@ -3,6 +3,11 @@
    so today's UI looks identical to the single-column
    experience while leaving room for nav rails / activity panels later. */
 
+:root {
+  /* Header height = var(--spacing-3) top + bottom padding (1.5rem) + 44px picker toggles (2.75rem). */
+  --layout-header-height: 4.25rem;
+}
+
 .layout {
   min-height: 100vh;
   display: flex;
@@ -138,6 +143,14 @@
   min-width: 0;
 }
 
+.layout-rail-left {
+  align-self: start;
+  position: sticky;
+  top: calc(var(--layout-header-height) + var(--spacing-6));
+  max-height: calc(100vh - var(--layout-header-height) - var(--spacing-6));
+  overflow-y: auto;
+}
+
 .layout-main {
   min-width: 0;
   /* bumped from 720px to 840px so wide screens spend less
@@ -265,6 +278,11 @@
   .layout-grid.has-right,
   .layout-grid.has-left.has-right {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .layout-rail-left {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
