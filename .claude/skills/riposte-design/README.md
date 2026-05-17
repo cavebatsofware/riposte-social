@@ -27,7 +27,7 @@ If you want to dig deeper than this system covers, browse the repo — it's comm
 | [`README.md`](./README.md) | This file. |
 | [`SKILL.md`](./SKILL.md) | Front-matter manifest so Claude Code can mount this as a skill. |
 | [`colors_and_type.css`](./colors_and_type.css) | All color, type, spacing, radius, and shadow tokens. Drop-in. |
-| [`fonts/`](./fonts/) | Self-hosted WOFF2 files for Inter, JetBrains Mono, and Noto Sans SC. Noto Color Emoji is intentionally absent — see caveats. |
+| [`fonts/`](./fonts/) | Self-hosted WOFF2 files for Inter, JetBrains Mono, Noto Sans SC, and Noto Color Emoji. |
 | [`assets/`](./assets/) | Brand mark (cavebatsofware org logo). Riposte itself is wordmark-only. |
 | [`preview/`](./preview/) | Per-token preview cards (rendered in the Design System tab). |
 | [`ui_kits/riposte/`](./ui_kits/riposte/) | The single product UI kit: header, feed, post cards, lightbox, login. |
