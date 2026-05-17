@@ -227,7 +227,7 @@ impl ViewerCtx {
     ///     AND (author_id = viewer
     ///          OR category_id IN (:accessible_category_ids)))
     /// ```
-    /// Categorized rows defer to the category set OR the post's author —
+    /// Categorized rows defer to the category set OR the post's author 
     /// the author-override safety net keeps a row visible to whoever
     /// wrote it (covers admin-into-someone-else's-cat and demoted-admin
     /// edge cases). Uncategorized rows fall back to the row's own
@@ -323,7 +323,7 @@ impl ViewerCtx {
 /// Resolve the set of category ids visible to this caller.
 ///
 /// Three-part filter (author-first for index-friendly evaluation):
-/// 1. Categories the viewer created — any tier, since "I created it, I
+/// 1. Categories the viewer created  any tier, since "I created it, I
 ///    see it". Cheapest predicate (indexed equality on `created_by`).
 /// 2. Categories whose `visibility` is in the role's allowed list.
 /// 3. Categories whose `visibility = 'user_list'` AND the viewer is in
@@ -356,7 +356,7 @@ where
 
     let allowed: Vec<&'static str> = tier.allowed_visibilities().to_vec();
 
-    // Creator hits — any tier, only when authenticated.
+    // Creator hits  any tier, only when authenticated.
     let mut creator_ids: Vec<Uuid> = if let Some(vid) = viewer_id {
         Category::find()
             .filter(category::Column::CreatedBy.eq(vid))
@@ -378,7 +378,7 @@ where
         .all(db)
         .await?;
 
-    // user_list hits — only when authenticated.
+    // user_list hits  only when authenticated.
     let mut acl_ids: Vec<Uuid> = if let Some(vid) = viewer_id {
         CategoryMember::find()
             .filter(category_member::Column::UserId.eq(vid))

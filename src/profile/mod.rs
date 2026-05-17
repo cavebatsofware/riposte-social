@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 8: profile management.
+//! profile management.
 //!
 //! Pure handle-shape utilities and the avatar-URL helper live here so any
 //! caller can use them without pulling in the DB / S3 wiring. Handle

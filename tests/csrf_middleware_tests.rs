@@ -61,7 +61,7 @@ async fn test_post_with_valid_token_passes_csrf(pool: sqlx::PgPool) {
 
     let token = get_csrf_token(&server).await;
 
-    // POST with valid CSRF token — will fail auth (401) but should NOT be 403/CSRF
+    // POST with valid CSRF token  will fail auth (401) but should NOT be 403/CSRF
     let response = server
         .post("/api/auth/login")
         .add_header("x-csrf-token", &token)
@@ -102,16 +102,16 @@ async fn test_delete_without_token_returns_403(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = false)]
 async fn test_cross_session_token_rejected(pool: sqlx::PgPool) {
-    // Server A — fetch a CSRF token bound to its session
+    // Server A  fetch a CSRF token bound to its session
     let (server_a, _backend_a, _db_a) = build_test_server(pool.clone()).await;
     let token_a = get_csrf_token(&server_a).await;
 
-    // Server B — separate cookie jar = separate session
+    // Server B  separate cookie jar = separate session
     let (server_b, _backend_b, _db_b) = build_test_server(pool).await;
     // Establish server B's own session
     get_csrf_token(&server_b).await;
 
-    // Use server A's token on server B — should fail
+    // Use server A's token on server B  should fail
     let response = server_b
         .post("/api/auth/login")
         .add_header("x-csrf-token", &token_a)

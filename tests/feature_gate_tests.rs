@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 6 feature gates: backend enforcement + the role-tailored
+//! feature gates: backend enforcement + the role-tailored
 //! `/api/site/config` payload.
 //!
 //! Each gate flips a boolean in the `settings` table and asserts the
@@ -260,7 +260,7 @@ async fn test_commenter_invites_gate_blocks_password_acceptance(pool: sqlx::PgPo
 #[sqlx::test(migrations = false)]
 async fn test_commenter_invites_gate_blocks_confirm_cookie(pool: sqlx::PgPool) {
     // /api/invites/confirm should refuse to set the pending_invite cookie
-    // when the gate is off — return null (same surface as a stale invite).
+    // when the gate is off  return null (same surface as a stale invite).
     let (server, backend, db) = build_test_server(pool).await;
     let creator =
         create_verified_admin(&backend, &test_email("fg-ci-cf-creator"), TEST_PASSWORD).await;

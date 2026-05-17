@@ -35,10 +35,10 @@ function InviteCodes() {
 
   // The `commenter_invites_enabled` gate disables the create-invite button
   // and surfaces an inline notice. The kill switch also blocks acceptance
-  // of existing un-redeemed invites — see the warning copy below.
+  // of existing un-redeemed invites  see the warning copy below.
   //
   // `null` while the fetch is in-flight or on failure. The render below
-  // treats anything other than explicit `true` as "Create disabled" —
+  // treats anything other than explicit `true` as "Create disabled" 
   // fail closed.
   const [invitesEnabled, setInvitesEnabled] = useState(null);
 
@@ -155,7 +155,7 @@ function InviteCodes() {
         value ? (
           <span title={row.used_by_user_id || ""}>{formatDate(value)}</span>
         ) : (
-          <span className="text-muted">—</span>
+          <span className="text-muted"></span>
         ),
     },
     {
@@ -171,7 +171,7 @@ function InviteCodes() {
             Revoke
           </button>
         ) : (
-          <span className="text-muted">—</span>
+          <span className="text-muted"></span>
         ),
     },
   ];
@@ -199,7 +199,7 @@ function InviteCodes() {
                 ? undefined
                 : invitesEnabled === null
                   ? "Loading site configuration…"
-                  : "Disabled in Settings — turn on commenter_invites_enabled to issue new invites"
+                  : "Disabled in Settings  turn on commenter_invites_enabled to issue new invites"
             }
             onClick={() => {
               setError("");

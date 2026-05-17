@@ -108,7 +108,7 @@ fn extract_email(input: &SendEmailInput) -> CapturedEmail {
 }
 
 /// Build a mocked SES client whose `send_email` always succeeds and pushes
-/// the captured input into `spy`. Uses `Sequential` rule mode — suitable for
+/// the captured input into `spy`. Uses `Sequential` rule mode  suitable for
 /// tests that send exactly one email.
 pub fn mock_ses_ok(spy: &EmailSpy) -> SesClient {
     let spy_clone = spy.clone();
@@ -123,7 +123,7 @@ pub fn mock_ses_ok(spy: &EmailSpy) -> SesClient {
 }
 
 /// Build a mocked SES client that succeeds for any number of `send_email`
-/// calls. Uses `MatchAny` rule mode — suitable for tests that send multiple
+/// calls. Uses `MatchAny` rule mode  suitable for tests that send multiple
 /// emails (e.g. registration + password reset).
 pub fn mock_ses_ok_any(spy: &EmailSpy) -> SesClient {
     let spy_clone = spy.clone();

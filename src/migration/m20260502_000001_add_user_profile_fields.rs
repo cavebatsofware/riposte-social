@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 8a: profile fields on users.
+//! profile fields on users.
 //!
 //! Adds `handle`, `bio`, `pronouns`, `avatar_s3_key`. Backfills `handle` from
 //! the email local-part with collision-safe suffixing, then enforces NOT NULL

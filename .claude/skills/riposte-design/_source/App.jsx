@@ -16,7 +16,7 @@ import CookieBanner from "./components/CookieBanner";
 
 /// The shared `<Layout>` (header + rails + main + ThemePicker) is mounted
 /// per-page rather than at the App root. Each page picks whether to wrap
-/// in Layout — Login and InviteAccept are intentionally chrome-light, so
+/// in Layout  Login and InviteAccept are intentionally chrome-light, so
 /// they can opt out (or wrap a minimal variant) without an extra prop.
 export default function App() {
   return (

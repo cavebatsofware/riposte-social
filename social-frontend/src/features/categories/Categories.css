@@ -1,4 +1,4 @@
-/* Page header — title on the left, primary CTA (New / Cancel) on the right. */
+/* Page header  title on the left, primary CTA (New / Cancel) on the right. */
 .page-header {
   display: flex;
   align-items: center;
@@ -71,7 +71,7 @@
   font-family: var(--font-mono, monospace);
 }
 
-/* Manageable row — inline edit. Controls are split into three groups
+/* Manageable row  inline edit. Controls are split into three groups
    (text inputs / pickers / actions) and the row uses flex-wrap so each
    group moves as a unit when the row narrows, instead of fragmenting
    mid-group. The first group flex-grows to absorb any extra width;
@@ -117,7 +117,7 @@
   margin-left: auto;
 }
 
-/* Common input style for category management — matches admin's table
+/* Common input style for category management  matches admin's table
    input chrome but with social-frontend tokens. */
 .categories-input {
   font: inherit;

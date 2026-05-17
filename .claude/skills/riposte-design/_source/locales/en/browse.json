@@ -37,7 +37,7 @@
     "slugPlaceholder": "auto-derived from name",
     "visibilityLabel": "Visibility",
     "colorLabel": "Color",
-    "colorHint": "Optional — used to tint the category chip on posts.",
+    "colorHint": "Optional  used to tint the category chip on posts.",
     "colorEmpty": "No color set",
     "colorClear": "Clear color",
     "editMembers": "Edit members",

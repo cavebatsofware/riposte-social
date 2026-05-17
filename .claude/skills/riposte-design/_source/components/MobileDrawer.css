@@ -110,6 +110,6 @@
 /* The inline ThemePicker variant inside the drawer drops the popover
    chrome and renders the swatches as a list. */
 .theme-picker-inline {
-  /* No additional styles needed — the existing `.theme-picker-grid`
+  /* No additional styles needed since the existing `.theme-picker-grid`
      styles work in inline context too. */
 }

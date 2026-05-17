@@ -1,7 +1,7 @@
 /* global React */
 const { useState: useStateTP, useRef: useRefTP } = React;
 
-/// Theme picker — colorway grid + light/dark radio row. Mirrors the
+/// Theme picker  colorway grid + light/dark radio row. Mirrors the
 /// Riposte ThemePicker component (popover variant only here).
 const COLORWAYS = [
   { id: "forest",   label: "Forest & Cream",         swatch: "#2d4a37" },

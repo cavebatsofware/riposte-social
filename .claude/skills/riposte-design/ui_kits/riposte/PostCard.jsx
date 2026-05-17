@@ -7,8 +7,8 @@ function VisibilityBadge({ visibility }) {
 }
 
 /// Feed post card. `variant`:
-///   "feed"      — body clamped, "Open post" link, top comments preview
-///   "permalink" — full body, no top-comments roll-up
+///   "feed"       body clamped, "Open post" link, top comments preview
+///   "permalink"  full body, no top-comments roll-up
 function PostCard({ post, variant = "feed", onOpen, onOpenMedia }) {
   const handleOpen = (e) => {
     e.preventDefault();

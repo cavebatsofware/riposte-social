@@ -135,7 +135,7 @@ function Moderation() {
       render: (_, row) =>
         row.deleted_at ? (
           <span className="text-muted" aria-label="Already deleted">
-            —
+            
           </span>
         ) : (
           <input

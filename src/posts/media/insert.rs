@@ -321,7 +321,7 @@ pub async fn edit_media_caption(
 /// must appear exactly once so a partial reorder can't leave the set in
 /// an inconsistent state.
 ///
-/// Implementation note: the swap runs in two phases under a transaction,
+/// Implementation note: the swap runs under a transaction,
 /// using a +1_000_000 offset so per-row updates don't transiently collide
 /// on a (post_id, ordinal) uniqueness constraint if one is added later.
 /// No such constraint exists today; this is defense-in-depth.

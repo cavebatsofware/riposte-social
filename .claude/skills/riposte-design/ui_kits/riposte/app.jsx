@@ -1,7 +1,7 @@
 /* global React, ReactDOM, Header, BrowseRail, PostCard, Composer, Login, InviteSplash, Lightbox */
 const { useState, useMemo } = React;
 
-/// Sample feed data — shape mirrors the backend's `GET /api/feed` response.
+/// Sample feed data  shape mirrors the backend's `GET /api/feed` response.
 const SAMPLE_POSTS = [
   {
     id: "1",
@@ -22,7 +22,7 @@ const SAMPLE_POSTS = [
     commentCount: 3,
     topComments: [
       { author: "Eve Erickson", body: "Looks great! Did you do the framing yourself?" },
-      { author: "Bob Bartholomew", body: "Sending this to my dad — he's been threatening to build one for years." },
+      { author: "Bob Bartholomew", body: "Sending this to my dad  he's been threatening to build one for years." },
     ],
   },
   {
@@ -48,7 +48,7 @@ const SAMPLE_POSTS = [
     initials: "EE",
     time: "5/21/2024",
     visibility: "private",
-    bodyHtml: "<p>Trying out the private tier — apparently this means only I can see it. Useful for drafting before I actually share something.</p><p>Anyway: <a href=\"#\">this article</a> about preserving family photos is the kind of thing I'd post if I were a poster.</p>",
+    bodyHtml: "<p>Trying out the private tier  apparently this means only I can see it. Useful for drafting before I actually share something.</p><p>Anyway: <a href=\"#\">this article</a> about preserving family photos is the kind of thing I'd post if I were a poster.</p>",
     reactionCounts: {},
     viewerKinds: [],
     commentCount: 0,

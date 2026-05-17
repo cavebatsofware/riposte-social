@@ -99,10 +99,10 @@ fn is_supported_image_mime(mime: &str) -> bool {
     )
 }
 
-/// Phase 9c: video mimes the importer is allowed to bring across into S3
+/// video mimes the importer is allowed to bring across into S3
 /// and post_media. Matches the live upload allowlist in
 /// [`crate::posts::media::is_video_mime`]. `.mov` files are rejected
-/// because they don't play inline in browsers without transcoding —
+/// because they don't play inline in browsers without transcoding 
 /// out-of-scope for the importer.
 fn is_supported_video_mime(mime: &str) -> bool {
     matches!(mime, "video/mp4" | "video/webm")

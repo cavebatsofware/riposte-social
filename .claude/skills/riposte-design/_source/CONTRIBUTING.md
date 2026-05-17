@@ -101,7 +101,7 @@ Don't use `—` (U+2014) in source, comments, UI copy, or documentation. Restruc
 
 ### Frontend
 
-- `npm run lint` clean before pushing. New JSX should not introduce `eslint-plugin-jsx-a11y` errors. The current baseline is documented in PR #2 and is being closed out by the per-phase ARIA PRs (see issue #1).
+- `npm run lint` clean before pushing. New JSX should not introduce `eslint-plugin-jsx-a11y` errors. The current baseline is documented in PR #2 and is being closed out by the ARIA PRs (see issue #1).
 - New UI strings go through i18next. New keys must land in every locale catalog under `social-frontend/public/locales/<lng>/`. `npm run check:i18n` enforces parity.
 - Don't render user-controlled HTML without sanitization. Post bodies and comment bodies already flow through the server-side `ammonia` pipeline plus client-side `DOMPurify` before reaching any unsafe-HTML sink; preserve that chain on any new surface.
 

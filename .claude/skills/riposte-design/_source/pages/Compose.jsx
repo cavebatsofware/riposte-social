@@ -42,11 +42,11 @@ export default function Compose() {
   const { t: tCommon } = useTranslation("common");
 
   const [body, setBody] = useState("");
-  // New posts default to "private" — author can promote at compose time
-  // or with the quick-toggle on the feed card (Phase 9b). Edit mode
+  // New posts default to "private"  author can promote at compose time
+  // or with the quick-toggle on the feed card. Edit mode
   // overwrites this with the post's actual visibility on load.
   const [visibility, setVisibility] = useState("private");
-  // Phase 9e: empty string means "uncategorized". On edit, hydrated from
+  // Empty string means "uncategorized". On edit, hydrated from
   // the post's existing category_id. Categories list is fetched once on
   // mount; the dropdown shows the full set ordered by ordinal.
   const [categoryId, setCategoryId] = useState("");

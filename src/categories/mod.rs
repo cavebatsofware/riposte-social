@@ -21,7 +21,7 @@
 //!   `poster_category_management_enabled` gate). New rows record the
 //!   creator in `created_by`.
 //! - `PATCH/DELETE /api/categories/{id}` and the membership endpoints are
-//!   gated by `can_manage_category` — admin always passes; posters pass
+//!   gated by `can_manage_category`  admin always passes; posters pass
 //!   only on rows they created.
 //! - Posts and albums each have a nullable `category_id` FK; categorized
 //!   rows defer their effective visibility to the parent category
@@ -74,7 +74,7 @@ pub fn can_manage_category(user: &UserAuth, cat: &category::Model, gate_enabled:
     cat.created_by == Some(user.id)
 }
 
-/// Slug shape rules — lowercase ASCII letters/digits/`-`, length 2..=50.
+/// Slug shape rules  lowercase ASCII letters/digits/`-`, length 2..=50.
 /// `validate_slug_shape` returns an error message on failure.
 pub fn validate_slug_shape(slug: &str) -> Result<(), String> {
     let len = slug.chars().count();

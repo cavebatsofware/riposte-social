@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Integration tests for category-driven visibility (Phase 13b):
+//! Integration tests for category-driven visibility:
 //! - posts/albums in a category use the category's visibility, not the
 //!   row's own column
 //! - the new `user_list` tier reveals content to enumerated members only
@@ -143,7 +143,7 @@ async fn test_feed_categorized_post_user_list_visible_to_member(pool: sqlx::PgPo
     add_member(&db, cat.id, member.id).await;
 
     // Post lives in user_list category. Row's own visibility is `private`
-    // — that should be IGNORED when categorized; the category's
+    //  that should be IGNORED when categorized; the category's
     // `user_list` rules apply.
     let post = insert_post_in_category(
         &db,
@@ -193,7 +193,7 @@ async fn test_feed_uncategorized_post_respects_post_visibility(pool: sqlx::PgPoo
     let (server, backend, db) = build_test_server(pool).await;
     let admin_email = test_email("vis-admin3");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
-    // Uncategorized public post — anonymous viewer must see it.
+    // Uncategorized public post  anonymous viewer must see it.
     let post =
         insert_post_in_category(&db, admin.id, "public", post::VISIBILITY_PUBLIC, None).await;
 
@@ -227,7 +227,7 @@ async fn test_feed_categorized_public_visible_to_anon(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = false)]
 async fn test_feed_admin_sees_user_list_category_for_moderation(pool: sqlx::PgPool) {
-    // Phase 13d: admins gain moderation access at the category layer.
+    // admins gain moderation access at the category layer.
     // A different admin (not the cat creator, not a member) sees content
     // in any user_list category so they can moderate.
     let (server, backend, db) = build_test_server(pool).await;
@@ -552,7 +552,7 @@ async fn test_feed_anon_does_not_see_user_list_categories(pool: sqlx::PgPool) {
     assert!(!ids.contains(&post.id));
 }
 
-// ==================== Phase 13d: creator-override ====================
+// ==================== creator-override ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_creator_sees_own_private_category_in_list(pool: sqlx::PgPool) {
@@ -673,7 +673,7 @@ async fn test_creator_sees_own_user_list_category_via_auto_add(pool: sqlx::PgPoo
     );
 }
 
-// ==================== Phase 13d: admin-override ====================
+// ==================== admin-override ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_admin_sees_other_users_private_category_in_list(pool: sqlx::PgPool) {
@@ -766,7 +766,7 @@ async fn test_admin_uncategorized_private_post_still_invisible(pool: sqlx::PgPoo
     );
 }
 
-// ==================== Phase 13d: user_list creator lock ====================
+// ==================== user_list creator lock ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_user_list_creator_cannot_be_removed_via_delete(pool: sqlx::PgPool) {
@@ -788,7 +788,7 @@ async fn test_user_list_creator_cannot_be_removed_via_delete(pool: sqlx::PgPool)
     let cjson: serde_json::Value = create.json();
     let cat_id = Uuid::parse_str(cjson["id"].as_str().unwrap()).unwrap();
 
-    // Try to remove the creator — should be rejected.
+    // Try to remove the creator  should be rejected.
     let remove = server
         .delete(&format!("/api/categories/{}/members/{}", cat_id, admin.id))
         .add_header("x-csrf-token", &csrf)
@@ -818,7 +818,7 @@ async fn test_user_list_creator_cannot_be_removed_via_put(pool: sqlx::PgPool) {
     let cjson: serde_json::Value = create.json();
     let cat_id = Uuid::parse_str(cjson["id"].as_str().unwrap()).unwrap();
 
-    // PUT with a list that omits the creator — should be rejected.
+    // PUT with a list that omits the creator  should be rejected.
     let put = server
         .put(&format!("/api/categories/{}/members", cat_id))
         .add_header("x-csrf-token", &csrf)
@@ -833,7 +833,7 @@ async fn test_visibility_change_to_user_list_adds_creator_when_missing(pool: sql
     let admin_email = test_email("13d-trans-admin");
     let admin = create_verified_admin(&backend, &admin_email, TEST_PASSWORD).await;
 
-    // Start as public — no auto-add fires on create.
+    // Start as public  no auto-add fires on create.
     let cat = insert_category(
         &db,
         "Transition",
@@ -843,7 +843,7 @@ async fn test_visibility_change_to_user_list_adds_creator_when_missing(pool: sql
     )
     .await;
 
-    // Patch to user_list — auto-add must fire.
+    // Patch to user_list  auto-add must fire.
     login_as(&server, &admin_email, TEST_PASSWORD).await;
     let csrf = get_csrf_token(&server).await;
     let patch = server
@@ -887,7 +887,7 @@ async fn test_visibility_change_to_user_list_adds_creator_when_missing(pool: sql
     );
 }
 
-// ==================== Phase 13d: author-override safety net ====================
+// ==================== author-override safety net ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_author_sees_own_post_in_user_list_category_after_revocation(pool: sqlx::PgPool) {
@@ -926,7 +926,7 @@ async fn test_author_sees_own_post_in_user_list_category_after_revocation(pool: 
         .await;
     assert_eq!(remove.status_code(), StatusCode::NO_CONTENT);
 
-    // Poster logs in — they no longer have category access, but the
+    // Poster logs in  they no longer have category access, but the
     // author-override on the categorized branch keeps their own posts
     // visible to them.
     login_as(&server, &poster_email, TEST_PASSWORD).await;

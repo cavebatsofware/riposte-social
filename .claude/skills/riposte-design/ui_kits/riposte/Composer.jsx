@@ -1,7 +1,7 @@
 /* global React */
 const { useState: useStateCmp } = React;
 
-/// Minimal Compose form — markdown body + visibility chooser + publish.
+/// Minimal Compose form  markdown body + visibility chooser + publish.
 function Composer({ onPublish, onCancel }) {
   const [body, setBody] = useStateCmp("");
   const [visibility, setVisibility] = useStateCmp("commenters");

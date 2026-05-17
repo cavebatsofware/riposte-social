@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Albums (Phase 9d) — first-class media collections.
+//! Albums - first-class media collections.
 //!
 //! Albums are explicitly *not* posts. They never appear in `/api/feed`;
 //! they're discovered via the left-rail Albums group and rendered at

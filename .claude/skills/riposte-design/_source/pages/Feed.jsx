@@ -17,7 +17,7 @@ const FEED_LIMIT = 20;
 /// backend filters by tier (see `src/posts/routes.rs`); this component
 /// just renders whatever it returns.
 ///
-/// Wrapped in `<Layout>` (Phase 7a) so the header / nav / theme picker
+/// Wrapped in `<Layout>` so the header / nav / theme picker
 /// come from the shared shell rather than per-page chrome.
 export default function Feed() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export default function Feed() {
   const { t } = useTranslation("feed");
   const { t: tCommon } = useTranslation("common");
 
-  // Local input state — committed to the URL only on submit so we don't
+  // Local input state  committed to the URL only on submit so we don't
   // hammer the API on every keystroke.
   const [searchInput, setSearchInput] = useState(q);
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function Feed() {
 
   // Posting is gated by `poster_posting_enabled` for the poster role only;
   // admins always retain access. The site-config fetch starts as `null`
-  // and only populates on success — until then we treat the gate as off
+  // and only populates on success  until then we treat the gate as off
   // (fail closed). Used here only for the empty-state CTA; the actual
   // Compose link in the header is owned by `<Layout>`.
   const canCompose =

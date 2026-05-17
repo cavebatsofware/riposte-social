@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 /// - `value`: currently-selected visibility id (one of `VISIBILITIES`)
 /// - `onChange(newId)`: called with the new id when a pill is clicked
 /// - `legend` (optional): override the catalog's default "Visibility"
-///   legend with a literal string — used by the rare consumer that needs
+///   legend with a literal string  used by the rare consumer that needs
 ///   different framing. Default reads from `compose:visibility.legend`.
 
 export const VISIBILITIES = ["private", "public", "commenters", "posters"];

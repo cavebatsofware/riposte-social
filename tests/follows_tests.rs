@@ -479,7 +479,7 @@ async fn test_bulk_state_rejects_oversize_segment_count(pool: sqlx::PgPool) {
     login_as(&server, &me_email, TEST_PASSWORD).await;
 
     // 201 invalid tokens still trigger the segment-count cap before any
-    // UUID parsing happens — the cap is on input segments, not on
+    // UUID parsing happens  the cap is on input segments, not on
     // successfully-parsed ids.
     let bad_segments = vec!["x"; 201].join(",");
     let r = server

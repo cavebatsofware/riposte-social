@@ -18,7 +18,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
           <SiteConfigProvider>
             {/* Suspense catches the brief async window while the active
                 language's `common` catalog loads. Fallback is null so we
-                don't flash a spinner on a normal page-load — the catalogs
+                don't flash a spinner on a normal page-load  the catalogs
                 resolve in tens of milliseconds locally. */}
             <Suspense fallback={null}>
               <App />

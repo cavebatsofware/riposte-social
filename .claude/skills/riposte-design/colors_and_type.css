@@ -1,5 +1,5 @@
 /* ============================================================================
-   Riposte Social — Design Tokens
+   Riposte Social Design Tokens
    ----------------------------------------------------------------------------
    Mirrors `social-frontend/src/index.css` from the Riposte codebase. Each
    `[data-theme="…"]` block defines a complete colorway; switch by setting
@@ -25,12 +25,12 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap");
 
 /* ============================================================================
-   1 · COLORWAYS — Aesthetic
+   1 · COLORWAYS Aesthetic
    ============================================================================ */
 
 :root,
 [data-theme="forest"] {
-  /* Forest & Cream — DEFAULT. Deep green primary, sand background, copper accent. */
+  /* Forest & Cream DEFAULT. Deep green primary, sand background, copper accent. */
   --color-bg: #f5efe4;
   --color-surface: #fbf7ee;
   --color-surface-2: #ede4d0;
@@ -87,7 +87,7 @@
 }
 
 [data-theme="warm"] {
-  /* Warm Editorial — navy primary, ivory base, terracotta accent. */
+  /* Warm Editorial navy primary, ivory base, terracotta accent. */
   --color-bg: #f7f1e8;
   --color-surface: #ffffff;
   --color-surface-2: #f0e8da;
@@ -142,7 +142,7 @@
 }
 
 [data-theme="plum"] {
-  /* Plum & Apricot — aubergine primary, cream surface, peach accents. */
+  /* Plum & Apricot aubergine primary, cream surface, peach accents. */
   --color-bg: #fbf6f0;
   --color-surface: #ffffff;
   --color-surface-2: #f5e9dc;
@@ -197,7 +197,7 @@
 }
 
 [data-theme="avernus"] {
-  /* Avernus & Clouds (LIGHT half = "Clouds") — cloud-white base, sky-blue primary, dawn-pink badges. */
+  /* Avernus & Clouds (LIGHT half = "Clouds") cloud-white base, sky-blue primary, dawn-pink badges. */
   --color-bg: #f5f7fb;
   --color-surface: #ffffff;
   --color-surface-2: #e9eef7;
@@ -225,7 +225,7 @@
 }
 
 [data-theme="avernus-dark"] {
-  /* Avernus & Clouds (DARK half = "Avernus") — volcanic warm-black, ember primary, copper underline. */
+  /* Avernus & Clouds (DARK half = "Avernus") volcanic warm-black, ember primary, copper underline. */
   --color-bg: #18120f;
   --color-surface: #221512;
   --color-surface-2: #2f1a16;
@@ -253,7 +253,7 @@
 }
 
 [data-theme="mineral"] {
-  /* Rocks & Minerals (LIGHT = "Sandstone") — warm limestone, copper primary. */
+  /* Rocks & Minerals (LIGHT = "Sandstone") warm limestone, copper primary. */
   --color-bg: #f0ebe1;
   --color-surface: #f8f5ed;
   --color-surface-2: #e6dfd0;
@@ -281,7 +281,7 @@
 }
 
 [data-theme="mineral-dark"] {
-  /* Rocks & Minerals (DARK = "Granite") — cool charcoal, amber-copper primary, mineral-teal hints. */
+  /* Rocks & Minerals (DARK = "Granite") cool charcoal, amber-copper primary, mineral-teal hints. */
   --color-bg: #1c1c1f;
   --color-surface: #25252a;
   --color-surface-2: #2f2f35;
@@ -309,12 +309,12 @@
 }
 
 /* ============================================================================
-   2 · COLORWAYS — Accessibility
+   2 · COLORWAYS Accessibility
    Each is designed FOR the targeted vision profile, not just compatible.
    ============================================================================ */
 
 [data-theme="daltonia"] {
-  /* Red-Green CVD accessible — parchment + prussian blue + golden amber. */
+  /* Red-Green CVD accessible parchment + prussian blue + golden amber. */
   --color-bg: #f5ecd5;
   --color-surface: #fbf6e6;
   --color-surface-2: #e8dbb8;
@@ -369,7 +369,7 @@
 }
 
 [data-theme="tritan"] {
-  /* Blue-Yellow CVD accessible — neutral warm-stone, forest primary, distinct R/G/brown badges. */
+  /* Blue-Yellow CVD accessible neutral warm-stone, forest primary, distinct R/G/brown badges. */
   --color-bg: #e6e8df;
   --color-surface: #f0f2e8;
   --color-surface-2: #d6d9ce;
@@ -424,7 +424,7 @@
 }
 
 [data-theme="achroma"] {
-  /* High Contrast (light) — pure black/white. Borders are load-bearing. */
+  /* High Contrast (light) pure black/white. Borders are load-bearing. */
   --color-bg: #ffffff;
   --color-surface: #ffffff;
   --color-surface-2: #f0f0f0;
@@ -479,7 +479,7 @@
 }
 
 /* ============================================================================
-   3 · STATIC TOKENS — Typography, spacing, radius, shadow
+   3 · STATIC TOKENS Typography, spacing, radius, shadow
    Identical across colorways.
    ============================================================================ */
 
@@ -494,15 +494,15 @@
   --font-mono: "JetBrains Mono", "Noto Sans SC", "Noto Color Emoji", monospace;
 
   /* Type scale (rem-based, 1rem = 16px). */
-  --font-size-xs: 0.75rem;   /* 12px — meta, captions, eyebrows */
-  --font-size-sm: 0.875rem;  /* 14px — secondary text, controls */
-  --font-size-base: 1rem;    /* 16px — body */
-  --font-size-lg: 1.125rem;  /* 18px — emphasized body, h3 */
-  --font-size-xl: 1.25rem;   /* 20px — h2, logo wordmark */
-  --font-size-2xl: 1.5rem;   /* 24px — modal h2 */
-  --font-size-3xl: 2rem;     /* 32px — feed h1, page hero */
+  --font-size-xs: 0.75rem;   /* 12px  meta, captions, eyebrows */
+  --font-size-sm: 0.875rem;  /* 14px  secondary text, controls */
+  --font-size-base: 1rem;    /* 16px  body */
+  --font-size-lg: 1.125rem;  /* 18px  emphasized body, h3 */
+  --font-size-xl: 1.25rem;   /* 20px  h2, logo wordmark */
+  --font-size-2xl: 1.5rem;   /* 24px  modal h2 */
+  --font-size-3xl: 2rem;     /* 32px  feed h1, page hero */
 
-  /* Spacing — 4px-grid. */
+  /* Spacing 4px-grid. */
   --spacing-1: 0.25rem;   /* 4 */
   --spacing-2: 0.5rem;    /* 8 */
   --spacing-3: 0.75rem;   /* 12 */
@@ -511,19 +511,19 @@
   --spacing-8: 2rem;      /* 32 */
   --spacing-12: 3rem;     /* 48 */
 
-  /* Radius — small and tasteful. No fully-pillow corners except pill chips. */
-  --radius-sm: 0.25rem;   /* 4  — inputs, search, code */
-  --radius-md: 0.375rem;  /* 6  — buttons, alerts, popovers */
-  --radius-lg: 0.625rem;  /* 10 — cards, modals, auth shell */
+  /* Radius small and tasteful. No fully-pillow corners except pill chips. */
+  --radius-sm: 0.25rem;   /* 4 inputs, search, code */
+  --radius-md: 0.375rem;  /* 6 buttons, alerts, popovers */
+  --radius-lg: 0.625rem;  /* 10 cards, modals, auth shell */
   --radius-full: 999px;   /* pills, avatar bubbles, reaction badges */
 
-  /* Shadows — restrained. Editorial, not floaty. */
+  /* Shadows restrained. Editorial, not floaty. */
   --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.04);
   --shadow-popover: 0 8px 24px -8px rgba(0, 0, 0, 0.18);
 }
 
 /* ============================================================================
-   4 · SEMANTIC TYPE — opt-in classes for prose-style consumers
+   4 · SEMANTIC TYPE opt-in classes for prose-style consumers
    Use these when you need consistent headings outside the Riposte component
    library. The product itself styles by component, not by element.
    ============================================================================ */

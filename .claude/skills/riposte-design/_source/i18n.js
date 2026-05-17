@@ -7,12 +7,12 @@ import { initReactI18next } from "react-i18next";
 /// drop a new directory under `public/locales/<code>/` mirroring the en
 /// catalogs, then add the code here so the LanguagePicker surfaces it.
 /// Keep this list in sync with `LOCALE_NATIVE_NAMES` below and the
-/// backend allowlist in `src/profile/locale.rs` (Phase 11e).
+/// backend allowlist in `src/profile/locale.rs`.
 export const SUPPORTED_LOCALES = ["en", "es", "fr", "zh", "de"];
 
 /// Native-script display names for the LanguagePicker. Using the
 /// language's own name (rather than translating it) is the standard
-/// convention — a user who reads German is far more likely to recognize
+/// convention  a user who reads German is far more likely to recognize
 /// "Deutsch" than the localized translation of "German" in whatever
 /// language they're currently reading.
 export const LOCALE_NATIVE_NAMES = {
@@ -64,7 +64,7 @@ i18n
       // The wrapper in `main.jsx` is responsible for the fallback markup.
       useSuspense: true,
     },
-    // Don't fall back to a key when a translation is missing — return
+    // Don't fall back to a key when a translation is missing  return
     // empty so we can spot gaps visually rather than rendering raw
     // dot-paths in the UI. The catalog-completeness CI gate keeps
     // production catalogs in sync; this is dev-time defense.

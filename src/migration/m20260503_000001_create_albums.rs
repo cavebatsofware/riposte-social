@@ -13,9 +13,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 9d: albums as a first-class entity.
+//! albums as a first-class entity.
 //!
-//! Albums are media-only collections — name, description, ordered set of
+//! Albums are media-only collections  name, description, ordered set of
 //! photo/video items with per-item captions. They're explicitly NOT posts:
 //! the FB importer's prior "synthesize a post body listing every photo
 //! URI" approach was the source of the long-feed-card pollution flagged
@@ -47,7 +47,7 @@ impl MigrationTrait for Migration {
                     // app sets it (defaulting to ordinal=0).
                     .col(uuid_null(Albums::CoverMediaId))
                     // Same four-value visibility enum as posts. Defaults
-                    // to private (Phase 9a).
+                    // to private.
                     .col(string(Albums::Visibility).default("private"))
                     .col(timestamp_with_time_zone(Albums::PublishedAt))
                     .col(string_null(Albums::ImportSource))

@@ -4,7 +4,7 @@ const { useState: useStateLB, useEffect: useEffectLB } = React;
 /// Full-bleed media lightbox. The image fills the viewport; a small
 /// "engagement panel" peeks ~24px from the bottom as a scrollable
 /// affordance for reactions and comments. The peek is the only
-/// signal that there's more — there is no separate scrollbar or
+/// signal that there's more  there is no separate scrollbar or
 /// "View larger" affordance, mirroring the production product.
 function Lightbox({ items, index, onIndex, onClose }) {
   const total = items.length;

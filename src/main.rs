@@ -262,8 +262,7 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/admin", get(serve_admin_spa))
         .route("/admin/{*path}", get(serve_admin_spa))
-        // Code-gated document assets (CSS, JS, icons). Will be retired in Phase 6
-        // when the document-access feature is removed.
+        // Code-gated document assets (CSS, JS, icons).
         .nest_service(
             "/assets",
             tower::ServiceBuilder::new()
@@ -286,7 +285,7 @@ async fn main() -> anyhow::Result<()> {
         // i18n catalogs (vite copies social-frontend/public/locales/* to
         // social-assets/locales/* on build). Loaded lazily by namespace
         // through i18next-http-backend at /locales/{lng}/{ns}.json. Cache
-        // for an hour — short enough that a translation fix is visible
+        // for an hour  short enough that a translation fix is visible
         // without forcing a hash-based busting scheme.
         .nest_service(
             "/locales",
@@ -472,7 +471,7 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
         );
     }
 
-    // `handle` is NOT NULL on `users` (Phase 8 profile schema). Mint a
+    // `handle` is NOT NULL on `users`. Mint a
     // unique handle from the email local-part
     let local = email.split('@').next().unwrap_or(email);
     let handle = profile::mint_unique_handle(&db, local).await?;

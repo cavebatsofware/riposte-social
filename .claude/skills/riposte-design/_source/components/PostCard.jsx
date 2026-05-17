@@ -189,7 +189,7 @@ function PostAuthorName({ handle, author }) {
 
 /// Renders the post body. On the feed variant, clamp height and add the
 /// "Read more" gradient overlay only when the rendered body actually
-/// overflows the clamp — short posts get neither the clamp nor the fade.
+/// overflows the clamp and short posts get neither the clamp nor the fade.
 /// Detection runs on layout (post-paint, pre-flicker) and re-runs on the
 /// body content changing.
 function PostBody({ safeHtml, variant }) {
@@ -218,9 +218,9 @@ function PostBody({ safeHtml, variant }) {
   );
 }
 
-/// Renders one media item — image or video — wrapped in a click-target
+/// Renders one media item image or video wrapped in a click-target
 /// button that opens the lightbox at the given index. Mirrors the
-/// Album page (Phase 9d): videos render as a thumbnail with a play
+/// Album page: videos render as a thumbnail with a play
 /// badge rather than an inline `<video controls>`, since the lightbox
 /// provides controls + autoplay when the user clicks in. Keeps the
 /// behavior consistent across post and album surfaces.
@@ -331,7 +331,7 @@ function TopCommentRow({ comment }) {
   const { t } = useTranslation("feed");
   const author =
     comment.author_display || comment.author_handle || t("fallbackAuthor");
-  // The inline snippet is one line of prose, not rendered markdown — strip
+  // The inline snippet is one line of prose, not rendered markdown to strip
   // tags from the server-sanitized body_html (preferred) or fall back to
   // the raw markdown source. Rendering "## Heading" verbatim looks broken
   // in the dense feed row.

@@ -208,9 +208,8 @@ async fn test_serve_access_s3_not_found_returns_error(pool: sqlx::PgPool) {
 
 // ==================== POST /api/admin/access-codes (upload) ====================
 
-// Pre-existing bug in src/admin/access_codes.rs:58 — `replace("", code)` inserts
-// the code between every character. The whole access-code/DOCX stack is slated
-// for deletion in Phase 6 of the MVP plan, so we ignore rather than fix.
+// Pre-existing bug in src/admin/access_codes.rs:58 `replace("", code)` inserts
+// the code between every character.
 #[ignore]
 #[sqlx::test(migrations = false)]
 async fn test_admin_create_access_code_uploads_both_files_to_s3(pool: sqlx::PgPool) {
@@ -276,7 +275,7 @@ async fn test_admin_create_access_code_uploads_both_files_to_s3(pool: sqlx::PgPo
     // If we get 403/401, surface the response body for debugging.
     assert!(
         response.status_code() == StatusCode::CREATED || response.status_code() == StatusCode::OK,
-        "expected CREATED or OK, got {} — body: {}",
+        "expected CREATED or OK, got {}  body: {}",
         response.status_code(),
         response.text()
     );

@@ -39,7 +39,7 @@ function saveRaw(state) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
     // Quota exceeded or private-mode storage; rail still works without
-    // MRU — silently swallow.
+    // MRU  silently swallow.
   }
 }
 

@@ -13,9 +13,9 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 9e: link posts and albums to categories.
+//! link posts and albums to categories.
 //!
-//! Nullable FK on each table — NULL means "uncategorized". `ON DELETE SET
+//! Nullable FK on each table  NULL means "uncategorized". `ON DELETE SET
 //! NULL` so deleting a category drops the link without cascading the
 //! posts/albums themselves.
 

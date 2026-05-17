@@ -577,7 +577,7 @@ async fn test_oidc_callback_custom_role_claim_path(pool: sqlx::PgPool) {
     assert_eq!(row.role, "administrator");
 }
 
-// ==================== New invariants from Phase 2h ====================
+// ==================== invariants ====================
 
 /// Hijack defense: an invite issued for one email cannot bind to a
 /// pre-provisioned row with a different email even if the IdP somehow

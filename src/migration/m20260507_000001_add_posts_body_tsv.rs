@@ -16,7 +16,7 @@
 //! Add `content_lang` and `body_tsv` to `posts`, plus a GIN index.
 //!
 //! `body_tsv` is a STORED generated column built via CASE over literal
-//! FTS configuration names — STORED generated columns require the
+//! FTS configuration names  STORED generated columns require the
 //! expression to be IMMUTABLE, and `content_lang::regconfig` (dynamic
 //! cast) is only STABLE.
 //!
@@ -35,7 +35,7 @@ impl MigrationTrait for Migration {
         let db = manager.get_connection();
 
         // Stored as the literal FTS config name so the CASE below can
-        // compare against literals (no regconfig cast — keeps the
+        // compare against literals (no regconfig cast  keeps the
         // generated column expression immutable). Existing rows
         // backfill to 'english' via the column default.
         db.execute_unprepared(

@@ -338,7 +338,7 @@ async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse
 ///   `fb_import_enabled` (gates the matching admin pages).
 ///
 /// No auth required; the response just looks at the optional auth session.
-/// Each gate read is best-effort — a transient settings DB hiccup falls
+/// Each gate read is best-effort  a transient settings DB hiccup falls
 /// back to the safe default (true) so a flaky query never accidentally
 /// disables features in the UI.
 async fn site_config(
@@ -356,7 +356,7 @@ async fn site_config(
     // Settings reads bubble up as 500s rather than silently defaulting.
     // The frontend's `SiteConfigContext` keeps gated affordances hidden
     // until this fetch returns, so any read failure here means the SPA
-    // never reveals a feature that might actually be off — fail closed
+    // never reveals a feature that might actually be off  fail closed
     // end-to-end.
     fn read_err(e: anyhow::Error) -> AppError {
         AppError::InternalError(format!("settings read failed: {:#}", e))

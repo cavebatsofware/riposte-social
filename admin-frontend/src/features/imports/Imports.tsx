@@ -47,7 +47,7 @@ function Imports() {
   // historical jobs while imports are paused).
   //
   // `null` while the fetch is in-flight or on failure. The render below
-  // treats anything other than explicit `true` as "form disabled" — fail
+  // treats anything other than explicit `true` as "form disabled"  fail
   // closed so a transient settings outage never shows a form that the
   // backend will then reject.
   const [importsEnabled, setImportsEnabled] = useState(null);

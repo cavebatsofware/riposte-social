@@ -46,7 +46,7 @@ export default function BrowseRail() {
     try {
       localStorage.setItem(GROUP_OPEN_KEY, JSON.stringify(openGroups));
     } catch {
-      // ignore — affects only the persistence side
+      // ignore  affects only the persistence side
     }
   }, [openGroups]);
 
@@ -68,7 +68,7 @@ export default function BrowseRail() {
           if (!cancelled) setCategories(data.categories || []);
         }
       } catch {
-        // ignore — rail just hides the empty group
+        // ignore  rail just hides the empty group
       }
       // Albums require an authed caller in the common case (private
       // by default); anonymous gets a curated list of public-tier

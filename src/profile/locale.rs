@@ -15,13 +15,13 @@
  */
 //! Locale validation. Single source of truth for the set of UI locales
 //! the social-frontend supports. The frontend mirror lives in
-//! `social-frontend/src/i18n.js::SUPPORTED_LOCALES` — keep both in sync
+//! `social-frontend/src/i18n.js::SUPPORTED_LOCALES`  keep both in sync
 //! when adding a new language. Mismatch surfaces as a 400 from
 //! `PATCH /api/me/locale` if the client somehow sends an unsupported
 //! code; the server is the authoritative gate.
 
 /// BCP-47 base codes accepted by `PATCH /api/me/locale`. Region subtags
-/// (`en-US`, `zh-CN`, etc.) are not stored — the frontend strips them
+/// (`en-US`, `zh-CN`, etc.) are not stored  the frontend strips them
 /// to base codes via i18next's `load: "languageOnly"` setting before
 /// posting.
 pub const SUPPORTED_LOCALES: &[&str] = &["en", "es", "fr", "zh", "de"];

@@ -18,8 +18,7 @@ use sea_orm::Set;
 use serde::{Deserialize, Serialize};
 
 /// Reaction kinds. The schema column is freeform text validated here, so
-/// adding new variants is a one-line change with no DDL. Phase 10e
-/// expands the MVP's single `like` to the Facebook 6.
+/// adding new variants is a one-line change with no DDL.
 pub const KIND_LIKE: &str = "like";
 pub const KIND_LOVE: &str = "love";
 pub const KIND_HAHA: &str = "haha";

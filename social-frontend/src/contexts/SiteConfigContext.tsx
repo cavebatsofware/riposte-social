@@ -5,7 +5,7 @@ import { useAuth } from "./AuthContext";
 const SiteConfigContext = createContext(null);
 
 /// Hook returning the site's runtime configuration (feature gates +
-/// site_name). The shape varies by the caller's tier — anonymous and
+/// site_name). The shape varies by the caller's tier  anonymous and
 /// commenter callers see only `site_name` + `public_feed_enabled`; posters
 /// also see `poster_posting_enabled`; admins see everything.
 ///

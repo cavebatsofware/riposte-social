@@ -102,7 +102,7 @@
 }
 
 /* ==========================================================================
-   Phase 7d — Dark companions for each colorway.
+   Dark companions for each colorway.
 
    Each variant is hand-tuned (not a mechanical inversion) so the colorway
    keeps its personality after dark. WCAG AA contrast (4.5:1 body / 3:1
@@ -204,7 +204,7 @@
 }
 
 /* ==========================================================================
-   Avernus & Clouds — celestial dichotomy. Light "clouds" reads soft and
+   Avernus & Clouds  celestial dichotomy. Light "clouds" reads soft and
    ethereal; dark "avernus" is volcanic, with ember-red primary and ash-
    gold highlights. The two halves are intentionally opposite poles of
    the same metaphor rather than light/dark inversions of each other.
@@ -274,7 +274,7 @@
 }
 
 /* ==========================================================================
-   Rocks & Minerals — geological palette, earthy without being green.
+   Rocks & Minerals  geological palette, earthy without being green.
    Light "sandstone" is warm limestone with slate text and copper primary;
    dark "granite" is cool charcoal with amber primary and faint mineral-
    teal accents. Both halves draw from the same rock face, just lit
@@ -1011,7 +1011,7 @@ summary:focus-visible,
 /* ==========================================================================
    Theme picker
 
-   Phase 7d split the picker into two axes (colorway + light/dark) and
+   The color picker is split into two axes (colorway + light/dark) and
    moved it into the Layout header. The popover variant is anchored to the
    header's icon button; the inline variant inside the mobile drawer drops
    the popover chrome and renders the same grid as a list.
@@ -1154,7 +1154,7 @@ summary:focus-visible,
 }
 
 /* ==========================================================================
-   Language picker — globe-icon button + dropdown of supported locales.
+   Language picker  globe-icon button + dropdown of supported locales.
    Mirrors ThemePicker's popover/inline variants and drops into the same
    header slot. Active language gets a check; native names render in
    their own scripts (中文, etc.) so users recognize their language at
@@ -1446,7 +1446,7 @@ summary:focus-visible,
   color: var(--color-badge-posters-fg);
 }
 
-/* Private tier (Phase 9a): author-only. Slate / muted to read as
+/* Private tier: author-only. Slate / muted to read as
    "draft / not shared". Uses the muted-surface tokens that already adapt
    per-theme. */
 .visibility-badge.private {
@@ -1497,7 +1497,7 @@ summary:focus-visible,
   transition-delay: 0s;
 }
 
-/* Phase 9e: category chip on PostCard meta line. Links to the feed
+/* Category chip on PostCard meta line. Links to the feed
    filtered by that category. Stops bubbling so clicking the chip on a
    feed-variant card doesn't also navigate to the post permalink. */
 .post-category-chip {
@@ -1518,7 +1518,7 @@ summary:focus-visible,
   filter: brightness(1.08);
 }
 
-/* Phase 9b: VisibilityMenu — the in-place dropdown that lets a post's
+/* VisibilityMenu  the in-place dropdown that lets a post's
    author or admin change visibility from the feed without leaving the
    page. The trigger reuses .visibility-badge styling so the visual jump
    from read-only to editable is small. */
@@ -1730,7 +1730,7 @@ summary:focus-visible,
 }
 
 /* Click-target wrapper around each post media item. Mirrors the Album
-   page (Phase 9d): clicking opens the shared MediaLightbox carousel.
+   page: clicking opens the shared MediaLightbox carousel.
    Button reset so the native chrome doesn't show; outline on hover/focus
    matches `.album-grid-item` for visual continuity. */
 .post-media-item {
@@ -2205,7 +2205,7 @@ summary:focus-visible,
   gap: var(--spacing-3);
 }
 
-/* Compact variant of the reaction bar — used inline under each comment.
+/* Compact variant of the reaction bar  used inline under each comment.
    The picker strip and summary badges keep their post-level styling so
    the visual language matches; only the trigger button and the row
    spacing tighten up to fit a comment row. */

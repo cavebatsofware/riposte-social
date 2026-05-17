@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 9e: categories.
+//! categories.
 //!
 //! Flat list of admin-managed categories. One category per post or album
 //! (FK columns are added in `m20260503_000003`). The left rail uses these

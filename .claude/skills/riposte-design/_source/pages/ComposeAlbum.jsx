@@ -27,7 +27,7 @@ function maxBytesFor(mime) {
 /// PATCH /api/albums/{id} for metadata edits + POST /api/albums/{id}/media
 /// for adding new media + DELETE /api/albums/{id}/media/{media_id} for
 /// removing items + PATCH /api/albums/{id}/media/{media_id} for caption
-/// edits. Each operation is its own request — there's no all-at-once
+/// edits. Each operation is its own request  there's no all-at-once
 /// PATCH for an album in edit mode.
 export default function ComposeAlbum() {
   const { user, loading: authLoading } = useAuth();
@@ -43,10 +43,10 @@ export default function ComposeAlbum() {
   const [visibility, setVisibility] = useState("private");
   const [categoryId, setCategoryId] = useState("");
   const [categories, setCategories] = useState([]);
-  // For create flow only — pending unsaved files with optional captions.
+  // For create flow only  pending unsaved files with optional captions.
   // Shape: [{ file, previewUrl, caption }]
   const [pendingFiles, setPendingFiles] = useState([]);
-  // For edit flow — the existing media items with their caption state.
+  // For edit flow  the existing media items with their caption state.
   // Shape: [{ id, url, media_kind, caption, dirty }]
   const [existingMedia, setExistingMedia] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +67,7 @@ export default function ComposeAlbum() {
           if (!cancelled) setCategories(data.categories || []);
         }
       } catch {
-        // not fatal — picker just hides
+        // not fatal  picker just hides
       }
     }
     loadCategories();

@@ -1,7 +1,7 @@
 /* global React */
 const { useState, useEffect, useRef } = React;
 
-/// Sticky header — wordmark, primary nav, language/theme pickers, user menu.
+/// Sticky header  wordmark, primary nav, language/theme pickers, user menu.
 function Header({ route, onRoute, user, onSignOut }) {
   const links = [
     { id: "feed", label: "Feed" },

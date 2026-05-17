@@ -1,6 +1,6 @@
 # Fonts
 
-Reference snapshots of the four Google Fonts used by Riposte Social. **The active load path is the CDN** (`fonts.gstatic.com`) — these files exist in the folder for inspection / offline reference only.
+Reference snapshots of the four Google Fonts used by Riposte Social. **The active load path is the CDN** (`fonts.gstatic.com`)  these files exist in the folder for inspection / offline reference only.
 
 | Family | Weight | Role |
 |---|---|---|
@@ -11,7 +11,7 @@ Reference snapshots of the four Google Fonts used by Riposte Social. **The activ
 
 ## How they're loaded
 
-A single `@import` at the top of [`../colors_and_type.css`](../colors_and_type.css) pulls all four from Google Fonts — same URL as production `social-frontend/index.html`:
+A single `@import` at the top of [`../colors_and_type.css`](../colors_and_type.css) pulls all four from Google Fonts  same URL as production `social-frontend/index.html`:
 
 ```css
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap");
@@ -26,7 +26,7 @@ Each Google `@font-face` declaration carries its own `unicode-range`, so the bro
 
 ## Snapshots in this folder
 
-The WOFF2 files in this directory are reference copies of the chunks `fonts.gstatic.com` serves for the families above — useful for offline inspection, identifying which chunk covers which range, or air-gapped deployment. The active CSS does **not** reference them; the `@import` is the canonical load path.
+The WOFF2 files in this directory are reference copies of the chunks `fonts.gstatic.com` serves for the families above  useful for offline inspection, identifying which chunk covers which range, or air-gapped deployment. The active CSS does **not** reference them; the `@import` is the canonical load path.
 
 ```
 UcC73FwrK3iLTeHuS_nVMrMxCp50SjIa1ZL7.woff2                                              · Inter (variable, Latin)

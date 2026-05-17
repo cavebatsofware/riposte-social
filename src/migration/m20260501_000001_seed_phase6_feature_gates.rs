@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Seed Phase 6 feature gates. Each gate is a `(category=features)` row in
+//! Seed feature gates. Each gate is a `(category=features)` row in
 //! the `settings` table; the application reads them via
 //! `SettingsService::get_*_enabled()` helpers and admins flip them from
 //! the admin Settings page.
@@ -28,7 +28,7 @@ use uuid::Uuid;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-const PHASE6_GATES: &[&str] = &[
+const FEATURE_GATES: &[&str] = &[
     "poster_posting_enabled",
     "commenter_invites_enabled",
     "public_feed_enabled",
@@ -38,7 +38,7 @@ const PHASE6_GATES: &[&str] = &[
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        for key in PHASE6_GATES {
+        for key in FEATURE_GATES {
             manager
                 .exec_stmt(
                     Query::insert()
@@ -63,7 +63,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        for key in PHASE6_GATES {
+        for key in FEATURE_GATES {
             manager
                 .exec_stmt(
                     Query::delete()

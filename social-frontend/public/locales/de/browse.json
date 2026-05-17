@@ -37,7 +37,7 @@
     "slugPlaceholder": "automatisch aus dem Namen",
     "visibilityLabel": "Sichtbarkeit",
     "colorLabel": "Farbe",
-    "colorHint": "Optional — färbt das Kategorie-Etikett auf Beiträgen.",
+    "colorHint": "Optional  färbt das Kategorie-Etikett auf Beiträgen.",
     "colorEmpty": "Keine Farbe gesetzt",
     "colorClear": "Farbe entfernen",
     "editMembers": "Mitglieder bearbeiten",

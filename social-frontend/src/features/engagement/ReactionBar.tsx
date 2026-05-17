@@ -7,7 +7,7 @@ import useRovingFocus from "../../utils/useRovingFocus";
 /// The Facebook-6 reaction set. Order is the display order in the picker
 /// strip. The first entry is the default kind a user gets when they click
 /// the bare button without picking. Server-side allowlist is the source
-/// of truth — see `src/entities/reaction.rs::ALLOWED_KINDS`.
+/// of truth  see `src/entities/reaction.rs::ALLOWED_KINDS`.
 ///
 /// `id` and `emoji` stay here (universal across locales); the display
 /// label is resolved per-render via `t("feed:reactions.kind.{id}")` so
@@ -47,7 +47,7 @@ const DEFAULT_KIND = REACTION_KINDS[0].id;
 /// - Click toggles the user's current kind (defaults to `like` when none).
 /// - Hover (desktop) or long-press (mobile, ≥400ms) reveals the picker.
 /// - Selecting a different kind swaps (DELETE old + POST new) so a user
-///   only ever has one kind per target — same constraint Facebook
+///   only ever has one kind per target  same constraint Facebook
 ///   enforces.
 /// - Optimistic update flips local state immediately; server response is
 ///   authoritative on success; failure rolls back to the prop snapshot.

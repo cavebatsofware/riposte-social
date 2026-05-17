@@ -63,7 +63,7 @@ pub fn is_allowed_media_mime(mime: &str) -> bool {
     ALLOWED_IMAGE_MIME_TYPES.contains(&mime) || ALLOWED_VIDEO_MIME_TYPES.contains(&mime)
 }
 
-/// Returns true when `mime` is a video mime — used to pick the per-file
+/// Returns true when `mime` is a video mime  used to pick the per-file
 /// size cap and to dispatch the frontend `<video>` vs `<img>` render.
 pub fn is_video_mime(mime: &str) -> bool {
     ALLOWED_VIDEO_MIME_TYPES.contains(&mime)

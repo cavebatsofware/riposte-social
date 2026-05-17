@@ -91,7 +91,7 @@ export function ThemeProvider({ children }) {
 
   // On mount: resolve from localStorage or system preference. Also subscribe
   // to OS preference changes so a fresh visitor (no explicit choice yet)
-  // tracks their system theme — but stop tracking the moment they pick.
+  // tracks their system theme  but stop tracking the moment they pick.
   useEffect(() => {
     const initial = resolveInitialTheme();
     setThemeState(initial);
@@ -110,7 +110,7 @@ export function ThemeProvider({ children }) {
       } catch {
         // ignore
       }
-      // User has made an explicit choice — don't override it.
+      // User has made an explicit choice  don't override it.
       if (isValidThemeId(stored)) return;
       const next = e.matches ? `${DEFAULT_COLORWAY}-dark` : DEFAULT_COLORWAY;
       setThemeState(next);
@@ -159,7 +159,4 @@ export function ThemeProvider({ children }) {
   );
 }
 
-// Backwards-compat re-export. The old `THEMES` array name is replaced by
-// `COLORWAYS`; older imports of `THEMES` would break, but Phase 6 had no
-// such imports outside the context itself.
 export { COLORWAYS as THEMES };
