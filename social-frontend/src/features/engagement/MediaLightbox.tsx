@@ -21,6 +21,7 @@ import "./MediaLightbox.css";
 export default function MediaLightbox({ items, index, postId, onClose, onIndex }) {
   const overlayRef = useFocusTrap<HTMLDivElement>(true, { onEscape: onClose });
   const touchStartRef = useRef(null);
+  const zoomedMountRef = useRef(true);
   const { t } = useTranslation("browse");
   const [zoomed, setZoomed] = useState(false);
 
@@ -32,9 +33,13 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     setZoomed(false);
   }, [index]);
 
-  // Scroll to the top of the overlay whenever zoom state changes so the
-  // image is always in frame on both enter and exit.
+  // Scroll to the top of the overlay on zoom toggle so the image is always
+  // in frame. Skip the initial mount run — there is no prior state to correct.
   useEffect(() => {
+    if (zoomedMountRef.current) {
+      zoomedMountRef.current = false;
+      return;
+    }
     overlayRef.current?.scrollTo(0, 0);
   }, [zoomed]);
 
@@ -141,7 +146,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
         ×
       </button>
 
-      {item.media_kind !== "video" && (
+      {item.media_kind === "image" && (
         <button
           type="button"
           className="media-lightbox-zoom-toggle"

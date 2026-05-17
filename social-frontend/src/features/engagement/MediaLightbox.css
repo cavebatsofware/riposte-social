@@ -1,4 +1,7 @@
 .media-lightbox {
+  /* Used by .media-lightbox-figure padding to clear the close button.
+     Update if close button top offset or height changes. */
+  --_close-clearance: 60px;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.92);
@@ -12,14 +15,13 @@
 .media-lightbox-figure {
   margin: 0;
   width: 100%;
-  /* Exactly (100vh - 24px) so the engagement panel peeks 24px below the fold */
-  min-height: calc(100vh - 24px);
-  max-height: calc(100vh - 24px);
+  /* 100dvh tracks the dynamic viewport so the 24px peek survives mobile chrome retracting. */
+  min-height: calc(100dvh - 24px);
+  max-height: calc(100dvh - 24px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Top padding clears the close button (top: 12px, height: 40px) */
-  padding: 60px var(--spacing-4) var(--spacing-3);
+  padding: var(--_close-clearance) var(--spacing-4) var(--spacing-3);
   box-sizing: border-box;
   gap: var(--spacing-2);
 }
@@ -63,9 +65,10 @@
 }
 
 .media-lightbox-zoom-toggle {
-  position: absolute;
+  position: fixed;
   bottom: var(--spacing-3);
   left: var(--spacing-3);
+  z-index: 101;
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: rgba(255, 255, 255, 0.88);
@@ -156,6 +159,11 @@
     width: 36px;
     height: 36px;
     font-size: 24px;
+  }
+  /* Larger peek on narrow viewports makes the scroll affordance more obvious. */
+  .media-lightbox-figure {
+    min-height: calc(100dvh - 48px);
+    max-height: calc(100dvh - 48px);
   }
 }
 
