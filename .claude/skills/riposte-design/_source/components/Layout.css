@@ -1,7 +1,7 @@
 /* Layout shell — header, optional rail slots, main, footer.
    The grid resolves to a single column when no rail props are supplied,
-   so today's UI looks identical to the pre-Phase-7 single-column
-   experience while leaving room for nav rails / activity panels later. */
+   preserving the standard single-column layout while supporting optional
+   navigation rails or activity panels when those regions are present. */
 
 .layout {
   min-height: 100vh;
