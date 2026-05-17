@@ -37,7 +37,7 @@
     "slugPlaceholder": "se deriva del nombre",
     "visibilityLabel": "Visibilidad",
     "colorLabel": "Color",
-    "colorHint": "Opcional — se usa para teñir la etiqueta de categoría.",
+    "colorHint": "Opcional  se usa para teñir la etiqueta de categoría.",
     "colorEmpty": "Sin color",
     "colorClear": "Quitar color",
     "editMembers": "Editar miembros",

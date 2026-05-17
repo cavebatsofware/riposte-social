@@ -7,7 +7,7 @@
 /// special-case strings ("yesterday", "ayer", "hier") without any
 /// per-language branching here. CLDR data ships with the runtime, so a
 /// new locale is supported the moment it's added to `SUPPORTED_LOCALES`
-/// in `src/i18n.js` — no per-language code paths.
+/// in `src/i18n.js`  no per-language code paths.
 ///
 /// Bucket boundaries match the previous hand-rolled implementation:
 ///  - < 60 s         → "now" / "ahora" / "maintenant" / "现在" / "jetzt"

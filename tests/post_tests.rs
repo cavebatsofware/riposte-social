@@ -793,7 +793,7 @@ async fn test_feed_search_returns_empty_on_miss(pool: sqlx::PgPool) {
 async fn test_feed_search_respects_visibility_for_anon(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let admin = create_verified_admin(&backend, &test_email("search-vis"), TEST_PASSWORD).await;
-    // Private post containing the search term — anonymous viewer must not
+    // Private post containing the search term  anonymous viewer must not
     // find it via search even though the term appears in the body.
     insert_post(
         &db,

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Type scale</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .card { padding: 22px 28px; }
+  .row { display: grid; grid-template-columns: 72px 1fr; gap: 16px; align-items: baseline; padding: 6px 0; }
+  .row + .row { border-top: 1px solid var(--color-divider); }
+  .tag { font-size: 11px; color: var(--color-muted); font-family: var(--font-mono); letter-spacing: 0.04em; }
+  .spec { color: var(--color-text); line-height: 1.2; }
+  .s-xs { font-size: 12px; }
+  .s-sm { font-size: 14px; }
+  .s-base { font-size: 16px; }
+  .s-lg { font-size: 18px; }
+  .s-xl { font-size: 20px; }
+  .s-2xl { font-size: 24px; font-weight: 600; }
+  .s-3xl { font-size: 32px; font-weight: 600; letter-spacing: -0.01em; color: var(--color-primary); }
+</style></head>
+<body><div class="card">
+  <div class="row"><span class="tag">3xl · 32</span><span class="spec s-3xl">Riposte Social</span></div>
+  <div class="row"><span class="tag">2xl · 24</span><span class="spec s-2xl">You've been invited</span></div>
+  <div class="row"><span class="tag">xl · 20</span><span class="spec s-xl">Section heading</span></div>
+  <div class="row"><span class="tag">lg · 18</span><span class="spec s-lg">Comments (4)</span></div>
+  <div class="row"><span class="tag">base · 16</span><span class="spec s-base">Default post-body and form input size.</span></div>
+  <div class="row"><span class="tag">sm · 14</span><span class="spec s-sm">Meta line, buttons, search inputs, comments.</span></div>
+  <div class="row"><span class="tag">xs · 12</span><span class="spec s-xs">Eyebrow labels · uppercase pill badges · timestamps.</span></div>
+</div></body></html>

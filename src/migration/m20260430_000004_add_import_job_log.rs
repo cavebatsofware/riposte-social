@@ -22,7 +22,7 @@ pub struct Migration;
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // Per-job structured log so the admin UI can show exactly what
-        // happened during a run — boot, parse, dedup, per-post failures,
+        // happened during a run  boot, parse, dedup, per-post failures,
         // termination. The shape is `{ "entries": [...], "dropped": N }`
         // (see `JobLog` in `src/imports/mod.rs`); workers append events
         // and trim oldest entries past a cap, incrementing `dropped` so

@@ -38,7 +38,7 @@ impl MigrationTrait for Migration {
                     // the admin UI shows "by <email>" for audit.
                     .col(uuid(ImportJobs::CreatedBy))
                     // Future-proofing: jobs that decompose into sub-jobs
-                    // (Phase 5+) point at their parent here so the admin UI
+                    // point at their parent here so the admin UI
                     // can group them and resume cleanly.
                     .col(uuid_null(ImportJobs::ParentJobId))
                     // Caller-supplied parameters: source S3 key, visibility

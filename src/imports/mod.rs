@@ -28,8 +28,7 @@
 //! Restart safety. On boot we sweep any `running` rows from a previous
 //! process and flip them to `failed` with an explanatory error. We do not
 //! auto-resume yet; the row's progress counters are preserved so a future
-//! "Resume" button can pick up where the previous run left off (Phase 6
-//! polish at earliest). Resume itself works through the existing
+//! "Resume" button can pick up where the previous run left off. Resume itself works through the existing
 //! `(import_source, import_external_id)` dedup on `posts`, not through
 //! per-task durability.
 //!

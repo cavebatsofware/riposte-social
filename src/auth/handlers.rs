@@ -140,7 +140,7 @@ pub async fn oidc_callback(
     // Kill switch: when `commenter_invites_enabled` is off, refuse any
     // invite-driven OIDC acceptance. Already-bound users keep working
     // (Flow B in `authenticate_oidc` does not require an invite_code).
-    // Fail closed on settings read errors — a 500 surfaces the underlying
+    // Fail closed on settings read errors  a 500 surfaces the underlying
     // DB problem to the operator instead of silently permitting a gated
     // acceptance.
     if pending_invite.is_some() {

@@ -21,7 +21,7 @@
 //! visibility module.
 //!
 //! `created_by` is a nullable FK to `users.id` with `ON DELETE SET NULL`.
-//! NULL means "system-owned" — only admins can manage those
+//! NULL means "system-owned"  only admins can manage those
 //! rows. New categories created via the API populate it from the caller.
 
 use sea_orm_migration::{prelude::*, schema::*};

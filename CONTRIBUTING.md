@@ -90,7 +90,7 @@ Exception: a defensive guard tied to a specific past incident may keep a one-lin
 
 ### No em-dashes
 
-Don't use `—` (U+2014) in source, comments, UI copy, or documentation. Restructure the sentence. The em-dash is uncommon enough in practical English that it stands out, especially in user-visible strings; using shorter sentences or other punctuation reads more naturally and is trivial to do.
+Don't use the em-dash (U+2014) in source, comments, UI copy, or documentation. Restructure the sentence. It is uncommon enough in practical English that it stands out, especially in user-visible strings; using shorter sentences or other punctuation reads more naturally and is trivial to do.
 
 ### Rust
 

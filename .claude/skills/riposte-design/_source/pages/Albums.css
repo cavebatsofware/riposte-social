@@ -1,0 +1,59 @@
+.overflow-title {
+  margin: 0 0 var(--spacing-4) 0;
+  font-size: var(--font-size-2xl);
+}
+
+.albums-overflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--spacing-3);
+}
+
+.albums-overflow-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text);
+  overflow: hidden;
+  display: block;
+  transition: border-color 0.15s;
+}
+.albums-overflow-card:hover {
+  border-color: var(--color-primary);
+}
+
+.albums-overflow-cover {
+  aspect-ratio: 1.4;
+  background: var(--color-media-bg);
+  overflow: hidden;
+}
+.albums-overflow-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.albums-overflow-cover-empty {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-media-bg);
+}
+
+.albums-overflow-meta {
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+.albums-overflow-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.albums-overflow-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin-top: 2px;
+}

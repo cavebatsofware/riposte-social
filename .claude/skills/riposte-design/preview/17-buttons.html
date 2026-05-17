@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
+  .card { padding: 22px 28px; display: grid; gap: 16px; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.08em; width: 92px; }
+  .btn { font-family: inherit; font-weight: 600; font-size: 14px; padding: 8px 16px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; line-height: 1.5; }
+  .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
+  .btn-primary:hover { background: var(--color-primary-hover); }
+  .btn-secondary { background: transparent; color: var(--color-text); border-color: var(--color-border); }
+  .btn-secondary:hover { background: var(--color-surface-2); }
+  .btn-link { background: none; border: none; color: var(--color-primary); padding: 0; font-weight: 500; text-decoration: underline; cursor: pointer; }
+  .btn-disabled { opacity: 0.6; cursor: not-allowed; }
+  .icon-btn { width: 44px; height: 44px; border-radius: 999px; background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 8px 24px -8px rgba(0,0,0,0.18); }
+  .icon-btn:hover { color: var(--color-primary); }
+</style></head>
+<body><div class="card">
+  <div class="row">
+    <div class="label">Primary</div>
+    <button class="btn btn-primary">Publish</button>
+    <button class="btn btn-primary" style="background: var(--color-primary-hover)">Hover</button>
+    <button class="btn btn-primary btn-disabled" disabled>Saving…</button>
+  </div>
+  <div class="row">
+    <div class="label">Secondary</div>
+    <button class="btn btn-secondary">Cancel</button>
+    <button class="btn btn-secondary" style="background: var(--color-surface-2)">Hover</button>
+    <button class="btn btn-link">Clear search</button>
+  </div>
+  <div class="row">
+    <div class="label">Icon</div>
+    <button class="icon-btn" aria-label="Language">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+    </button>
+    <button class="icon-btn" aria-label="Theme">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"/>
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1 0 1.5-.5 1.5-1.2 0-.4-.1-.7-.4-1-.2-.3-.4-.6-.4-1 0-.7.5-1.2 1.2-1.2H16c3.3 0 6-2.7 6-6 0-5-4.5-9-10-9z"/>
+      </svg>
+    </button>
+    <button class="icon-btn" aria-label="Hamburger" style="border-radius: 6px; box-shadow: none;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
+  </div>
+</div></body></html>

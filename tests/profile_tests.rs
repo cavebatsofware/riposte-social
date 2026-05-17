@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 8 profile tests.
+//! profile tests.
 //!
 //! Covers:
 //! - handle validation (shape, length bounds, uniqueness),

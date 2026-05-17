@@ -1,6 +1,6 @@
-/* Layout shell — header, optional rail slots, main, footer.
+/* Layout shell header, optional rail slots, main, footer.
    The grid resolves to a single column when no rail props are supplied,
-   so today's UI looks identical to the pre-Phase-7 single-column
+   so today's UI looks identical to the single-column
    experience while leaving room for nav rails / activity panels later. */
 
 .layout {
@@ -111,7 +111,7 @@
 .layout-grid {
   flex: 1;
   width: 100%;
-  /* Phase 9g: widened from 1280px so a populated rail + wider main +
+  /* widened from 1280px so a populated rail + wider main +
      optional right rail uses the desktop space without forcing a
      scrollbar. */
   max-width: 1400px;
@@ -140,7 +140,7 @@
 
 .layout-main {
   min-width: 0;
-  /* Phase 9g: bumped from 720px to 840px so wide screens spend less
+  /* bumped from 720px to 840px so wide screens spend less
      of their width on dead gutter. The reading width stays comfortable
      at this size; longer lines are absorbed by the markdown styles. */
   max-width: 840px;
@@ -148,7 +148,7 @@
   margin: 0 auto;
 }
 
-/* Phase 9g breakpoint: on >= 1200px viewports, give the rail a touch more
+/* breakpoint: on >= 1200px viewports, give the rail a touch more
    room (260px) so longer category names / album titles fit on one line. */
 @media (min-width: 1200px) {
   .layout-grid.has-left {
@@ -243,8 +243,8 @@
 }
 
 /* Below 1024px the rail eats too much space (~240px) and main collapses
-   to ~520px, which most pages — feed cards, the categories manage row,
-   compose form — can't fit comfortably. Hide the inline nav up to
+   to ~520px, which most pages  feed cards, the categories manage row,
+   compose form  can't fit comfortably. Hide the inline nav up to
    1024px (revealed via hamburger) and drop the rail into the column
    flow so main column gets the full width on tablet-sized viewports.
    The rail still renders ABOVE main in this mode; users scroll past it

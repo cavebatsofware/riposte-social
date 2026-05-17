@@ -51,7 +51,7 @@ pub const TEST_TOTP_SECRET: &str = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP";
 
 /// Optional service overrides for `build_test_server_with`. Any field left as
 /// `None` falls back to the default construction path (real constructors that
-/// either hit the network or are disabled — see the individual defaults).
+/// either hit the network or are disabled  see the individual defaults).
 #[derive(Default)]
 pub struct TestServices {
     pub email: Option<Arc<EmailService>>,
@@ -130,7 +130,7 @@ pub async fn build_test_server_with(
         Some(email) => email,
         None => {
             // Default to a mocked SES client that swallows every send_email
-            // call. The previous behavior — `EmailService::new()` — built a
+            // call. The previous behavior  `EmailService::new()`  built a
             // *real* SES client out of the test process's AWS env, so any
             // test path that ended up calling `send_*` would fire actual
             // emails. Tests that want to assert on email content pass an

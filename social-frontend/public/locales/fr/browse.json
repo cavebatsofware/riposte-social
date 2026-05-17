@@ -37,7 +37,7 @@
     "slugPlaceholder": "déduit du nom",
     "visibilityLabel": "Visibilité",
     "colorLabel": "Couleur",
-    "colorHint": "Facultatif — utilisé pour teinter la pastille de catégorie.",
+    "colorHint": "Facultatif  utilisé pour teinter la pastille de catégorie.",
     "colorEmpty": "Aucune couleur",
     "colorClear": "Effacer la couleur",
     "editMembers": "Modifier les membres",

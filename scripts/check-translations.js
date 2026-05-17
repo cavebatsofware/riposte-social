@@ -4,7 +4,7 @@
  *
  * Walks `social-frontend/public/locales/en/*.json` (the source-of-truth
  * catalog set) and asserts every other locale defined in
- * `social-frontend/src/i18n.js::SUPPORTED_LOCALES` has the same keys —
+ * `social-frontend/src/i18n.js::SUPPORTED_LOCALES` has the same keys 
  * no missing translations, no leftover keys from removed strings, no
  * accidental nesting drift.
  *

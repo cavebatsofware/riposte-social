@@ -333,7 +333,7 @@ async fn test_resend_verification_self_returns_400(pool: sqlx::PgPool) {
         .contains("Cannot resend verification email to yourself"));
 }
 
-// ==================== Create admin user (Phase 2h) ====================
+// ==================== Create admin user ====================
 
 #[sqlx::test(migrations = false)]
 async fn test_create_user_returns_user_and_invite(pool: sqlx::PgPool) {

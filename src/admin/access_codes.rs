@@ -344,7 +344,7 @@ async fn delete_code(
     let active_model: access_code::ActiveModel = code.into();
     active_model.delete(&state.db).await?;
 
-    // Clean up S3 objects (best-effort — don't fail the delete if S3 cleanup fails)
+    // Clean up S3 objects (best-effort  don't fail the delete if S3 cleanup fails)
     if let Err(e) = state.s3.delete_file(&code_value, "index.html").await {
         tracing::warn!(
             "Failed to delete index.html from S3 for code {}: {}",

@@ -5,10 +5,10 @@ See CONTRIBUTING.md for branching, commits, and CI. PR template: .github/PULL_RE
 
 ## Stack and architecture
 
-- `src/` — Rust/Axum backend; modules: `posts`, `albums`, `auth`, `admin`, `follows`, `engagement`, `invites`, `migration`, `entities`
-- `social-frontend/` — React SPA (social feed, profiles); built to `social-assets/`
-- `admin-frontend/` — React SPA (admin panel); built to `admin-assets/`
-- `tests/` — integration tests (axum-test + wiremock); test DB on port 5433
+- `src/` Rust/Axum backend; modules: `posts`, `albums`, `auth`, `admin`, `follows`, `engagement`, `invites`, `migration`, `entities`
+- `social-frontend/` React SPA (social feed, profiles); built to `social-assets/`
+- `admin-frontend/` React SPA (admin panel); built to `admin-assets/`
+- `tests/` integration tests (axum-test + wiremock); test DB on port 5433
 
 ## Development
 
@@ -48,12 +48,12 @@ npm run check:i18n  # verify i18n keys are in sync
 ## References
 
 **Owned crates** (modify and bump rather than work around):
-- `basic-axum-rate-limit` — https://github.com/cavebatsofware/rate-limiter
-- `axum-tower-sessions-csrf` — https://github.com/cavebatsofware/axum-tower-sessions-csrf
+- `basic-axum-rate-limit` https://github.com/cavebatsofware/rate-limiter
+- `axum-tower-sessions-csrf` https://github.com/cavebatsofware/axum-tower-sessions-csrf
 
 **Babysitting until upstream updates land** (use as-is; don't modify):
-- `axum-login` (fork) — https://github.com/cavebatsofware/axum-login
-- `tower-sessions-sqlx-store` (fork) — https://github.com/cavebatsofware/tower-sessions-stores
+- `axum-login` (fork) https://github.com/cavebatsofware/axum-login
+- `tower-sessions-sqlx-store` (fork) https://github.com/cavebatsofware/tower-sessions-stores
 
 **GitHub project**: https://github.com/users/cavebatsofware/projects/2
 (`gh auth refresh -s project` for `gh project item-add`). Labels: `feature`, `accessibility`, `performance`, `infra`, `ux`.

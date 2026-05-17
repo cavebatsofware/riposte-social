@@ -37,7 +37,7 @@
     "slugPlaceholder": "从名称自动生成",
     "visibilityLabel": "可见性",
     "colorLabel": "颜色",
-    "colorHint": "可选 — 用于为类别徽章着色。",
+    "colorHint": "可选  用于为类别徽章着色。",
     "colorEmpty": "未设置颜色",
     "colorClear": "清除颜色",
     "editMembers": "编辑成员",

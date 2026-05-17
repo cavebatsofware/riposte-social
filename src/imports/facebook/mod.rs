@@ -352,7 +352,7 @@ pub async fn run_facebook_import(
         }
     }
 
-    // ----- Albums pass (Phase 9d) -----
+    // ----- Albums -----
     let albums_stream = stream::iter(albums.into_iter().map(|a| {
         let db = db.clone();
         let s3 = s3.clone();

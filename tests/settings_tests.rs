@@ -139,7 +139,7 @@ async fn test_update_setting_creates_new(pool: sqlx::PgPool) {
 
     assert_eq!(response.status_code(), StatusCode::OK);
 
-    // Verify via GET — find our new key in the list
+    // Verify via GET  find our new key in the list
     let get_response = server.get("/api/admin/settings").await;
     let json: serde_json::Value = get_response.json();
     let arr = json.as_array().unwrap();

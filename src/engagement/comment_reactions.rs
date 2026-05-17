@@ -186,7 +186,7 @@ pub(crate) async fn comment_reaction_state(
 }
 
 /// Per-comment engagement summary. Mirrors `PostEngagement` for posts but
-/// only carries the reaction-side fields — comments do not have nested
+/// only carries the reaction-side fields  comments do not have nested
 /// comments, so there is no count to track here.
 #[derive(Default, Debug, Clone)]
 pub struct CommentEngagement {

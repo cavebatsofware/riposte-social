@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Type families</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); }
+  .card { padding: 24px 28px; display: grid; gap: 18px; }
+  .block { display: grid; grid-template-columns: 130px 1fr; gap: 16px; align-items: baseline; }
+  .label { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--color-muted); padding-top: 6px; }
+  .spec { line-height: 1.2; }
+  .inter { font-family: var(--font-body); font-size: 22px; }
+  .inter .w { font-weight: 400; }
+  .inter .x { font-weight: 500; }
+  .inter .y { font-weight: 600; }
+  .inter .z { font-weight: 700; }
+  .mono { font-family: var(--font-mono); font-size: 18px; color: var(--color-text); }
+  .sc { font-family: var(--font-body); font-size: 20px; }
+  .em { font-family: var(--font-body); font-size: 28px; line-height: 1; }
+</style></head>
+<body><div class="card">
+  <div class="block"><div class="label">Inter</div><div class="spec inter"><span class="w">Aa</span> <span class="x">Aa</span> <span class="y">Aa</span> <span class="z">Aa</span> &nbsp; The quick brown fox</div></div>
+  <div class="block"><div class="label">JetBrains Mono</div><div class="spec mono">@grant · const visibility = "commenters";</div></div>
+  <div class="block"><div class="label">Noto Sans SC</div><div class="spec sc">你好世界。家人和好友。</div></div>
+  <div class="block"><div class="label">Noto Color Emoji</div><div class="spec em">👍 ❤️ 😂 😮 😢 😡</div></div>
+</div></body></html>

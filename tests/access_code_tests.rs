@@ -152,7 +152,7 @@ async fn test_list_access_codes_ordered_by_created_at_desc(pool: sqlx::PgPool) {
 async fn test_delete_access_code_unauthenticated_returns_csrf_or_401(pool: sqlx::PgPool) {
     let (server, _backend, _db) = build_test_server(pool).await;
 
-    // DELETE without auth or CSRF — hits CSRF middleware first
+    // DELETE without auth or CSRF  hits CSRF middleware first
     let response = server
         .delete(&format!("/api/admin/access-codes/{}", Uuid::new_v4()))
         .await;

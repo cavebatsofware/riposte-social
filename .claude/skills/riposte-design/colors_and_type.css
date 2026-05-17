@@ -1,0 +1,595 @@
+/* ============================================================================
+   Riposte Social Design Tokens
+   ----------------------------------------------------------------------------
+   Mirrors `social-frontend/src/index.css` from the Riposte codebase. Each
+   `[data-theme="…"]` block defines a complete colorway; switch by setting
+   the attribute on <html> (e.g. `<html data-theme="forest">`).
+
+     Aesthetic colorways:  forest · warm · plum · avernus · mineral
+     Accessibility:        daltonia (RG-CVD) · tritan (BY-CVD) · achroma (HC)
+     Each ships a light + dark variant ("<id>" and "<id>-dark").
+
+   Typography, spacing, radius, and shadow are static across colorways.
+
+   Fonts are loaded from the Google Fonts CDN (fonts.gstatic.com), matching
+   the production `social-frontend/index.html` exactly. Local snapshots of
+   the underlying WOFF2 files live in ./fonts/ for offline reference.
+   ============================================================================ */
+
+/* --- Webfont imports (Google Fonts CDN, fonts.gstatic.com).
+       Same URL as production social-frontend/index.html. Each Google
+       @font-face carries its own unicode-range, so the browser fetches
+       only what the page actually uses and the right family is picked
+       per code-point. Reference WOFF2 snapshots of all four families
+       live in ./fonts/. --- */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Color+Emoji&display=swap");
+
+/* ============================================================================
+   1 · COLORWAYS Aesthetic
+   ============================================================================ */
+
+:root,
+[data-theme="forest"] {
+  /* Forest & Cream DEFAULT. Deep green primary, sand background, copper accent. */
+  --color-bg: #f5efe4;
+  --color-surface: #fbf7ee;
+  --color-surface-2: #ede4d0;
+  --color-border: #e6d8b8;
+  --color-divider: #ede1cb;
+  --color-text: #2b2a26;
+  --color-muted: #6c6453;
+  --color-primary: #2d4a37;
+  --color-primary-hover: #1f3526;
+  --color-on-primary: #fbf7ee;
+  --color-link-underline: #a89867;
+  --color-avatar-bg: #2d4a37;
+  --color-avatar-fg: #fbf7ee;
+  --color-media-bg: #e5dabd;
+  --color-overlay: rgba(45, 74, 55, 0.55);
+
+  --color-badge-public-bg: #d6e2cd;
+  --color-badge-public-fg: #2d4a37;
+  --color-badge-commenters-bg: #e8dcc1;
+  --color-badge-commenters-fg: #6b4f1c;
+  --color-badge-posters-bg: #f0d6c3;
+  --color-badge-posters-fg: #8a3d11;
+
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="forest-dark"] {
+  --color-bg: #14201a;
+  --color-surface: #1a2922;
+  --color-surface-2: #22372d;
+  --color-border: #2c4135;
+  --color-divider: #25372d;
+  --color-text: #f1ead8;
+  --color-muted: #a89e85;
+  --color-primary: #7ec79a;
+  --color-primary-hover: #95d6ad;
+  --color-on-primary: #14201a;
+  --color-link-underline: #6b9b80;
+  --color-avatar-bg: #7ec79a;
+  --color-avatar-fg: #14201a;
+  --color-media-bg: #1f3328;
+  --color-overlay: rgba(126, 199, 154, 0.18);
+  --color-badge-public-bg: #1f3328;
+  --color-badge-public-fg: #b9e3c8;
+  --color-badge-commenters-bg: #3a2f1c;
+  --color-badge-commenters-fg: #e8c889;
+  --color-badge-posters-bg: #3a2419;
+  --color-badge-posters-fg: #e9b58f;
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1818;
+  --color-danger-border: #6b2828;
+}
+
+[data-theme="warm"] {
+  /* Warm Editorial navy primary, ivory base, terracotta accent. */
+  --color-bg: #f7f1e8;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0e8da;
+  --color-border: #ebe0c9;
+  --color-divider: #ede1cb;
+  --color-text: #1f2937;
+  --color-muted: #6e6452;
+  --color-primary: #1d3557;
+  --color-primary-hover: #14253f;
+  --color-on-primary: #ffffff;
+  --color-link-underline: #b8a578;
+  --color-avatar-bg: #1d3557;
+  --color-avatar-fg: #ffffff;
+  --color-media-bg: #ede1cb;
+  --color-overlay: rgba(29, 53, 87, 0.55);
+  --color-badge-public-bg: #e6dccb;
+  --color-badge-public-fg: #1d3557;
+  --color-badge-commenters-bg: #ddd2bd;
+  --color-badge-commenters-fg: #4b3a1f;
+  --color-badge-posters-bg: rgba(194, 65, 12, 0.12);
+  --color-badge-posters-fg: #9a3412;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="warm-dark"] {
+  --color-bg: #131826;
+  --color-surface: #1a2236;
+  --color-surface-2: #232c44;
+  --color-border: #2e3a55;
+  --color-divider: #2a3349;
+  --color-text: #ece4d4;
+  --color-muted: #a59c87;
+  --color-primary: #8ab2dd;
+  --color-primary-hover: #a3c2e6;
+  --color-on-primary: #131826;
+  --color-link-underline: #7a8db3;
+  --color-avatar-bg: #8ab2dd;
+  --color-avatar-fg: #131826;
+  --color-media-bg: #1f293f;
+  --color-overlay: rgba(138, 178, 221, 0.18);
+  --color-badge-public-bg: #1f293f;
+  --color-badge-public-fg: #b9d2f0;
+  --color-badge-commenters-bg: #38301c;
+  --color-badge-commenters-fg: #e7c785;
+  --color-badge-posters-bg: #3a241a;
+  --color-badge-posters-fg: #ecb38e;
+  --color-danger: #f87171;
+  --color-danger-bg: #341919;
+  --color-danger-border: #5e2727;
+}
+
+[data-theme="plum"] {
+  /* Plum & Apricot aubergine primary, cream surface, peach accents. */
+  --color-bg: #fbf6f0;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5e9dc;
+  --color-border: #f0e2d0;
+  --color-divider: #f0e2d0;
+  --color-text: #2a1a2e;
+  --color-muted: #7a6c75;
+  --color-primary: #5b1f4d;
+  --color-primary-hover: #44153a;
+  --color-on-primary: #fbf6f0;
+  --color-link-underline: #c89070;
+  --color-avatar-bg: #5b1f4d;
+  --color-avatar-fg: #fbf6f0;
+  --color-media-bg: #f3e3d2;
+  --color-overlay: rgba(91, 31, 77, 0.55);
+  --color-badge-public-bg: #fbe2cf;
+  --color-badge-public-fg: #9c3f0a;
+  --color-badge-commenters-bg: #ead4e2;
+  --color-badge-commenters-fg: #5b1f4d;
+  --color-badge-posters-bg: #fae8b8;
+  --color-badge-posters-fg: #7a5106;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="plum-dark"] {
+  --color-bg: #1c1220;
+  --color-surface: #271a2c;
+  --color-surface-2: #34253a;
+  --color-border: #3f2d46;
+  --color-divider: #382740;
+  --color-text: #f3e1d3;
+  --color-muted: #ad9a9f;
+  --color-primary: #c884b6;
+  --color-primary-hover: #d99dc7;
+  --color-on-primary: #1c1220;
+  --color-link-underline: #b3829e;
+  --color-avatar-bg: #c884b6;
+  --color-avatar-fg: #1c1220;
+  --color-media-bg: #2c1f33;
+  --color-overlay: rgba(200, 132, 182, 0.18);
+  --color-badge-public-bg: #3a221d;
+  --color-badge-public-fg: #f0c6a8;
+  --color-badge-commenters-bg: #2e1f33;
+  --color-badge-commenters-fg: #e3b9d6;
+  --color-badge-posters-bg: #3a2e16;
+  --color-badge-posters-fg: #e6cf8b;
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1717;
+  --color-danger-border: #5e2222;
+}
+
+[data-theme="avernus"] {
+  /* Avernus & Clouds (LIGHT half = "Clouds") cloud-white base, sky-blue primary, dawn-pink badges. */
+  --color-bg: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #e9eef7;
+  --color-border: #d8e2f0;
+  --color-divider: #e2eaf3;
+  --color-text: #1a2438;
+  --color-muted: #5e6878;
+  --color-primary: #4f6dab;
+  --color-primary-hover: #3d588f;
+  --color-on-primary: #ffffff;
+  --color-link-underline: #a3b6d2;
+  --color-avatar-bg: #4f6dab;
+  --color-avatar-fg: #ffffff;
+  --color-media-bg: #e1e9f5;
+  --color-overlay: rgba(79, 109, 171, 0.15);
+  --color-badge-public-bg: #d6e0f2;
+  --color-badge-public-fg: #2c3e6d;
+  --color-badge-commenters-bg: #efd9e2;
+  --color-badge-commenters-fg: #8b3e58;
+  --color-badge-posters-bg: #efe2c9;
+  --color-badge-posters-fg: #7a591b;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="avernus-dark"] {
+  /* Avernus & Clouds (DARK half = "Avernus") volcanic warm-black, ember primary, copper underline. */
+  --color-bg: #18120f;
+  --color-surface: #221512;
+  --color-surface-2: #2f1a16;
+  --color-border: #9c563d;
+  --color-divider: #3a201a;
+  --color-text: #f3e2cf;
+  --color-muted: #b89381;
+  --color-primary: #ed5e3a;
+  --color-primary-hover: #f47049;
+  --color-on-primary: #170a06;
+  --color-link-underline: #c47a5a;
+  --color-avatar-bg: #ed5e3a;
+  --color-avatar-fg: #170a06;
+  --color-media-bg: #1f120e;
+  --color-overlay: rgba(237, 94, 58, 0.18);
+  --color-badge-public-bg: #2a1714;
+  --color-badge-public-fg: #f4b89c;
+  --color-badge-commenters-bg: #3a2618;
+  --color-badge-commenters-fg: #f0c98a;
+  --color-badge-posters-bg: #2e1a0e;
+  --color-badge-posters-fg: #e9a47a;
+  --color-danger: #f87171;
+  --color-danger-bg: #3a1717;
+  --color-danger-border: #6b2222;
+}
+
+[data-theme="mineral"] {
+  /* Rocks & Minerals (LIGHT = "Sandstone") warm limestone, copper primary. */
+  --color-bg: #f0ebe1;
+  --color-surface: #f8f5ed;
+  --color-surface-2: #e6dfd0;
+  --color-border: #d6cdba;
+  --color-divider: #ddd3be;
+  --color-text: #2d2925;
+  --color-muted: #6c6453;
+  --color-primary: #8e4a1f;
+  --color-primary-hover: #7a3f1a;
+  --color-on-primary: #f8f5ed;
+  --color-link-underline: #ad8d63;
+  --color-avatar-bg: #5e4b3a;
+  --color-avatar-fg: #f8f5ed;
+  --color-media-bg: #d8cdb6;
+  --color-overlay: rgba(160, 90, 44, 0.15);
+  --color-badge-public-bg: #d8cdb6;
+  --color-badge-public-fg: #4a3f2c;
+  --color-badge-commenters-bg: #e6d4ba;
+  --color-badge-commenters-fg: #6e5026;
+  --color-badge-posters-bg: #e8c8a8;
+  --color-badge-posters-fg: #7d3f17;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+}
+
+[data-theme="mineral-dark"] {
+  /* Rocks & Minerals (DARK = "Granite") cool charcoal, amber-copper primary, mineral-teal hints. */
+  --color-bg: #1c1c1f;
+  --color-surface: #25252a;
+  --color-surface-2: #2f2f35;
+  --color-border: #3a3a42;
+  --color-divider: #333339;
+  --color-text: #ebe2cf;
+  --color-muted: #9b9281;
+  --color-primary: #d6884a;
+  --color-primary-hover: #e3995d;
+  --color-on-primary: #1c1c1f;
+  --color-link-underline: #8a6f4d;
+  --color-avatar-bg: #d6884a;
+  --color-avatar-fg: #1c1c1f;
+  --color-media-bg: #28282d;
+  --color-overlay: rgba(214, 136, 74, 0.18);
+  --color-badge-public-bg: #28282d;
+  --color-badge-public-fg: #d6c9a8;
+  --color-badge-commenters-bg: #2c2820;
+  --color-badge-commenters-fg: #e7c382;
+  --color-badge-posters-bg: #1f2a2c;
+  --color-badge-posters-fg: #8fc4c4;
+  --color-danger: #f87171;
+  --color-danger-bg: #34191a;
+  --color-danger-border: #5e2424;
+}
+
+/* ============================================================================
+   2 · COLORWAYS Accessibility
+   Each is designed FOR the targeted vision profile, not just compatible.
+   ============================================================================ */
+
+[data-theme="daltonia"] {
+  /* Red-Green CVD accessible parchment + prussian blue + golden amber. */
+  --color-bg: #f5ecd5;
+  --color-surface: #fbf6e6;
+  --color-surface-2: #e8dbb8;
+  --color-border: #c9b890;
+  --color-divider: #d8c9a0;
+  --color-text: #0e1a30;
+  --color-muted: #4d5670;
+  --color-primary: #1c4a8c;
+  --color-primary-hover: #144078;
+  --color-on-primary: #fbf6e6;
+  --color-link-underline: #a06f1a;
+  --color-avatar-bg: #1c4a8c;
+  --color-avatar-fg: #fbf6e6;
+  --color-media-bg: #ebe1c5;
+  --color-overlay: rgba(28, 74, 140, 0.55);
+  --color-badge-public-bg: #d4dde8;
+  --color-badge-public-fg: #142a52;
+  --color-badge-commenters-bg: #f0deb0;
+  --color-badge-commenters-fg: #6e4c10;
+  --color-badge-posters-bg: #ead8a8;
+  --color-badge-posters-fg: #2a3d6c;
+  --color-danger: #8e3c00;
+  --color-danger-bg: #fde6c8;
+  --color-danger-border: #e8c790;
+}
+
+[data-theme="daltonia-dark"] {
+  --color-bg: #0a1428;
+  --color-surface: #142440;
+  --color-surface-2: #1d2f50;
+  --color-border: #3a4d70;
+  --color-divider: #1f2a44;
+  --color-text: #f0e8d0;
+  --color-muted: #a89a7a;
+  --color-primary: #e8b03a;
+  --color-primary-hover: #f0c45a;
+  --color-on-primary: #0a1428;
+  --color-link-underline: #c4942a;
+  --color-avatar-bg: #e8b03a;
+  --color-avatar-fg: #0a1428;
+  --color-media-bg: #142440;
+  --color-overlay: rgba(232, 176, 58, 0.18);
+  --color-badge-public-bg: #1d2f50;
+  --color-badge-public-fg: #e8c870;
+  --color-badge-commenters-bg: #3a2e14;
+  --color-badge-commenters-fg: #f0c870;
+  --color-badge-posters-bg: #1a3050;
+  --color-badge-posters-fg: #d8e0f0;
+  --color-danger: #ff9a4a;
+  --color-danger-bg: #2e1808;
+  --color-danger-border: #6e3520;
+}
+
+[data-theme="tritan"] {
+  /* Blue-Yellow CVD accessible neutral warm-stone, forest primary, distinct R/G/brown badges. */
+  --color-bg: #e6e8df;
+  --color-surface: #f0f2e8;
+  --color-surface-2: #d6d9ce;
+  --color-border: #c0c4ae;
+  --color-divider: #ccd0be;
+  --color-text: #1a2818;
+  --color-muted: #525c44;
+  --color-primary: #2c5538;
+  --color-primary-hover: #234628;
+  --color-on-primary: #f0f2e8;
+  --color-link-underline: #8a2818;
+  --color-avatar-bg: #2c5538;
+  --color-avatar-fg: #f0f2e8;
+  --color-media-bg: #d6d9ce;
+  --color-overlay: rgba(44, 85, 56, 0.55);
+  --color-badge-public-bg: #d0e0c8;
+  --color-badge-public-fg: #1f3a26;
+  --color-badge-commenters-bg: #f0d2d2;
+  --color-badge-commenters-fg: #6e1818;
+  --color-badge-posters-bg: #d8d8c8;
+  --color-badge-posters-fg: #4a3520;
+  --color-danger: #8e1818;
+  --color-danger-bg: #fde0e0;
+  --color-danger-border: #e8b5b5;
+}
+
+[data-theme="tritan-dark"] {
+  --color-bg: #0d1a12;
+  --color-surface: #152a1c;
+  --color-surface-2: #1f3e28;
+  --color-border: #3a5240;
+  --color-divider: #234028;
+  --color-text: #f0e8d0;
+  --color-muted: #8c9c70;
+  --color-primary: #dd7866;
+  --color-primary-hover: #e88876;
+  --color-on-primary: #0d1a12;
+  --color-link-underline: #d68c7a;
+  --color-avatar-bg: #dd7866;
+  --color-avatar-fg: #0d1a12;
+  --color-media-bg: #152a1c;
+  --color-overlay: rgba(221, 120, 102, 0.18);
+  --color-badge-public-bg: #2a4a30;
+  --color-badge-public-fg: #c8e0c0;
+  --color-badge-commenters-bg: #4a1e1e;
+  --color-badge-commenters-fg: #f0c0a0;
+  --color-badge-posters-bg: #3a2a14;
+  --color-badge-posters-fg: #e8c79a;
+  --color-danger: #ff6655;
+  --color-danger-bg: #3d1818;
+  --color-danger-border: #6a2a2a;
+}
+
+[data-theme="achroma"] {
+  /* High Contrast (light) pure black/white. Borders are load-bearing. */
+  --color-bg: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f0f0;
+  --color-border: #000000;
+  --color-divider: #cccccc;
+  --color-text: #000000;
+  --color-muted: #404040;
+  --color-primary: #0000aa;
+  --color-primary-hover: #000077;
+  --color-on-primary: #ffffff;
+  --color-link-underline: #000000;
+  --color-avatar-bg: #000000;
+  --color-avatar-fg: #ffffff;
+  --color-media-bg: #f0f0f0;
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --color-badge-public-bg: #000000;
+  --color-badge-public-fg: #ffffff;
+  --color-badge-commenters-bg: #404040;
+  --color-badge-commenters-fg: #ffffff;
+  --color-badge-posters-bg: #666666;
+  --color-badge-posters-fg: #ffffff;
+  --color-danger: #cc0000;
+  --color-danger-bg: #ffe6e6;
+  --color-danger-border: #cc0000;
+}
+
+[data-theme="achroma-dark"] {
+  --color-bg: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-2: #1a1a1a;
+  --color-border: #ffffff;
+  --color-divider: #404040;
+  --color-text: #ffffff;
+  --color-muted: #cccccc;
+  --color-primary: #66aaff;
+  --color-primary-hover: #99c4ff;
+  --color-on-primary: #000000;
+  --color-link-underline: #ffffff;
+  --color-avatar-bg: #ffffff;
+  --color-avatar-fg: #000000;
+  --color-media-bg: #1a1a1a;
+  --color-overlay: rgba(255, 255, 255, 0.3);
+  --color-badge-public-bg: #ffffff;
+  --color-badge-public-fg: #000000;
+  --color-badge-commenters-bg: #cccccc;
+  --color-badge-commenters-fg: #000000;
+  --color-badge-posters-bg: #999999;
+  --color-badge-posters-fg: #000000;
+  --color-danger: #ff6666;
+  --color-danger-bg: #4d0000;
+  --color-danger-border: #ff6666;
+}
+
+/* ============================================================================
+   3 · STATIC TOKENS Typography, spacing, radius, shadow
+   Identical across colorways.
+   ============================================================================ */
+
+:root {
+  /* Font stacks. Each Google `@font-face` carries its own unicode-range,
+     so the browser picks the right family per code-point:
+       Inter            → Latin
+       JetBrains Mono   → monospace
+       Noto Sans SC     → Simplified Chinese
+       Noto Color Emoji → emoji glyphs */
+  --font-body: "Inter", "Noto Sans SC", "Noto Color Emoji", sans-serif;
+  --font-mono: "JetBrains Mono", "Noto Sans SC", "Noto Color Emoji", monospace;
+
+  /* Type scale (rem-based, 1rem = 16px). */
+  --font-size-xs: 0.75rem;   /* 12px  meta, captions, eyebrows */
+  --font-size-sm: 0.875rem;  /* 14px  secondary text, controls */
+  --font-size-base: 1rem;    /* 16px  body */
+  --font-size-lg: 1.125rem;  /* 18px  emphasized body, h3 */
+  --font-size-xl: 1.25rem;   /* 20px  h2, logo wordmark */
+  --font-size-2xl: 1.5rem;   /* 24px  modal h2 */
+  --font-size-3xl: 2rem;     /* 32px  feed h1, page hero */
+
+  /* Spacing 4px-grid. */
+  --spacing-1: 0.25rem;   /* 4 */
+  --spacing-2: 0.5rem;    /* 8 */
+  --spacing-3: 0.75rem;   /* 12 */
+  --spacing-4: 1rem;      /* 16 */
+  --spacing-6: 1.5rem;    /* 24 */
+  --spacing-8: 2rem;      /* 32 */
+  --spacing-12: 3rem;     /* 48 */
+
+  /* Radius small and tasteful. No fully-pillow corners except pill chips. */
+  --radius-sm: 0.25rem;   /* 4 inputs, search, code */
+  --radius-md: 0.375rem;  /* 6 buttons, alerts, popovers */
+  --radius-lg: 0.625rem;  /* 10 cards, modals, auth shell */
+  --radius-full: 999px;   /* pills, avatar bubbles, reaction badges */
+
+  /* Shadows restrained. Editorial, not floaty. */
+  --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.04);
+  --shadow-popover: 0 8px 24px -8px rgba(0, 0, 0, 0.18);
+}
+
+/* ============================================================================
+   4 · SEMANTIC TYPE opt-in classes for prose-style consumers
+   Use these when you need consistent headings outside the Riposte component
+   library. The product itself styles by component, not by element.
+   ============================================================================ */
+
+.ds-h1 {
+  font-family: var(--font-body);
+  font-size: var(--font-size-3xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-primary);
+  margin: 0;
+}
+.ds-h2 {
+  font-family: var(--font-body);
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+.ds-h3 {
+  font-family: var(--font-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0;
+}
+.ds-eyebrow {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+}
+.ds-p {
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.65;
+  color: var(--color-text);
+  margin: 0 0 var(--spacing-3);
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.ds-meta {
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+.ds-code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-surface-2);
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+.ds-handle {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+.ds-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-link-underline);
+}
+.ds-link:hover {
+  border-bottom-color: var(--color-primary);
+}

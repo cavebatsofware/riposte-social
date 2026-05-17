@@ -308,7 +308,7 @@ export default function Categories() {
               </Link>
             );
           }
-          // Manageable row — inline edit. Controls are grouped into
+          // Manageable row  inline edit. Controls are grouped into
           // text / pickers / actions so flex-wrap moves them as units
           // when the row narrows. Save and Delete swap based on dirty
           // state: a clean row shows Delete, a row with unsaved changes

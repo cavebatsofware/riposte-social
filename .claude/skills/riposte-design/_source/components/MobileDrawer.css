@@ -1,0 +1,115 @@
+/* Slide-in drawer from the right edge for mobile viewports. Hidden via
+   `data-open="false"` so the markup can stay mounted (focus trap setup
+   is simpler when refs are stable). */
+
+.mobile-drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.mobile-drawer[data-open="true"] {
+  pointer-events: auto;
+}
+
+.mobile-drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  transition: opacity 0.18s ease-out;
+}
+
+.mobile-drawer[data-open="true"] .mobile-drawer-backdrop {
+  opacity: 1;
+}
+
+.mobile-drawer-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(320px, 88vw);
+  background: var(--color-surface);
+  border-left: 1px solid var(--color-divider);
+  box-shadow: var(--shadow-popover);
+  transform: translateX(100%);
+  transition: transform 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.mobile-drawer[data-open="true"] .mobile-drawer-panel {
+  transform: translateX(0);
+}
+
+.mobile-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.mobile-drawer-title {
+  font-family: var(--font-body);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.mobile-drawer-close {
+  background: transparent;
+  border: none;
+  font-size: var(--font-size-2xl);
+  line-height: 1;
+  color: var(--color-muted);
+  cursor: pointer;
+  padding: 0 var(--spacing-2);
+}
+
+.mobile-drawer-close:hover {
+  color: var(--color-text);
+}
+
+.mobile-drawer-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-3);
+}
+
+.mobile-drawer-nav-link {
+  padding: var(--spacing-3) var(--spacing-3);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--font-size-base);
+  font-weight: 500;
+}
+
+.mobile-drawer-nav-link:hover {
+  background: var(--color-overlay);
+}
+
+.mobile-drawer-section {
+  padding: var(--spacing-3);
+  border-top: 1px solid var(--color-divider);
+}
+
+.mobile-drawer-auth {
+  margin-top: auto;
+}
+
+.mobile-drawer-btn {
+  width: 100%;
+  text-align: center;
+}
+
+/* The inline ThemePicker variant inside the drawer drops the popover
+   chrome and renders the swatches as a list. */
+.theme-picker-inline {
+  /* No additional styles needed since the existing `.theme-picker-grid`
+     styles work in inline context too. */
+}

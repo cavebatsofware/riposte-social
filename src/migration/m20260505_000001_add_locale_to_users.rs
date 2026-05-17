@@ -13,10 +13,10 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 11e: per-user locale preference.
+//! per-user locale preference.
 //!
 //! Adds a nullable `locale` column to `users`. NULL means "no explicit
-//! preference saved" — the social-frontend's i18next browser-language
+//! preference saved"  the social-frontend's i18next browser-language
 //! detector falls back to the navigator language. The allowlist of valid
 //! BCP-47-style codes is enforced at the application layer
 //! (`src/profile/locale.rs::SUPPORTED_LOCALES`); the DB just stores the

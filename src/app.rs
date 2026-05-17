@@ -432,7 +432,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
 
-    // OIDC routes — shared across all user tiers (admin, poster, commenter).
+    // OIDC routes  shared across all user tiers (admin, poster, commenter).
     let oidc_state = auth::handlers::OidcState {
         oidc_service: state.oidc.clone(),
         db: state.db.clone(),
@@ -500,7 +500,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
 
     // Import job routes (admin-only): POST FB archive, list jobs, get job
     // status. The POST handler streams the upload to a tempfile then
-    // spawns a tokio worker — see `src/imports/routes.rs` for the full
+    // spawns a tokio worker  see `src/imports/routes.rs` for the full
     // lifecycle and `src/imports/facebook.rs` for the worker.
     let imports_state = imports::handlers::ImportsState {
         db: state.db.clone(),
@@ -560,7 +560,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(posts_state)
         .layer(auth_layer.clone());
 
-    // Albums (Phase 9d): media-only collections, parallel to posts but
+    // Albums: media-only collections, parallel to posts but
     // never merged into the feed. Author/admin gate on the write side
     // mirrors posts; reads are public with the same visibility predicate.
     let albums_state = albums::AlbumsState {
@@ -578,7 +578,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(albums_state)
         .layer(auth_layer.clone());
 
-    // Categories (Phase 9e). Public list is readable by anyone (used by
+    // Categories. Public list is readable by anyone (used by
     // the social-frontend's left rail); CRUD is admin-only.
     let categories_state = categories::CategoriesState {
         db: state.db.clone(),
@@ -630,7 +630,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(auth_layer.clone());
 
     // Engagement: reactions and comments. Writes require authentication
-    // (any tier — commenter, poster, administrator). Reads are public; the
+    // (any tier  commenter, poster, administrator). Reads are public; the
     // visibility-tier check against the parent post happens inline.
     let engagement_state = engagement::EngagementState {
         db: state.db.clone(),

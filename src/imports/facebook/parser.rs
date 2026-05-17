@@ -47,7 +47,7 @@ pub(crate) struct FacebookPost {
 }
 
 /// Normalized representation of one FB album manifest extracted from
-/// `your_facebook_activity/posts/album/*.json`. Phase 9d: albums are now
+/// `your_facebook_activity/posts/album/*.json`. Albums are now
 /// imported as `albums` entities, NOT synthesized into posts. Each
 /// `attachment_uris` resolves to one `album_media` row.
 #[derive(Debug, Clone)]
@@ -344,7 +344,7 @@ struct RawAlbumPhoto {
     creation_timestamp: Option<i64>,
 }
 
-/// Normalize one album manifest into a `FacebookAlbum` (Phase 9d).
+/// Normalize one album manifest into a `FacebookAlbum`.
 /// Albums are imported as `albums` rows with `album_media` items, not
 /// synthesized as posts with photos crammed into the body. The timestamp
 /// prefers the earliest `creation_timestamp` across the photos so
@@ -364,7 +364,7 @@ fn normalize_album(raw: RawAlbum) -> Option<FacebookAlbum> {
     let earliest_creation = raw.photos.iter().filter_map(|p| p.creation_timestamp).min();
     let timestamp = earliest_creation
         .or(raw.last_modified_timestamp)
-        // No timestamps anywhere — drop. The album entity requires a
+        // No timestamps anywhere  drop. The album entity requires a
         // published_at and we have no defensible value to set.
         ?;
 
@@ -662,7 +662,7 @@ mod tests {
             fix_facebook_mojibake("hello world"),
             std::borrow::Cow::Borrowed("hello world")
         );
-        let already_clean = "hola — té";
+        let already_clean = "hola té";
         assert_eq!(fix_facebook_mojibake(already_clean).as_ref(), already_clean);
         let stray_c2 = "stray Â at end";
         assert_eq!(fix_facebook_mojibake(stray_c2).as_ref(), stray_c2);
@@ -735,7 +735,7 @@ mod tests {
         );
     }
 
-    // ----- album normalization (Phase 9d: FacebookAlbum, not FacebookPost) -----
+    // ----- album normalization -----
 
     #[test]
     fn test_album_normalizes_with_description() {

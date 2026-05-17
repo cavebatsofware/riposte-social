@@ -67,7 +67,7 @@ pub(crate) async fn import_one_post(
     for (i, (filename, bytes)) in staged_media.into_iter().enumerate() {
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(&filename);
-        // Phase 9c: images and videos are both supported now. Other
+        // images and videos are both supported now. Other
         // types (`.mov` / unknown) are skipped rather than failing the
         // whole post.
         if !is_supported_media_mime(&mime) {

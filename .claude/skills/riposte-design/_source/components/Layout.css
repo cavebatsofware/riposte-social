@@ -1,0 +1,269 @@
+/* Layout shell header, optional rail slots, main, footer.
+   The grid resolves to a single column when no rail props are supplied
+   */
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.layout-skip-link {
+  position: absolute;
+  left: -10000px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.layout-skip-link:focus {
+  position: fixed;
+  top: var(--spacing-2);
+  left: var(--spacing-2);
+  width: auto;
+  height: auto;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  z-index: 100;
+}
+
+.layout-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.layout-header-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--spacing-3) var(--spacing-4);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+}
+
+.layout-logo {
+  font-family: var(--font-body);
+  font-size: var(--font-size-xl);
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.layout-nav {
+  display: flex;
+  gap: var(--spacing-2);
+  flex: 1;
+  margin-left: var(--spacing-4);
+}
+
+.layout-nav-link {
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+.layout-nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-overlay);
+}
+.layout-nav-link.active {
+  color: var(--color-text);
+  background: var(--color-overlay);
+}
+
+.layout-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-left: auto;
+}
+
+.layout-auth-btn {
+  white-space: nowrap;
+}
+
+/* Hidden by default; revealed only on mobile via media query below. */
+.layout-hamburger {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.layout-hamburger:hover {
+  background: var(--color-overlay);
+}
+
+.layout-grid {
+  flex: 1;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--spacing-6) var(--spacing-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--spacing-6);
+}
+
+.layout-grid.has-left {
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+}
+
+.layout-grid.has-right {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+}
+
+.layout-grid.has-left.has-right {
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr) minmax(0, 320px);
+}
+
+.layout-rail {
+  min-width: 0;
+}
+
+.layout-main {
+  min-width: 0;
+  max-width: 840px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 1200px) {
+  .layout-grid.has-left {
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  }
+  .layout-grid.has-left.has-right {
+    grid-template-columns: minmax(0, 260px) minmax(0, 1fr) minmax(0, 320px);
+  }
+}
+
+/* Avatar dropdown for the authed viewer. */
+.user-menu {
+  position: relative;
+}
+.user-menu-trigger {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-menu-trigger:hover {
+  background: var(--color-overlay);
+}
+.user-menu-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.user-menu-initials {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface-alt, var(--color-surface));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-menu-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--spacing-2));
+  min-width: 200px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-popover, 0 6px 16px rgba(0, 0, 0, 0.18));
+  padding: var(--spacing-2);
+  display: flex;
+  flex-direction: column;
+  z-index: 40;
+}
+.user-menu-meta {
+  padding: var(--spacing-2);
+}
+.user-menu-name {
+  font-weight: 600;
+}
+.user-menu-handle {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono, monospace);
+}
+.user-menu-divider {
+  height: 1px;
+  background: var(--color-divider);
+  margin: var(--spacing-1) 0;
+}
+.user-menu-item {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: var(--spacing-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+}
+.user-menu-item:hover {
+  background: var(--color-overlay);
+}
+.user-menu-signout {
+  color: var(--color-text-muted, var(--color-muted));
+}
+
+/* Below 1024px the rail eats too much space (~240px) and main collapses
+   to ~520px, which most pages  feed cards, the categories manage row,
+   compose form  can't fit comfortably. Hide the inline nav up to
+   1024px (revealed via hamburger) and drop the rail into the column
+   flow so main column gets the full width on tablet-sized viewports.
+   The rail still renders ABOVE main in this mode; users scroll past it
+   to reach feed content. */
+@media (max-width: 1024px) {
+  .layout-nav,
+  .layout-auth-btn,
+  .layout-header-actions .theme-picker,
+  .user-menu {
+    display: none;
+  }
+  .layout-hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .layout-grid.has-left,
+  .layout-grid.has-right,
+  .layout-grid.has-left.has-right {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Tighten outer padding only at true mobile widths so phones don't lose
+   visible content to gutters. Tablet viewports keep the desktop padding
+   so the main column stays visually anchored. */
+@media (max-width: 600px) {
+  .layout-grid {
+    padding: var(--spacing-4) var(--spacing-3);
+  }
+}

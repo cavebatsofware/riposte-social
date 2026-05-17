@@ -17,7 +17,7 @@ import { deletePost, fetchPost } from "./api";
 /// `<PostCard />` so likes work from both feed and permalink without two
 /// separate code paths.
 ///
-/// Wrapped in `<Layout>` (Phase 7a). Page-local navigation has shrunk to
+/// Wrapped in `<Layout>`. Page-local navigation has shrunk to
 /// a single "Back to feed" link rendered above the post content.
 export default function Post() {
   const { id } = useParams();

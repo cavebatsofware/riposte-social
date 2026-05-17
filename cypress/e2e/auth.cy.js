@@ -13,7 +13,7 @@
 ///
 /// Spec is intentionally narrow: it asserts the auth-state change
 /// surfaces and the page-level role gate, not deeper Compose
-/// behavior. Future phase PRs add their own functional specs that
+/// behavior. Future PRs add their own functional specs that
 /// piggyback on the same cy.login() fixture.
 
 describe("auth flow (seeded test admin)", () => {

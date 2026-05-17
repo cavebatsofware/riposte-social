@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-theme="forest"><head><meta charset="utf-8" /><title>Iconography</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); font-size: 13px; }
+  .card { padding: 22px 28px; display: grid; gap: 14px; }
+  .row { display: grid; grid-template-columns: 130px 1fr; gap: 16px; align-items: center; }
+  .label { font-size: 11px; color: var(--color-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .glyphs { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .glyph-text { font-size: 18px; color: var(--color-muted); width: 28px; text-align: center; }
+  .glyph-svg svg { color: var(--color-text); }
+  .emoji { font-size: 22px; }
+  .desc { font-size: 12px; color: var(--color-muted); line-height: 1.5; }
+</style></head>
+<body><div class="card">
+
+  <div class="row">
+    <div class="label">Hand-rolled SVG</div>
+    <div class="glyphs glyph-svg">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c1 0 1.5-.5 1.5-1.2 0-.4-.1-.7-.4-1-.2-.3-.4-.6-.4-1 0-.7.5-1.2 1.2-1.2H16c3.3 0 6-2.7 6-6 0-5-4.5-9-10-9z"/></svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+      <span class="desc"><code style="font-family: var(--font-mono); font-size: 11px;">stroke="currentColor"</code> · 1.8–2px · Lucide-adjacent</span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">Unicode glyphs</div>
+    <div class="glyphs">
+      <span class="glyph-text">▾</span>
+      <span class="glyph-text">▸</span>
+      <span class="glyph-text">▶</span>
+      <span class="glyph-text">×</span>
+      <span class="glyph-text">✓</span>
+      <span class="glyph-text">→</span>
+      <span class="glyph-text">←</span>
+      <span class="desc">Used for chevrons, video play badge, clears, checks, inline arrows.</span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="label">Reaction emoji</div>
+    <div class="glyphs">
+      <span class="emoji">👍</span>
+      <span class="emoji">❤️</span>
+      <span class="emoji">😂</span>
+      <span class="emoji">😮</span>
+      <span class="emoji">😢</span>
+      <span class="emoji">😡</span>
+      <span class="desc">Noto Color Emoji. Functional only  never decorative.</span>
+    </div>
+  </div>
+
+</div></body></html>

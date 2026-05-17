@@ -52,16 +52,16 @@ pub struct Model {
     pub password_reset_token_expires_at: Option<DateTimeWithTimeZone>,
     // Role-based access control
     pub role: String,
-    // Unified user model, added in Phase 1 of the MVP plan.
+    // Unified user model
     pub oidc_sub: Option<String>,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
     pub last_login_at: Option<DateTimeWithTimeZone>,
-    // FK to invite_code.id. Constraint added in Phase 2 when invite_code exists.
+    // FK to invite_code.id.
     pub invite_code_id: Option<Uuid>,
     /// Set when the row's invite has been accepted (or, for the bootstrap
     /// admin, at creation time). NULL means the row is inert; no login of
-    /// any kind can establish a session until activation. See Phase 2h.
+    /// any kind can establish a session until activation.
     pub activated_at: Option<DateTimeWithTimeZone>,
     /// Public handle, like a GitHub username. NOT NULL, unique. The
     /// migration backfills it from the email local-part. App layer enforces
@@ -76,7 +76,7 @@ pub struct Model {
     /// IdP might supply later); the API renders an `avatar_url` field that
     /// prefers the S3-served route over the external URL.
     pub avatar_s3_key: Option<String>,
-    /// User's saved UI locale (Phase 11e). NULL means no explicit choice
+    /// User's saved UI locale. NULL means no explicit choice
     /// yet; the social-frontend's i18next browser-language detector
     /// picks one from `navigator.language`. App-layer validation in
     /// `crate::profile::locale::SUPPORTED_LOCALES` is the source of truth

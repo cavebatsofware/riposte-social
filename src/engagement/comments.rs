@@ -228,7 +228,7 @@ async fn list_comments(
 
 /// `PATCH /api/posts/{id}/comments/{comment_id}`. Edit the body of an
 /// existing comment. Allowed for the original author and administrators
-/// (admin edit is a moderation affordance — typically used to redact
+/// (admin edit is a moderation affordance  typically used to redact
 /// rather than rewrite, but the wider permission keeps the surface
 /// uniform with delete). Sets `edited_at` to the current time.
 async fn edit_comment(

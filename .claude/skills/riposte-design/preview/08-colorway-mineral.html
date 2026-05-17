@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><title>Rocks & Minerals</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+  html, body { margin: 0; padding: 0; font-family: var(--font-body); }
+  .wrap { display: grid; grid-template-columns: 1fr 1fr; min-height: 100%; }
+  .half { padding: 18px 22px; display: grid; gap: 12px; align-content: start; }
+  .light { background: var(--color-bg, #fff); color: var(--color-text, #000); }
+  .dark  { background: var(--color-bg, #000); color: var(--color-text, #fff); }
+  .top { display: flex; align-items: baseline; gap: 8px; }
+  .name { font-weight: 600; font-size: 14px; letter-spacing: -0.005em; }
+  .id { font-family: var(--font-mono); font-size: 11px; color: var(--color-muted); }
+  .sub { font-size: 12px; color: var(--color-muted); line-height: 1.45; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .swatch { aspect-ratio: 1; border-radius: 6px; border: 1px solid var(--color-border); }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pill {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 2px 8px; border-radius: 999px;
+  }
+  .btn {
+    font-size: 12px; font-weight: 600; padding: 5px 12px;
+    border-radius: 6px; background: var(--color-primary); color: var(--color-on-primary);
+    border: 1px solid var(--color-primary); display: inline-block;
+  }
+</style></head>
+<body><div class="wrap">
+
+  <div class="half light" data-theme="mineral" style="background: var(--color-bg); color: var(--color-text);">
+    <div class="top"><div class="name" style="color: var(--color-primary)">Rocks & Minerals</div><div class="id">mineral</div></div>
+    <div class="sub">Sandstone ↔ Granite. Earthy, never green.</div>
+    <div class="swatches">
+      <div class="swatch" style="background: var(--color-bg)" title="bg"></div>
+      <div class="swatch" style="background: var(--color-surface)" title="surface"></div>
+      <div class="swatch" style="background: var(--color-surface-2)" title="surface-2"></div>
+      <div class="swatch" style="background: var(--color-primary); border-color: var(--color-primary)" title="primary"></div>
+      <div class="swatch" style="background: var(--color-text); border-color: var(--color-text)" title="text"></div>
+      <div class="swatch" style="background: var(--color-muted); border-color: var(--color-muted)" title="muted"></div>
+    </div>
+    <div class="badges">
+      <span class="pill" style="background: var(--color-badge-public-bg); color: var(--color-badge-public-fg)">Public</span>
+      <span class="pill" style="background: var(--color-badge-commenters-bg); color: var(--color-badge-commenters-fg)">Commenters</span>
+      <span class="pill" style="background: var(--color-badge-posters-bg); color: var(--color-badge-posters-fg)">Posters</span>
+      <span class="btn">Sign in</span>
+    </div>
+  </div>
+
+  <div class="half dark" data-theme="mineral-dark" style="background: var(--color-bg); color: var(--color-text);">
+    <div class="top"><div class="name" style="color: var(--color-primary)">Rocks & Minerals · Dark</div><div class="id">mineral-dark</div></div>
+    <div class="sub">Hand-tuned dark companion  not a mechanical inversion.</div>
+    <div class="swatches">
+      <div class="swatch" style="background: var(--color-bg)" title="bg"></div>
+      <div class="swatch" style="background: var(--color-surface)" title="surface"></div>
+      <div class="swatch" style="background: var(--color-surface-2)" title="surface-2"></div>
+      <div class="swatch" style="background: var(--color-primary); border-color: var(--color-primary)" title="primary"></div>
+      <div class="swatch" style="background: var(--color-text); border-color: var(--color-text)" title="text"></div>
+      <div class="swatch" style="background: var(--color-muted); border-color: var(--color-muted)" title="muted"></div>
+    </div>
+    <div class="badges">
+      <span class="pill" style="background: var(--color-badge-public-bg); color: var(--color-badge-public-fg)">Public</span>
+      <span class="pill" style="background: var(--color-badge-commenters-bg); color: var(--color-badge-commenters-fg)">Commenters</span>
+      <span class="pill" style="background: var(--color-badge-posters-bg); color: var(--color-badge-posters-fg)">Posters</span>
+      <span class="btn">Sign in</span>
+    </div>
+  </div>
+
+</div></body></html>

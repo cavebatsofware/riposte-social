@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Phase 2h Flow C tests: password-mode invite acceptance via
+//!  password-mode invite acceptance via
 //! `POST /api/auth/invite/accept-password`.
 //!
 //! These tests run with OIDC disabled (the default in build_test_server).

@@ -636,13 +636,13 @@ impl UserAuthBackend {
     }
 
     /// OIDC authentication. Three flows, dispatched by what's in the DB:
-    /// - **B — normal login:** existing `oidc_sub` match. Fails closed on
+    /// - **B  normal login:** existing `oidc_sub` match. Fails closed on
     ///   role/email drift; refreshes `last_login_at`, `display_name`,
     ///   `email_verified` only.
-    /// - **A.1 — invite-bind existing row:** invite's `email_hint` must
+    /// - **A.1  invite-bind existing row:** invite's `email_hint` must
     ///   match the IdP email. Stamps `oidc_sub`, rotates the placeholder
     ///   `password_hash`, sets `activated_at`.
-    /// - **A.2 — mint new commenter:** privileged tiers rejected
+    /// - **A.2  mint new commenter:** privileged tiers rejected
     ///   (must be pre-provisioned via A.1).
     pub async fn authenticate_oidc(
         &self,
