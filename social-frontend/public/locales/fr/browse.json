@@ -104,6 +104,8 @@
     "close": "Fermer la visionneuse",
     "prev": "Précédent",
     "next": "Suivant",
+    "viewFullSize": "Voir en taille réelle",
+    "exitFullSize": "Quitter la taille réelle",
     "imageWithoutCaption": "Image {{index}} sur {{total}}",
     "indexAnnouncement": "Image {{index}} sur {{total}}",
     "indexAnnouncementWithCaption": "Image {{index}} sur {{total}} : {{caption}}"

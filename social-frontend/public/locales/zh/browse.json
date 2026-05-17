@@ -102,6 +102,8 @@
     "close": "关闭查看器",
     "prev": "上一项",
     "next": "下一项",
+    "viewFullSize": "查看完整尺寸",
+    "exitFullSize": "退出完整尺寸",
     "imageWithoutCaption": "图片 {{index}} / {{total}}",
     "indexAnnouncement": "图片 {{index}} / {{total}}",
     "indexAnnouncementWithCaption": "图片 {{index}} / {{total}}:{{caption}}"

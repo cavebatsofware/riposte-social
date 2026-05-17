@@ -103,6 +103,8 @@
     "close": "Close viewer",
     "prev": "Previous",
     "next": "Next",
+    "viewFullSize": "View full size",
+    "exitFullSize": "Exit full size",
     "imageWithoutCaption": "Image {{index}} of {{total}}",
     "indexAnnouncement": "Image {{index}} of {{total}}",
     "indexAnnouncementWithCaption": "Image {{index}} of {{total}}: {{caption}}"

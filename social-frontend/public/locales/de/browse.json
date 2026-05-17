@@ -103,6 +103,8 @@
     "close": "Betrachter schließen",
     "prev": "Vorheriges",
     "next": "Nächstes",
+    "viewFullSize": "In voller Größe anzeigen",
+    "exitFullSize": "Volle Größe beenden",
     "imageWithoutCaption": "Bild {{index}} von {{total}}",
     "indexAnnouncement": "Bild {{index}} von {{total}}",
     "indexAnnouncementWithCaption": "Bild {{index}} von {{total}}: {{caption}}"
