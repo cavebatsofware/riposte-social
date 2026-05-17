@@ -34,7 +34,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
   }, [index]);
 
   // Scroll to the top of the overlay on zoom toggle so the image is always
-  // in frame. Skip the initial mount run — there is no prior state to correct.
+  // in frame. Skip the initial mount run. There is no prior state to correct.
   useEffect(() => {
     if (zoomedMountRef.current) {
       zoomedMountRef.current = false;
