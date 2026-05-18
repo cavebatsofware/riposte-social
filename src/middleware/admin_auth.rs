@@ -33,6 +33,7 @@ use axum::{
     response::{IntoResponse, Json, Response},
 };
 use axum_login::AuthSession;
+use basic_axum_rate_limit::AuthRefundCallback;
 use serde_json::json;
 use tower_sessions::Session;
 
@@ -102,6 +103,10 @@ pub async fn require_authenticated(
             }
         }
 
+        // Capture the rate-limit auth refund callback before consuming the request.
+        // Injected by rate_limit_middleware when auth_refund_ratio > 0.
+        let refund_cb = request.extensions().get::<AuthRefundCallback>().cloned();
+
         // Store minimal info for access logging (id is Copy, email cloned once)
         let user_info = UserInfo {
             id: user.id,
@@ -109,6 +114,22 @@ pub async fn require_authenticated(
         };
         request.extensions_mut().insert(user);
         let mut response = next.run(request).await;
+
+        // Apply auth token refund on non-error, non-304 success responses.
+        // Excluding NOT_MODIFIED keeps auth and cache refunds mutually exclusive:
+        // 304s use the cache refund path in rate_limit_middleware; success responses
+        // use the auth refund path here. The two never stack, so a request can never
+        // produce a net token gain.
+        let status = response.status();
+        if !status.is_client_error()
+            && !status.is_server_error()
+            && status != StatusCode::NOT_MODIFIED
+        {
+            if let Some(cb) = refund_cb {
+                (cb.0)();
+            }
+        }
+
         response.extensions_mut().insert(user_info);
         tracing::debug!("Handler completed with status: {}", response.status());
         response

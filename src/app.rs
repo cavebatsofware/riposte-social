@@ -74,9 +74,9 @@ impl AppState {
             .map_err(|e| anyhow::anyhow!("Database connection failed: {}", e))?;
 
         let rate_limit_per_minute = env::var("RATE_LIMIT_PER_MINUTE")
-            .unwrap_or_else(|_| "60".to_string())
+            .unwrap_or_else(|_| "120".to_string())
             .parse()
-            .unwrap_or(60);
+            .unwrap_or(120);
 
         let block_duration_minutes = env::var("BLOCK_DURATION_MINUTES")
             .unwrap_or_else(|_| "15".to_string())
@@ -89,6 +89,11 @@ impl AppState {
             .unwrap_or(1);
 
         let rate_limit_cache_refund_ratio = env::var("RATE_LIMIT_CACHE_REFUND_RATIO")
+            .unwrap_or_else(|_| "0.75".to_string())
+            .parse()
+            .unwrap_or(0.75);
+
+        let rate_limit_auth_refund_ratio = env::var("RATE_LIMIT_AUTH_REFUND_RATIO")
             .unwrap_or_else(|_| "0.5".to_string())
             .parse()
             .unwrap_or(0.5);
@@ -114,6 +119,7 @@ impl AppState {
         )
         .with_grace_period(rate_limit_grace_period_seconds)
         .with_cache_refund_ratio(rate_limit_cache_refund_ratio)
+        .with_auth_refund_ratio(rate_limit_auth_refund_ratio)
         .with_error_penalty(rate_limit_error_penalty);
 
         let callbacks =
@@ -225,11 +231,12 @@ impl AppState {
 
         tracing::info!("Database connected and services initialized");
         tracing::info!(
-            "Rate limit config: {}/min, block_duration={}min, grace={}s, refund={}, error_penalty={}, logging_enabled={}, log_successful={}",
+            "Rate limit config: {}/min, block_duration={}min, grace={}s, cache_refund={}, auth_refund={}, error_penalty={}, logging_enabled={}, log_successful={}",
             rate_limit_per_minute,
             block_duration_minutes,
             rate_limit_grace_period_seconds,
             rate_limit_cache_refund_ratio,
+            rate_limit_auth_refund_ratio,
             rate_limit_error_penalty,
             enable_logging,
             log_successful_attempts
