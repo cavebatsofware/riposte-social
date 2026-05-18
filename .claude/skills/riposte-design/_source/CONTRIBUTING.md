@@ -45,7 +45,7 @@ Two layers of test runners share one Postgres test DB on port 5433.
 
 ### End-to-end (Cypress)
 
-`make test-app-up` brings up the FULL test stack: postgres-test plus `app-test`, a containerized riposte-social wired to the test DB. The app-test service runs migrations on start and seeds an idempotent admin row via `riposte-social seed-test-admin`. The app is published on host port `TEST_APP_PORT` (default `3001`) so it can run alongside `make dev` (port 3000).
+`make test-app-up` brings up the FULL test stack: postgres-test plus `app-test`, a containerized riposte-social wired to the test DB. The app-test service runs migrations on start and seeds an idempotent admin row via `riposte-social seed-test-admin`. The app is published on host port `3001` so it can run alongside `make dev` (port 3000).
 
 Smoke and functional specs against the test stack:
 

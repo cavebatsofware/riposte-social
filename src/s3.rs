@@ -51,23 +51,24 @@ impl S3Service {
     }
 
     pub async fn new() -> Result<Self> {
-        let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
-            .load()
-            .await;
+        let s3_region = env::var("S3_REGION").ok().filter(|r| !r.is_empty());
 
+        // Supply S3_REGION to the loader so the SDK does not fall through to
+        // IMDS when a region is configured. Builder::from(&aws_config)
+        // propagates the region into s3_config.
+        let mut config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
+        if let Some(region) = &s3_region {
+            tracing::info!("Using custom S3 region: {}", region);
+            config_loader = config_loader.region(aws_sdk_s3::config::Region::new(region.clone()));
+        }
+
+        let aws_config = config_loader.load().await;
         let mut s3_config = aws_sdk_s3::config::Builder::from(&aws_config);
 
         if let Ok(endpoint_url) = env::var("S3_ENDPOINT_URL") {
             if !endpoint_url.is_empty() {
                 tracing::info!("Using custom S3 endpoint: {}", endpoint_url);
                 s3_config = s3_config.endpoint_url(&endpoint_url);
-            }
-        }
-
-        if let Ok(region) = env::var("S3_REGION") {
-            if !region.is_empty() {
-                tracing::info!("Using custom S3 region: {}", region);
-                s3_config = s3_config.region(aws_sdk_s3::config::Region::new(region));
             }
         }
 
