@@ -30,7 +30,6 @@ jobs:
       SITE_DOMAIN: localhost
       SITE_URL: http://localhost:3001
       DEV_MODE: "true"
-      MIGRATE_DB: "true"
       # Static test-only encryption key. NOT for production use; only
       # protects ephemeral test rows.
       TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
@@ -64,9 +63,16 @@ jobs:
       - name: Build app
         run: cargo build --release --features e2e_testing
 
-      # Start the app in the background. MIGRATE_DB=true + SEED_TEST_ADMIN=true
-      # in env mean the binary self-migrates and seeds the admin on boot
-      # before serving requests. Then poll /health until ready.
+      # Mirror entrypoint.sh: the long-running binary does not self-migrate
+      # or self-seed on boot. Both are explicit subcommands and must run
+      # before the server is started.
+      - name: Migrate database
+        run: ./target/release/riposte-social migrate
+
+      - name: Seed test admin
+        run: ./target/release/riposte-social seed-test-admin "$TEST_ADMIN_EMAIL" "$TEST_ADMIN_PASSWORD"
+
+      # Start the app in the background, then poll /health until ready.
       - name: Start app
         run: |
           ./target/release/riposte-social &
