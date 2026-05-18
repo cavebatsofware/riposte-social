@@ -176,6 +176,7 @@ export default function CommentThread({ target }) {
           className="comment-compose"
           onSubmit={handleSubmit}
           aria-busy={submitting}
+          aria-label={t("comments.compose.label")}
         >
           <label htmlFor="comment-draft" className="comment-compose-label">
             {t("comments.compose.label")}

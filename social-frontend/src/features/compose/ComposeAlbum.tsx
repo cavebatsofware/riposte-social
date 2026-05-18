@@ -326,8 +326,9 @@ export default function ComposeAlbum() {
         className="compose-card"
         onSubmit={handleSubmit}
         aria-busy={submitting}
+        aria-labelledby="album-compose-title"
       >
-        <h2 className="compose-title">
+        <h2 id="album-compose-title" className="compose-title">
           {editId ? t("album.editTitle") : t("album.newTitle")}
         </h2>
 
@@ -348,6 +349,7 @@ export default function ComposeAlbum() {
             id="album-name"
             name="name"
             type="text"
+            autoComplete="off"
             className="compose-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -410,7 +412,10 @@ export default function ComposeAlbum() {
                 <div key={m.id} className="album-edit-item">
                   <div className="album-edit-thumb">
                     {m.media_kind === "video" ? (
-                      <video src={m.url} muted playsInline preload="metadata" />
+                      <video src={m.url} muted playsInline preload="metadata">
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={m.url} alt={m.caption || ""} />
                     )}
@@ -495,7 +500,10 @@ export default function ComposeAlbum() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={f.previewUrl} alt={f.file.name} />
                     )}

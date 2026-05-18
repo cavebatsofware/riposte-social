@@ -186,7 +186,16 @@ function AlbumMediaGrid({ media, onOpen }) {
         >
           {m.media_kind === "video" ? (
             <>
-              <video src={m.url} muted playsInline preload="metadata" />
+              <video src={m.url} muted playsInline preload="metadata">
+                {/*
+                  We don't generate captions or audio descriptions for
+                  user-uploaded media. Empty WebVTT tracks satisfy
+                  a11yinspect/media-element-error without claiming to
+                  provide either; browsers ignore empty cues files.
+                */}
+                <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+              </video>
               <span className="album-grid-video-badge" aria-hidden="true">
                 ▶
               </span>

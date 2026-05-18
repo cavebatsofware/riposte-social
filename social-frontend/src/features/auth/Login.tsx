@@ -59,7 +59,7 @@ export default function Login() {
   return (
     <Layout>
       <div className="auth-card">
-        <h1>{t("login.title")}</h1>
+        <h1 id="login-title">{t("login.title")}</h1>
 
         {authLoading ? (
           <p>{tCommon("loading")}</p>
@@ -75,6 +75,7 @@ export default function Login() {
             onSubmit={handleSubmit}
             className="auth-form"
             aria-busy={submitting}
+            aria-labelledby="login-title"
           >
             {error && (
               <div className="alert alert-error" role="alert">

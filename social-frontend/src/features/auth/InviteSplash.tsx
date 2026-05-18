@@ -26,22 +26,21 @@ export default function InviteSplash() {
   });
 
   useEffect(() => {
+    async function fetchInvite() {
+      try {
+        const response = await fetchCurrentInvite();
+        if (response.ok) {
+          const data = await response.json();
+          setInvite(data); // null when no live invite
+        }
+      } catch (err) {
+        console.error("Failed to fetch invite:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchInvite();
   }, []);
-
-  async function fetchInvite() {
-    try {
-      const response = await fetchCurrentInvite();
-      if (response.ok) {
-        const data = await response.json();
-        setInvite(data); // null when no live invite
-      }
-    } catch (err) {
-      console.error("Failed to fetch invite:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function handleDecline() {
     // Dismiss synchronously so Escape and the decline button always

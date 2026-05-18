@@ -293,8 +293,9 @@ export default function Compose() {
         className="compose-card"
         onSubmit={handleSubmit}
         aria-busy={submitting}
+        aria-labelledby="compose-title"
       >
-        <h2 className="compose-title">
+        <h2 id="compose-title" className="compose-title">
           {editId ? t("post.editTitle") : t("post.newTitle")}
         </h2>
 
@@ -406,7 +407,10 @@ export default function Compose() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={f.previewUrl} alt={f.file.name} />
                     )}

@@ -219,13 +219,17 @@ export default function Categories() {
 
       {creating && canCreate && (
         <section className="categories-card">
-          <form onSubmit={handleCreate}>
+          <form
+            onSubmit={handleCreate}
+            aria-label={t("categories.createCta")}
+          >
             <div className="compose-field">
               <label htmlFor="cat-new-name">{t("categories.nameLabel")}</label>
               <input
                 id="cat-new-name"
                 name="name"
                 type="text"
+                autoComplete="off"
                 className="categories-input"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -323,6 +327,7 @@ export default function Categories() {
               <div className="categories-row-group categories-row-text">
                 <input
                   type="text"
+                  name={`row-name-${c.id}`}
                   value={d.name ?? c.name}
                   onChange={(e) => setDraft(c.id, "name", e.target.value)}
                   maxLength={80}
@@ -331,6 +336,7 @@ export default function Categories() {
                 />
                 <input
                   type="text"
+                  name={`row-slug-${c.id}`}
                   value={d.slug ?? c.slug}
                   onChange={(e) => setDraft(c.id, "slug", e.target.value)}
                   maxLength={50}
@@ -340,6 +346,7 @@ export default function Categories() {
               </div>
               <div className="categories-row-group categories-row-pickers">
                 <select
+                  name={`row-visibility-${c.id}`}
                   value={d.visibility ?? c.visibility}
                   onChange={(e) => setDraft(c.id, "visibility", e.target.value)}
                   aria-label={t("categories.visibilityLabel")}
@@ -410,6 +417,7 @@ function ColorInput({ value, onChange, idPrefix }) {
     <div className={`categories-color-input ${value ? "" : "is-empty"}`}>
       <input
         id={`${idPrefix}-color-picker`}
+        name={`${idPrefix}-color-picker`}
         type="color"
         value={value || "#000000"}
         onChange={(e) => onChange(e.target.value)}
@@ -419,6 +427,7 @@ function ColorInput({ value, onChange, idPrefix }) {
       />
       <input
         id={`${idPrefix}-color`}
+        name={`${idPrefix}-color`}
         type="text"
         className="categories-color-text"
         value={value}
@@ -577,6 +586,7 @@ function MemberModal({ category, onClose }) {
             </label>
             <input
               id="member-modal-search"
+              name="member-search"
               type="search"
               placeholder={t("categories.membersSearchPlaceholder")}
               value={search}
@@ -595,6 +605,8 @@ function MemberModal({ category, onClose }) {
                   <label key={p.user_id} className="categories-member-row">
                     <input
                       type="checkbox"
+                      name={`member-${p.user_id}`}
+                      aria-label={p.display_name || p.handle}
                       checked={checked}
                       onChange={() => toggle(p)}
                     />

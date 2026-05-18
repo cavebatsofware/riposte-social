@@ -119,7 +119,12 @@ export default function Feed() {
       <h1 className="sr-only">{t("feed.heading")}</h1>
       <InviteSplash />
 
-      <form className="feed-search" onSubmit={submitSearch} role="search">
+      <form
+        className="feed-search"
+        onSubmit={submitSearch}
+        role="search"
+        aria-label={t("feed.searchSubmitAria")}
+      >
         <input
           type="search"
           name="q"
@@ -129,6 +134,9 @@ export default function Feed() {
           placeholder={t("feed.searchPlaceholder")}
           aria-label={t("feed.searchSubmitAria")}
         />
+        <button type="submit" className="sr-only">
+          {t("feed.searchSubmitAria")}
+        </button>
         {q && (
           <button
             type="button"

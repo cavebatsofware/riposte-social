@@ -8,6 +8,7 @@ import MediaLightbox from "../engagement/MediaLightbox";
 import ReactionBar from "../engagement/ReactionBar";
 import VisibilityBadge from "../../components/VisibilityBadge";
 import VisibilityMenu from "../../components/VisibilityMenu";
+import type { PostMediaResponse } from "../../types/api";
 
 /// Renders one post in the feed or on its permalink.
 ///
@@ -224,7 +225,7 @@ function PostBody({ safeHtml, variant }) {
 /// badge rather than an inline `<video controls>`, since the lightbox
 /// provides controls + autoplay when the user clicks in. Keeps the
 /// behavior consistent across post and album surfaces.
-function MediaItem({ m, index, className = "", onOpen }: { m: any; index: number; className?: string; onOpen: (i: number, e: React.MouseEvent) => void }) {
+function MediaItem({ m, index, className = "", onOpen }: { m: PostMediaResponse; index: number; className?: string; onOpen: (i: number, e: React.MouseEvent) => void }) {
   const { t } = useTranslation("feed");
   const inner =
     m.media_kind === "video" ? (
@@ -236,6 +237,8 @@ function MediaItem({ m, index, className = "", onOpen }: { m: any; index: number
           playsInline
           preload="metadata"
         >
+          <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+          <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
           {t("postCard.videoFallback")}
         </video>
         <span className="post-media-video-badge" aria-hidden="true">

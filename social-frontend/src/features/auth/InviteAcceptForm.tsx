@@ -63,6 +63,7 @@ function PasswordAccept({ invite, onAccepted }) {
       onSubmit={handleSubmit}
       className="invite-splash-form"
       aria-busy={submitting}
+      aria-label={t("invite.acceptTitle")}
     >
       {error && (
         <div className="alert alert-error" role="alert">
@@ -74,6 +75,7 @@ function PasswordAccept({ invite, onAccepted }) {
         id="invite-accept-email"
         name="email"
         type="email"
+        autoComplete="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
@@ -86,6 +88,7 @@ function PasswordAccept({ invite, onAccepted }) {
         id="invite-accept-password"
         name="password"
         type="password"
+        autoComplete="new-password"
         required
         minLength={12}
         value={password}

@@ -56,6 +56,9 @@ const a11yRuleOverrides = {
   // Flags `alt=""` as "empty alt" even though null alt is the correct
   // WAI-ARIA pattern for decorative images.
   "a11yinspect/img-element-error": "off",
+  // "Select has no options" false-positives on runtime `.map()`-rendered
+  // <option> elements; we've added name attributes manually where useful.
+  "a11yinspect/select-element-error": "off",
 };
 
 module.exports = [

@@ -193,11 +193,12 @@ export default function SettingsSecurity() {
       ) : (
         <>
           <section className="settings-section">
-            <h2>{t("security.passwordHeading")}</h2>
+            <h2 id="security-password-heading">{t("security.passwordHeading")}</h2>
             <form
               className="settings-form"
               onSubmit={handlePasswordChange}
               aria-busy={pwLoading}
+              aria-labelledby="security-password-heading"
             >
               <label htmlFor="security-current-password">
                 {t("security.currentPasswordLabel")}
@@ -310,6 +311,7 @@ export default function SettingsSecurity() {
                   onSubmit={confirmMfaSetup}
                   className="settings-form"
                   aria-busy={mfaLoading}
+                  aria-label={t("security.verifyAndEnable")}
                 >
                   <label htmlFor="security-totp-code">
                     {t("security.totpCodeLabel")}
@@ -358,6 +360,7 @@ export default function SettingsSecurity() {
                 onSubmit={disableMfa}
                 className="settings-form"
                 aria-busy={mfaLoading}
+                aria-label={t("security.disableCta")}
               >
                 <p>{t("security.disableConfirmPrompt")}</p>
                 <label htmlFor="security-disable-password">

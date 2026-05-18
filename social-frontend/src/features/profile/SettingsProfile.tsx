@@ -249,8 +249,9 @@ export default function SettingsProfile() {
         className="settings-form"
         onSubmit={handleSubmit}
         aria-busy={savingProfile}
+        aria-labelledby="settings-fields-heading"
       >
-        <h2>{t("profile.fieldsHeading")}</h2>
+        <h2 id="settings-fields-heading">{t("profile.fieldsHeading")}</h2>
         <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
         <input
           id="settings-handle"
@@ -273,6 +274,7 @@ export default function SettingsProfile() {
           id="settings-display-name"
           name="display_name"
           type="text"
+          autoComplete="nickname"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={100}
@@ -302,6 +304,7 @@ export default function SettingsProfile() {
           id="settings-bio-count"
           className="form-hint"
           aria-live="polite"
+          aria-atomic="true"
         >
           {t("profile.bioCount", { current: bio.length, max: BIO_MAX })}
         </p>

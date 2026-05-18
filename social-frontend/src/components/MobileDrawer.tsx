@@ -48,6 +48,9 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
     >
       <div
         className="mobile-drawer-backdrop"
+        // Backdrop is aria-hidden and keyboard users dismiss the drawer
+        // with Escape; a synthetic keydown here would shadow that path.
+        // eslint-disable-next-line a11yinspect/click-handler-warning
         onClick={onClose}
         aria-hidden="true"
       />

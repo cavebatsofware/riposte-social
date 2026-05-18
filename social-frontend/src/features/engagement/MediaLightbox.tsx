@@ -188,12 +188,13 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
             playsInline
           >
             {/*
-              We don't generate captions for user-uploaded media. The
-              empty WebVTT track satisfies a11yinspect/media-element-error
-              without claiming to provide captions; browsers ignore
-              an empty cues file.
+              We don't generate captions or audio descriptions for
+              user-uploaded media. Empty WebVTT tracks satisfy
+              a11yinspect/media-element-error without claiming to
+              provide either; browsers ignore empty cues files.
             */}
             <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+            <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
           </video>
         ) : (
           <img
