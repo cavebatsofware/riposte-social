@@ -15,16 +15,21 @@ export default function VisibilityMenu({ post, onChange }: { post: { id: string;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Local optimistic-update state that follows post.visibility from the
+  // parent. Reset during render when the prop changes (React docs:
+  // "Adjusting some state when a prop changes") so we never paint stale
+  // data after the parent commits the new value.
   const [current, setCurrent] = useState(post.visibility);
+  const [lastPropVisibility, setLastPropVisibility] = useState(post.visibility);
+  if (lastPropVisibility !== post.visibility) {
+    setLastPropVisibility(post.visibility);
+    setCurrent(post.visibility);
+  }
   const wrapperRef = useRef(null);
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);
 
   useRovingFocus(popoverRef, open);
-
-  useEffect(() => {
-    setCurrent(post.visibility);
-  }, [post.visibility]);
 
   useEffect(() => {
     if (!open) return undefined;

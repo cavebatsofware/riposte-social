@@ -24,14 +24,17 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
   const zoomedMountRef = useRef(true);
   const { t } = useTranslation("browse");
   const [zoomed, setZoomed] = useState(false);
+  // Reset to fitted view whenever the user moves to a different item.
+  // Derived during render so the new item never paints in a stale
+  // zoomed-in state for a frame.
+  const [lastIndex, setLastIndex] = useState(index);
+  if (lastIndex !== index) {
+    setLastIndex(index);
+    setZoomed(false);
+  }
 
   const total = items.length;
   const item = items[index];
-
-  // Reset to fitted view whenever the user moves to a different item.
-  useEffect(() => {
-    setZoomed(false);
-  }, [index]);
 
   // Scroll to the top of the overlay on zoom toggle so the image is always
   // in frame. Skip the initial mount run. There is no prior state to correct.

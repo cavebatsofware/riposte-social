@@ -198,7 +198,10 @@ function PostBody({ safeHtml, variant }) {
   const [clamped, setClamped] = useState(false);
 
   useLayoutEffect(() => {
+    // Measuring layout requires a real DOM, so this stays a layout
+    // effect; the compiler-aware rule still flags setState in effect.
     if (variant !== "feed") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClamped(false);
       return;
     }

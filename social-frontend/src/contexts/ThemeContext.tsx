@@ -77,26 +77,23 @@ function resolveInitialTheme() {
 /// Apply the theme to the document and persist the user's choice.
 ///
 /// State of record is the resolved id (e.g. `forest-dark`); the picker UI
-/// derives colorway and mode from it. Initial render uses
-/// `${DEFAULT_COLORWAY}` so server-rendered markup is consistent with
-/// the first paint; on mount we read localStorage and the OS preference
-/// to find the right value, which may flip a light theme to dark briefly
-/// (the FOUC is small and the cost of avoiding it is server-side
-/// rendering we don't have).
+/// derives colorway and mode from it. Initial state is resolved
+/// synchronously during the first render so localStorage/OS preference
+/// is honored on first paint without a flash.
 ///
 /// Theme support is scoped to the social-frontend; the admin panel does
 /// not consume this context.
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(DEFAULT_COLORWAY);
-
-  // On mount: resolve from localStorage or system preference. Also subscribe
-  // to OS preference changes so a fresh visitor (no explicit choice yet)
-  // tracks their system theme  but stop tracking the moment they pick.
-  useEffect(() => {
+  const [theme, setThemeState] = useState(() => {
     const initial = resolveInitialTheme();
-    setThemeState(initial);
     document.documentElement.dataset.theme = initial;
+    return initial;
+  });
 
+  // Subscribe to OS preference changes so a fresh visitor (no explicit
+  // choice yet) tracks their system theme, and stop tracking the moment
+  // they pick. Pure subscription effect; no state-from-effect on mount.
+  useEffect(() => {
     let media;
     try {
       media = window.matchMedia("(prefers-color-scheme: dark)");

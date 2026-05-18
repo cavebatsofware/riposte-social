@@ -92,6 +92,10 @@ export default function Categories() {
   }, [t]);
 
   useEffect(() => {
+    // refresh() loads the category list and sets loading flags before the
+    // first await; the new compiler-aware hook rule flags that as a
+    // cascading render, but the spinner-then-data sequence is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 

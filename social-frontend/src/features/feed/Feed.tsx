@@ -34,11 +34,15 @@ export default function Feed() {
   const { t: tCommon } = useTranslation("common");
 
   // Local input state  committed to the URL only on submit so we don't
-  // hammer the API on every keystroke.
+  // hammer the API on every keystroke. Reset during render when the URL
+  // `q` changes so navigation (back/forward, link clicks) puts the
+  // current query in the box on the next paint.
   const [searchInput, setSearchInput] = useState(q);
-  useEffect(() => {
+  const [lastQ, setLastQ] = useState(q);
+  if (lastQ !== q) {
+    setLastQ(q);
     setSearchInput(q);
-  }, [q]);
+  }
 
   // MRU bookkeeping: every category visit moves that category up the
   // BrowseRail's recency list. Server already filters posts by slug.
@@ -88,7 +92,11 @@ export default function Feed() {
   );
 
   // Re-load from page 0 whenever the active category or search changes.
+  // Resetting the list and cursor synchronously before the fetch is the
+  // intended UX (old posts disappear behind the spinner); the compiler-
+  // aware rule flags it because state writes precede an async load.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPosts([]);
     setCursor(null);
     setHasMore(false);

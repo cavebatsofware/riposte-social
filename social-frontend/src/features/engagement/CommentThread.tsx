@@ -51,6 +51,10 @@ export default function CommentThread({ target }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Reset the composer draft synchronously when the target URL changes
+    // so a half-typed reply doesn't leak across items. Intentional
+    // pre-fetch state mutation; the compiler-aware rule flags it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraft("");
     async function load() {
       setLoading(true);

@@ -58,10 +58,33 @@ const DEFAULT_KIND = REACTION_KINDS[0].id;
 export default function ReactionBar({ target, state, compact = false }) {
   const { user } = useAuth();
   const { t } = useTranslation("feed");
+  // Local optimistic-update state that follows the engagement payload
+  // from the parent. Reset during render when the underlying record id
+  // changes so a new media/post draws its own counts cleanly, and
+  // whenever the server-side payload changes so the bar reflects the
+  // latest authoritative state on the next paint.
   const [counts, setCounts] = useState(state.reaction_counts || {});
   const [viewerKinds, setViewerKinds] = useState(
     state.viewer_reaction_kinds || [],
   );
+  const [lastStateId, setLastStateId] = useState(state.id);
+  const [lastReactionCounts, setLastReactionCounts] = useState(
+    state.reaction_counts,
+  );
+  const [lastViewerKinds, setLastViewerKinds] = useState(
+    state.viewer_reaction_kinds,
+  );
+  if (
+    lastStateId !== state.id ||
+    lastReactionCounts !== state.reaction_counts ||
+    lastViewerKinds !== state.viewer_reaction_kinds
+  ) {
+    setLastStateId(state.id);
+    setLastReactionCounts(state.reaction_counts);
+    setLastViewerKinds(state.viewer_reaction_kinds);
+    setCounts(state.reaction_counts || {});
+    setViewerKinds(state.viewer_reaction_kinds || []);
+  }
   const [pending, setPending] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const longPressTimer = useRef(null);
@@ -74,11 +97,6 @@ export default function ReactionBar({ target, state, compact = false }) {
   // Disabled when the picker is closed so the inactive buttons don't
   // claim a tab stop.
   useRovingFocus(pickerRef, pickerOpen, { orientation: "horizontal" });
-
-  useEffect(() => {
-    setCounts(state.reaction_counts || {});
-    setViewerKinds(state.viewer_reaction_kinds || []);
-  }, [state.id, state.reaction_counts, state.viewer_reaction_kinds]);
 
   // Close the picker when the user taps outside (mobile path; desktop
   // hover-out CSS already handles the close) or when keyboard focus

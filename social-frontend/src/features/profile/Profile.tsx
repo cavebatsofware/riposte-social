@@ -101,6 +101,10 @@ export default function Profile() {
 
   useEffect(() => {
     if (authorId) {
+      // Reset the list and cursor synchronously before the fetch so the
+      // previous author's posts disappear behind the spinner; the
+      // compiler-aware rule flags the pre-await writes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPosts([]);
       setCursor(null);
       setHasMore(false);
