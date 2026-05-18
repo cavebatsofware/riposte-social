@@ -126,13 +126,13 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     // the dialog via Escape (handled by useFocusTrap) or the explicit
     // Close button below. Adding a synthetic keydown handler here would
     // collide with the focus trap rather than improve a11y.
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={overlayRef}
       className={`media-lightbox${zoomed ? " zoomed" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={t("lightbox.viewerAria")}
+      // eslint-disable-next-line a11yinspect/click-handler-warning
       onClick={onOverlayClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -189,7 +189,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
           >
             {/*
               We don't generate captions for user-uploaded media. The
-              empty WebVTT track satisfies jsx-a11y/media-has-caption
+              empty WebVTT track satisfies a11yinspect/media-element-error
               without claiming to provide captions; browsers ignore
               an empty cues file.
             */}

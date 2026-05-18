@@ -72,6 +72,7 @@ function PasswordAccept({ invite, onAccepted }) {
       <label htmlFor="invite-accept-email">{t("invite.form.emailLabel")}</label>
       <input
         id="invite-accept-email"
+        name="email"
         type="email"
         required
         value={email}
@@ -83,6 +84,7 @@ function PasswordAccept({ invite, onAccepted }) {
       </label>
       <input
         id="invite-accept-password"
+        name="password"
         type="password"
         required
         minLength={12}

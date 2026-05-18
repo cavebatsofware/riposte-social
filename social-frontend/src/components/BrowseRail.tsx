@@ -329,6 +329,7 @@ function RailSearch({ placeholder, value, onChange }) {
   return (
     <input
       type="search"
+      name="browse-rail-search"
       className="browse-rail-search"
       placeholder={placeholder}
       aria-label={placeholder}

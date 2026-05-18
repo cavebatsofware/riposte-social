@@ -346,6 +346,7 @@ export default function ComposeAlbum() {
           <label htmlFor="album-name">{t("album.nameLabel")}</label>
           <input
             id="album-name"
+            name="name"
             type="text"
             className="compose-input"
             value={name}
@@ -360,6 +361,7 @@ export default function ComposeAlbum() {
           <label htmlFor="album-description">{t("album.descLabel")}</label>
           <textarea
             id="album-description"
+            name="description"
             className="compose-textarea-short"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -381,6 +383,7 @@ export default function ComposeAlbum() {
           <label htmlFor="album-category">{t("category.label")}</label>
           <select
             id="album-category"
+            name="category_id"
             className="compose-input"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
@@ -414,6 +417,8 @@ export default function ComposeAlbum() {
                   </div>
                   <input
                     type="text"
+                    name={`existing-caption-${m.id}`}
+                    aria-label={t("album.captionPlaceholder")}
                     className="album-edit-caption"
                     value={m.caption}
                     onChange={(e) => setExistingCaption(idx, e.target.value)}
@@ -467,6 +472,8 @@ export default function ComposeAlbum() {
             <input
               ref={fileInputRef}
               type="file"
+              name="album-items"
+              aria-label={t("attachments.dropzoneAria")}
               multiple
               accept={ACCEPTED_MIME.join(",")}
               style={{ display: "none" }}
@@ -495,6 +502,8 @@ export default function ComposeAlbum() {
                   </div>
                   <input
                     type="text"
+                    name={`pending-caption-${i}`}
+                    aria-label={t("album.captionPlaceholder")}
                     className="album-edit-caption"
                     value={f.caption}
                     onChange={(e) => setPendingCaption(i, e.target.value)}

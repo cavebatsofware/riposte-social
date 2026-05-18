@@ -224,6 +224,7 @@ export default function Categories() {
               <label htmlFor="cat-new-name">{t("categories.nameLabel")}</label>
               <input
                 id="cat-new-name"
+                name="name"
                 type="text"
                 className="categories-input"
                 value={newName}
@@ -237,6 +238,7 @@ export default function Categories() {
               <label htmlFor="cat-new-slug">{t("categories.slugLabel")}</label>
               <input
                 id="cat-new-slug"
+                name="slug"
                 type="text"
                 className="categories-input"
                 value={newSlug}
@@ -249,6 +251,7 @@ export default function Categories() {
               <label htmlFor="cat-new-vis">{t("categories.visibilityLabel")}</label>
               <select
                 id="cat-new-vis"
+                name="visibility"
                 className="categories-input"
                 value={newVisibility}
                 onChange={(e) => setNewVisibility(e.target.value)}
@@ -540,9 +543,8 @@ function MemberModal({ category, onClose }) {
     // the dialog via Escape (handled by the focus trap) or by tabbing to
     // the explicit close button inside. The inner stopPropagation keeps
     // a click on the dialog body from bubbling up and closing the modal.
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
+    // eslint-disable-next-line a11yinspect/click-handler-warning
     <div className="modal-backdrop" onClick={onClose}>
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions */}
       <div
         className="modal categories-member-modal"
         role="dialog"
@@ -550,6 +552,7 @@ function MemberModal({ category, onClose }) {
         aria-labelledby="member-modal-title"
         aria-busy={loading || saving}
         ref={trapRef}
+        // eslint-disable-next-line a11yinspect/click-handler-warning
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="member-modal-title">

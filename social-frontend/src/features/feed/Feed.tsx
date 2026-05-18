@@ -122,6 +122,7 @@ export default function Feed() {
       <form className="feed-search" onSubmit={submitSearch} role="search">
         <input
           type="search"
+          name="q"
           className="feed-search-input"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}

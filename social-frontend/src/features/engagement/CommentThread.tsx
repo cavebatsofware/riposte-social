@@ -497,6 +497,7 @@ function CommentMarkdownArea({
         >
           <textarea
             id={id}
+            name="body"
             className="comment-compose-textarea"
             value={value}
             onChange={(e) => onChange(e.target.value)}

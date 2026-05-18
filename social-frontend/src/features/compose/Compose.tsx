@@ -308,6 +308,7 @@ export default function Compose() {
           <label htmlFor="compose-body">{t("body.label")}</label>
           <textarea
             id="compose-body"
+            name="body"
             className="compose-textarea"
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -337,6 +338,7 @@ export default function Compose() {
             <label htmlFor="compose-category">{t("category.label")}</label>
             <select
               id="compose-category"
+              name="category_id"
               className="compose-input"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -383,6 +385,8 @@ export default function Compose() {
               <input
                 ref={fileInputRef}
                 type="file"
+                name="attachments"
+                aria-label={t("attachments.label")}
                 multiple
                 accept={ACCEPTED_MIME.join(",")}
                 style={{ display: "none" }}

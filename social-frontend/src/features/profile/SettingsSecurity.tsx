@@ -204,6 +204,7 @@ export default function SettingsSecurity() {
               </label>
               <input
                 id="security-current-password"
+                name="current_password"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -215,6 +216,7 @@ export default function SettingsSecurity() {
               </label>
               <input
                 id="security-new-password"
+                name="new_password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -226,6 +228,7 @@ export default function SettingsSecurity() {
               </label>
               <input
                 id="security-confirm-password"
+                name="confirm_password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -313,6 +316,7 @@ export default function SettingsSecurity() {
                   </label>
                   <input
                     id="security-totp-code"
+                    name="totp_code"
                     type="text"
                     value={verificationCode}
                     onChange={(e) =>
@@ -361,6 +365,7 @@ export default function SettingsSecurity() {
                 </label>
                 <input
                   id="security-disable-password"
+                  name="password"
                   type="password"
                   value={disablePassword}
                   onChange={(e) => setDisablePassword(e.target.value)}

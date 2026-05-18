@@ -22,12 +22,11 @@ export default function Login() {
   const { t: tCommon } = useTranslation("common");
 
   // Move focus into the email field once the password form mounts. Done
-  // imperatively so the JSX does not need the `autoFocus` prop, which
-  // jsx-a11y/no-autofocus disallows. Layout renders focusable controls
-  // (skip link, nav, theme + language pickers, hamburger) during the
-  // auth-loading window, so the focus call is gated to the body element
-  // a keyboard user who has already tabbed into the header during the
-  // load doesn't get yanked into the form.
+  // imperatively so the JSX does not need the `autoFocus` prop. Layout
+  // renders focusable controls (skip link, nav, theme + language pickers,
+  // hamburger) during the auth-loading window, so the focus call is gated
+  // to the body element: a keyboard user who has already tabbed into the
+  // header during the load doesn't get yanked into the form.
   useEffect(() => {
     if (
       !authLoading &&
@@ -86,6 +85,7 @@ export default function Login() {
             <input
               ref={emailRef}
               id="login-email"
+              name="email"
               type="email"
               required
               value={email}
@@ -95,6 +95,7 @@ export default function Login() {
             <label htmlFor="login-password">{t("login.passwordLabel")}</label>
             <input
               id="login-password"
+              name="password"
               type="password"
               required
               value={password}

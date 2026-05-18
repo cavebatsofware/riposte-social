@@ -221,6 +221,7 @@ export default function SettingsProfile() {
             <input
               ref={fileInputRef}
               id="settings-avatar-input"
+              name="avatar"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handleAvatarPick}
@@ -253,6 +254,7 @@ export default function SettingsProfile() {
         <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
         <input
           id="settings-handle"
+          name="handle"
           type="text"
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
@@ -269,6 +271,7 @@ export default function SettingsProfile() {
         </label>
         <input
           id="settings-display-name"
+          name="display_name"
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
@@ -278,6 +281,7 @@ export default function SettingsProfile() {
         <label htmlFor="settings-pronouns">{t("profile.pronounsLabel")}</label>
         <input
           id="settings-pronouns"
+          name="pronouns"
           type="text"
           value={pronouns}
           onChange={(e) => setPronouns(e.target.value)}
@@ -287,6 +291,7 @@ export default function SettingsProfile() {
         <label htmlFor="settings-bio">{t("profile.bioLabel")}</label>
         <textarea
           id="settings-bio"
+          name="bio"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={4}
