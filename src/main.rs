@@ -377,7 +377,7 @@ async fn main() -> anyhow::Result<()> {
         .parse::<u16>()
         .unwrap_or(3000);
 
-    let addr = format!("0.0.0.0:{}", port);
+    let addr = format!("127.0.0.1:{}", port);
 
     // Production environments will likely want to set RUST_LOG=warn
     // unless they want to see very verbose logs
