@@ -377,7 +377,12 @@ async fn main() -> anyhow::Result<()> {
         .parse::<u16>()
         .unwrap_or(3000);
 
-    let addr = format!("127.0.0.1:{}", port);
+    // Default to loopback so local `cargo run` doesn't accidentally expose
+    // the server on the LAN. Containers must set BIND_HOST=0.0.0.0 so the
+    // container's published port and other containers on the same Docker
+    // network can reach the app.
+    let bind_host = env::var("BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let addr = format!("{}:{}", bind_host, port);
 
     // Production environments will likely want to set RUST_LOG=warn
     // unless they want to see very verbose logs

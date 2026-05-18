@@ -304,16 +304,16 @@ test: test-db-up
 
 # Bring up the containerized test stack: postgres-test + the
 # riposte-social app-test container that runs migrations and seeds a
-# known-credential admin. The app is exposed on TEST_APP_PORT (3001
-# by default) so it can run alongside `make dev` (port 3000).
+# known-credential admin. The app is exposed on port 3001 so it can
+# run alongside `make dev` (port 3000).
 .PHONY: test-app-up
 test-app-up:
 	@echo "🚀 Starting test stack (db + app)..."
 	docker-compose -f docker-compose.test.yml --profile app up -d --build
 	@echo "⏳ Waiting for test app to be ready..."
 	@for i in $$(seq 1 30); do \
-		if curl -fs http://localhost:$${TEST_APP_PORT:-3001}/health >/dev/null 2>&1; then \
-			echo "✅ Test app is up at http://localhost:$${TEST_APP_PORT:-3001}"; \
+		if curl -fs http://localhost:3001/health >/dev/null 2>&1; then \
+			echo "✅ Test app is up at http://localhost:3001"; \
 			exit 0; \
 		fi; \
 		sleep 2; \
@@ -363,14 +363,14 @@ test-app-logs:
 .PHONY: cypress-feature
 cypress-feature: test-app-up
 	@echo "🧪 Running Cypress feature specs..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run e2e:feature:docker
+	CYPRESS_BASE_URL=http://localhost:3001 bun run e2e:feature:docker
 	@echo "✅ Feature specs complete"
 
 # Run the a11y smoke at the gate level (serious + critical impacts).
 .PHONY: cypress-a11y
 cypress-a11y: test-app-up
 	@echo "♿ Running Cypress a11y smoke (ci strictness)..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run a11y:smoke:docker
+	CYPRESS_BASE_URL=http://localhost:3001 bun run a11y:smoke:docker
 	@echo "✅ a11y smoke complete"
 
 # Run the a11y smoke at strict (every axe impact level surfaced).
@@ -378,14 +378,14 @@ cypress-a11y: test-app-up
 .PHONY: cypress-a11y-strict
 cypress-a11y-strict: test-app-up
 	@echo "♿ Running Cypress a11y smoke (strict strictness)..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run a11y:smoke:strict:docker
+	CYPRESS_BASE_URL=http://localhost:3001 bun run a11y:smoke:strict:docker
 	@echo "✅ a11y smoke (strict) complete"
 
 # Run every Cypress spec against the test stack.
 .PHONY: cypress-all
 cypress-all: test-app-up
 	@echo "🧪 Running all Cypress specs..."
-	CYPRESS_BASE_URL=http://localhost:$${TEST_APP_PORT:-3001} bun run e2e:docker
+	CYPRESS_BASE_URL=http://localhost:3001 bun run e2e:docker
 	@echo "✅ All Cypress specs complete"
 
 #

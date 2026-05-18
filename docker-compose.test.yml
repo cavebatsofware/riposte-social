@@ -38,6 +38,34 @@ services:
   # fixture. SEED_TEST_ADMIN=true is set here; production deployments
   # must NOT set it. The seed-test-admin subcommand also requires the
   # flag as a defense-in-depth gate.
+  # MinIO creates its own test bucket via the `mc` client bundled in the
+  # image: the entrypoint starts the server in the background, polls until
+  # it is reachable, creates the bucket idempotently, then hands the
+  # server back to the foreground.
+  minio-test:
+    profiles: ["app"]
+    image: minio/minio:latest
+    container_name: riposte-social-test-minio
+    entrypoint: >
+      /bin/sh -c "
+      minio server /data --console-address ':9001' &
+      MINIO_PID=$$!;
+      until mc alias set local http://localhost:9000 minioadmin minioadmin >/dev/null 2>&1; do sleep 0.5; done;
+      mc mb local/riposte-social-test --ignore-existing >/dev/null;
+      wait $$MINIO_PID
+      "
+    environment:
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - riposte-social-test-network
+
   app-test:
     profiles: ["app"]
     build:
@@ -53,11 +81,18 @@ services:
     depends_on:
       postgres-test:
         condition: service_healthy
+      minio-test:
+        condition: service_healthy
     environment:
       DATABASE_URL: postgresql://${TEST_POSTGRES_USER:-riposte_social_test_user}:${TEST_POSTGRES_PASSWORD:-test_password}@postgres-test:5432/${TEST_POSTGRES_DB:-riposte_social_test}
-      PORT: "3000"
+      PORT: "3001"
+      # Bind on all container interfaces so the host port mapping and
+      # other containers on the test network can reach the app. The
+      # container itself is the isolation boundary; host-side exposure
+      # is controlled by the `ports:` mapping below.
+      BIND_HOST: "0.0.0.0"
       SITE_DOMAIN: ${TEST_SITE_DOMAIN:-localhost}
-      SITE_URL: ${TEST_SITE_URL:-http://localhost:${TEST_APP_PORT:-3001}}
+      SITE_URL: "http://localhost:3001"
       DEV_MODE: "true"
       MIGRATE_DB: "true"
       # Static test-only encryption key. NOT for production use; this
@@ -82,9 +117,22 @@ services:
       AUTH_RATE_LIMIT_GRACE_PERIOD_SECONDS: "0"
       AUTH_RATE_LIMIT_CACHE_REFUND_RATIO: "1.0"
       AUTH_RATE_LIMIT_ERROR_PENALTY: "0.0"
-      RUST_LOG: ${TEST_APP_LOG_LEVEL:-warn}
+      # MinIO provides S3-compatible storage for the test environment.
+      # Credentials are static test values; NOT for production use.
+      AWS_ACCESS_KEY_ID: "minioadmin"
+      AWS_SECRET_ACCESS_KEY: "minioadmin"
+      # Tell the AWS SDK never to probe EC2 IMDS. No effect in real AWS
+      # deployments (which set this implicitly via instance role detection);
+      # critical here because the test container has no IMDS endpoint and
+      # the SDK otherwise wastes startup time timing out.
+      AWS_EC2_METADATA_DISABLED: "true"
+      S3_ENDPOINT_URL: "http://minio-test:9000"
+      S3_REGION: "us-east-1"
+      S3_FORCE_PATH_STYLE: "true"
+      S3_BUCKET_NAME: "riposte-social-test"
+      RUST_LOG: "info"
     ports:
-      - "${TEST_APP_PORT:-3001}:3000"
+      - "3001:3001"
     networks:
       - riposte-social-test-network
 
