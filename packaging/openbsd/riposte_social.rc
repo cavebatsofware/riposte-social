@@ -1,0 +1,32 @@
+#!/bin/ksh
+#
+# rc.d(8) service script for riposte-social.
+#
+# Drop into /etc/rc.d/riposte_social and enable with
+#   rcctl enable riposte_social
+#   rcctl start riposte_social
+#
+# Configuration via /etc/riposte_social.env (sourced by rc.subr).
+
+daemon="/var/riposte_social/riposte-social"
+daemon_user="riposte_social"
+daemon_logger="daemon.info"
+
+# rc.subr loads this through `rcctl get riposte_social flags`; the
+# defaults stay empty since the binary takes its config from env.
+daemon_flags=
+
+. /etc/rc.d/rc.subr
+
+rc_pre() {
+	if [ ! -r /etc/riposte_social.env ]; then
+		return 1
+	fi
+	# Export everything in the env file into the child process. Lines
+	# starting with # and blank lines are skipped.
+	set -a
+	. /etc/riposte_social.env
+	set +a
+}
+
+rc_cmd $1

@@ -1,0 +1,111 @@
+#!/usr/bin/env expect
+# Drives the OpenBSD installer past its interactive prompts so the
+# autoinstall HTTP response file can do the rest. Same pattern as
+# OpenBSD's own vmd(8) -B autoinstall path.
+#
+# Four prompts are cleared on a headless boot:
+#
+#  1. cdboot's `boot>` prompt. cdboot waits 5 seconds for keyboard
+#     input; if it gets a character within that window it enters
+#     interactive mode and waits forever for a complete command. We
+#     pre-emptively send CR right after spawning qemu so cdboot is
+#     already in interactive mode by the time we see the prompt.
+#  2. The second cdboot prompt after `set tty com0`. We send
+#     `boot /7.9/amd64/bsd.rd` to load the install kernel.
+#  3. The installer's `(I)nstall, (U)pgrade, (A)utoinstall or (S)hell?`
+#     prompt. We send `A`.
+#  4. The installer's `Response file location?` prompt. We type the
+#     URL of the local HTTP server that run-autoinstall.sh started.
+#
+# Post-install provisioning (rust, git, build user) is handled by a
+# separate scripts/provision-via-ssh.sh step that SSHes into the
+# installed disk and runs the provision script over a forwarded port.
+#
+# Throughout, we use send_slow so each character has time to be
+# read off the emulated UART before the next one arrives.
+#
+# args: passed straight through to qemu-system-x86_64.
+
+set timeout 1800
+log_user 1
+# 50ms between characters; well under cdboot's serial read rate.
+set send_slow {1 .05}
+
+# Inherit args from the wrapper.
+set qemu_args $argv
+
+eval spawn qemu-system-x86_64 $qemu_args
+
+# Pre-emptive CR: arrives before cdboot's 5-second timeout starts
+# counting (or very early in the window), locking it into interactive
+# wait-forever mode. cdboot ignores the bare CR; we just need it to
+# see "a key was pressed".
+send -- "\r"
+
+expect {
+	-re {boot>\s*} {
+		send -s -- "set tty com0\r"
+	}
+	timeout {
+		send_error "timed out waiting for cdboot prompt\n"
+		exit 2
+	}
+}
+
+# After `set tty com0` cdboot reprints `boot>`. Send the actual boot
+# command with the explicit kernel path. `boot bsd.rd` (no path)
+# defaults to cd0a:bsd.rd which doesn't exist; cdboot suggests
+# /7.9/amd64/bsd.rd as a fallback but waits for the user to retype it.
+expect {
+	-re {boot>\s*} {
+		send -s -- "boot /7.9/amd64/bsd.rd\r"
+	}
+	timeout {
+		send_error "timed out waiting for second boot prompt\n"
+		exit 3
+	}
+}
+
+# Installer prompt: (I)nstall, (U)pgrade, (A)utoinstall or (S)hell.
+# Send A; the installer then asks where to fetch the response file.
+expect {
+	-re {\(I\)nstall, \(U\)pgrade, \(A\)utoinstall or \(S\)hell\??} {
+		send -s -- "A\r"
+	}
+	timeout {
+		send_error "timed out waiting for installer prompt\n"
+		exit 4
+	}
+}
+
+# Response file URL. run-autoinstall.sh runs an HTTP server on the
+# host, reachable from the guest at 10.0.2.2:8989 via qemu's user-mode
+# NAT, with install.conf at the document root. The installer's default
+# guess is http://10.0.2.2/install.conf on port 80 (nothing listening
+# there), so we must explicitly override.
+expect {
+	-re {Response file location\?} {
+		send -s -- "http://10.0.2.2:8989/install.conf\r"
+	}
+	timeout {
+		send_error "timed out waiting for response file prompt\n"
+		exit 5
+	}
+}
+
+# Wait for install completion. With -no-reboot in the qemu args, the
+# VM exits cleanly when the installer reboots, so we just wait for
+# eof. Post-install provisioning is handled by a separate SSH-driven
+# step (scripts/provision-via-ssh.sh).
+expect {
+	-re {CONGRATULATIONS} {
+		expect eof
+	}
+	eof {
+		# Already exited.
+	}
+	timeout {
+		send_error "timed out waiting for install completion\n"
+		exit 6
+	}
+}
