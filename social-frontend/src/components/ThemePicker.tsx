@@ -61,6 +61,7 @@ export default function ThemePicker({ variant = "popover" }) {
       <div
         className="theme-swatches"
         role="radiogroup"
+        tabIndex={-1}
         aria-label={t("theme.colorwayAria")}
       >
         {colorways.map((c, idx) => {
@@ -112,6 +113,7 @@ export default function ThemePicker({ variant = "popover" }) {
       <div
         className="theme-mode-row"
         role="radiogroup"
+        tabIndex={-1}
         aria-label={t("theme.modeAria")}
       >
         {(() => {

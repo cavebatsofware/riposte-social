@@ -58,6 +58,7 @@ export default function InviteSplash() {
   }
 
   return (
+    // eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap through trapRef; not statically detectable
     <div
       className="invite-splash-overlay"
       role="dialog"

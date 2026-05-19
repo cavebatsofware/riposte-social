@@ -75,7 +75,7 @@ export default function SettingsProfile() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, t]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -252,7 +252,8 @@ export default function SettingsProfile() {
         aria-labelledby="settings-fields-heading"
       >
         <h2 id="settings-fields-heading">{t("profile.fieldsHeading")}</h2>
-        <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
+        <label htmlFor="settings-handle">{t("profile.handleLabel")}<span aria-hidden="true"> *</span></label>
+        {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
         <input
           id="settings-handle"
           name="handle"

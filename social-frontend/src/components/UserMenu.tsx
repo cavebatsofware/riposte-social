@@ -64,6 +64,7 @@ export default function UserMenu({ user, onSignOut }) {
       <button
         ref={triggerRef}
         type="button"
+        id="user-menu-trigger"
         className="user-menu-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -80,7 +81,7 @@ export default function UserMenu({ user, onSignOut }) {
       </button>
 
       {open && (
-        <div ref={popoverRef} className="user-menu-popover" role="menu">
+        <div ref={popoverRef} className="user-menu-popover" role="menu" tabIndex={-1} aria-labelledby="user-menu-trigger">
           <div className="user-menu-meta">
             <div className="user-menu-name">{display}</div>
             {user.handle && (
@@ -93,6 +94,7 @@ export default function UserMenu({ user, onSignOut }) {
               to={profileTo}
               className="user-menu-item"
               role="menuitem"
+              tabIndex={0}
               onClick={() => setOpen(false)}
             >
               {t("userMenu.viewProfile")}
@@ -102,6 +104,7 @@ export default function UserMenu({ user, onSignOut }) {
             to="/people/following"
             className="user-menu-item"
             role="menuitem"
+            tabIndex={0}
             onClick={() => setOpen(false)}
           >
             {t("userMenu.following")}
@@ -110,6 +113,7 @@ export default function UserMenu({ user, onSignOut }) {
             to="/people/followers"
             className="user-menu-item"
             role="menuitem"
+            tabIndex={0}
             onClick={() => setOpen(false)}
           >
             {t("userMenu.followers")}
@@ -118,6 +122,7 @@ export default function UserMenu({ user, onSignOut }) {
             to="/settings/profile"
             className="user-menu-item"
             role="menuitem"
+            tabIndex={0}
             onClick={() => setOpen(false)}
           >
             {t("userMenu.settings")}

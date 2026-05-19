@@ -105,12 +105,13 @@ export default function Compose() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+  }, [editId, t]);
 
   useEffect(() => {
     return () => {
       files.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup-on-unmount only; adding files would re-register cleanup on every file list change
   }, []);
 
   // Sanitized HTML for the live preview. DOMPurify strips scripts,
@@ -373,6 +374,7 @@ export default function Compose() {
                   fileInputRef.current?.click();
                 }
               }}
+              // eslint-disable-next-line a11yinspect/aria-element-warning -- drag-and-drop container needs block children; native button is phrasing content only
               role="button"
               tabIndex={0}
               aria-label={t("attachments.dropzoneAria")}

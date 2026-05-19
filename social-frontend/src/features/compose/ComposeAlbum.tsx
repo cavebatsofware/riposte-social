@@ -119,13 +119,14 @@ export default function ComposeAlbum() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+  }, [editId, t]);
 
   // Revoke object URLs for pending files on unmount/clear.
   useEffect(() => {
     return () => {
       pendingFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup-on-unmount only; adding pendingFiles would re-register cleanup on every file list change
   }, []);
 
   if (!authLoading && (!user || (user.role !== "administrator" && user.role !== "poster"))) {
@@ -344,7 +345,8 @@ export default function ComposeAlbum() {
         )}
 
         <div className="compose-field">
-          <label htmlFor="album-name">{t("album.nameLabel")}</label>
+          <label htmlFor="album-name">{t("album.nameLabel")}<span aria-hidden="true"> *</span></label>
+          {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
           <input
             id="album-name"
             name="name"
@@ -464,6 +466,7 @@ export default function ComposeAlbum() {
                 fileInputRef.current?.click();
               }
             }}
+            // eslint-disable-next-line a11yinspect/aria-element-warning -- drag-and-drop container needs block children; native button is phrasing content only
             role="button"
             tabIndex={0}
             aria-label={t("attachments.dropzoneAria")}

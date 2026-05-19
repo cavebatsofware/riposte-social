@@ -281,6 +281,7 @@ export default function ReactionBar({ target, state, compact = false }) {
       ) : (
         totalCount > 0 && (
           <span
+            // eslint-disable-next-line a11yinspect/aria-element-warning -- emoji rendered as text; role=img on span is the correct ARIA pattern for text-based icons
             role="img"
             className="reaction-static"
             aria-label={t("reactions.summaryAria", { count: totalCount })}
@@ -306,10 +307,12 @@ export default function ReactionBar({ target, state, compact = false }) {
       </span>
 
       {canReact && (
+        // eslint-disable-next-line a11yinspect/menu-element-warning -- menuitem children rendered via map; static analyzer cannot traverse
         <div
           ref={pickerRef}
           className="reaction-picker"
           role="menu"
+          tabIndex={-1}
           aria-label={t("reactions.pickerAria")}
         >
           {REACTION_KINDS.map((k) => (

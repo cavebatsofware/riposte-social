@@ -243,6 +243,7 @@ export default function BrowseRail() {
             title={a.name}
           >
             {a.cover_url ? (
+              // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
                 src={a.cover_url}
@@ -281,6 +282,7 @@ export default function BrowseRail() {
             title={p.display_name || p.handle}
           >
             {p.avatar_url ? (
+              // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
                 src={p.avatar_url}

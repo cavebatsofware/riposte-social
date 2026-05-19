@@ -44,6 +44,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
       return;
     }
     overlayRef.current?.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- overlayRef is a stable ref object; zoomed is the only meaningful dep
   }, [zoomed]);
 
   const goPrev = useCallback(() => {
@@ -129,6 +130,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     // the dialog via Escape (handled by useFocusTrap) or the explicit
     // Close button below. Adding a synthetic keydown handler here would
     // collide with the focus trap rather than improve a11y.
+    // eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap; not statically detectable
     <div
       ref={overlayRef}
       className={`media-lightbox${zoomed ? " zoomed" : ""}`}

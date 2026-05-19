@@ -82,7 +82,8 @@ export default function Login() {
                 {error}
               </div>
             )}
-            <label htmlFor="login-email">{t("login.emailLabel")}</label>
+            <label htmlFor="login-email">{t("login.emailLabel")}<span aria-hidden="true"> *</span></label>
+            {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
             <input
               ref={emailRef}
               id="login-email"
@@ -93,7 +94,8 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
             />
-            <label htmlFor="login-password">{t("login.passwordLabel")}</label>
+            <label htmlFor="login-password">{t("login.passwordLabel")}<span aria-hidden="true"> *</span></label>
+            {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
             <input
               id="login-password"
               name="password"

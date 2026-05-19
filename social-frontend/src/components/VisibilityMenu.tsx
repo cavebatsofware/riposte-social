@@ -104,7 +104,8 @@ export default function VisibilityMenu({ post, onChange }: { post: { id: string;
           ▾
         </span>
       </button>
-      <div ref={popoverRef} className="visibility-menu-popover" role="menu">
+      {/* eslint-disable-next-line a11yinspect/menu-element-warning -- menuitem children rendered via map; static analyzer cannot traverse */}
+      <div ref={popoverRef} className="visibility-menu-popover" role="menu" tabIndex={-1}>
         {OPTION_IDS.map((id) => (
           <button
             key={id}

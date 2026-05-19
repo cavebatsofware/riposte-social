@@ -60,7 +60,7 @@ export default function Album() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, t]);
 
   const isAuthorOrAdmin =
     user && album && (user.id === album.author_id || user.role === "administrator");

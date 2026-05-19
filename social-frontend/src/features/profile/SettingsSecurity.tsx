@@ -201,8 +201,9 @@ export default function SettingsSecurity() {
               aria-labelledby="security-password-heading"
             >
               <label htmlFor="security-current-password">
-                {t("security.currentPasswordLabel")}
+                {t("security.currentPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-current-password"
                 name="current_password"
@@ -213,8 +214,9 @@ export default function SettingsSecurity() {
                 required
               />
               <label htmlFor="security-new-password">
-                {t("security.newPasswordLabel")}
+                {t("security.newPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-new-password"
                 name="new_password"
@@ -225,8 +227,9 @@ export default function SettingsSecurity() {
                 required
               />
               <label htmlFor="security-confirm-password">
-                {t("security.confirmPasswordLabel")}
+                {t("security.confirmPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-confirm-password"
                 name="confirm_password"
@@ -364,8 +367,9 @@ export default function SettingsSecurity() {
               >
                 <p>{t("security.disableConfirmPrompt")}</p>
                 <label htmlFor="security-disable-password">
-                  {t("security.disablePasswordLabel")}
+                  {t("security.disablePasswordLabel")}<span aria-hidden="true"> *</span>
                 </label>
+                {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
                 <input
                   id="security-disable-password"
                   name="password"

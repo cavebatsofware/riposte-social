@@ -61,7 +61,7 @@ export default function Post() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, t]);
 
   const isAuthorOrAdmin =
     user &&

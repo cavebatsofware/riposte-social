@@ -141,12 +141,14 @@ export default function CommentThread({ target }) {
       )}
 
       {loading ? (
+        // eslint-disable-next-line a11yinspect/list-element-error -- li children rendered via Array.from().map(); static analyzer cannot traverse
         <ol
           className="comment-list"
           aria-busy="true"
           aria-label={t("comments.loadingAria")}
         >
           {Array.from({ length: 2 }).map((_, i) => (
+            // eslint-disable-next-line a11yinspect/list-element-error, a11yinspect/list-element-warning -- skeleton li inside Array.from().map(); aria-hidden intentional on loading placeholder
             <li key={i} className="comment-item" aria-hidden="true">
               <header className="comment-item-meta">
                 <span className="skeleton-line skeleton-line-md" />
@@ -161,6 +163,7 @@ export default function CommentThread({ target }) {
       ) : comments.length === 0 ? (
         <p className="muted">{t("comments.empty")}</p>
       ) : (
+        // eslint-disable-next-line a11yinspect/list-element-error -- CommentItem renders li; static analyzer cannot trace component output
         <ol className="comment-list">
           {comments.map((c) => (
             <CommentItem
@@ -287,6 +290,7 @@ function CommentItem({ target, comment, viewer, onDelete, onEdit }) {
   );
 
   return (
+    // eslint-disable-next-line a11yinspect/list-element-error -- always rendered inside ol in CommentThread; static analyzer lacks component context
     <li className="comment-item">
       <header className="comment-item-meta">
         {authorEl}

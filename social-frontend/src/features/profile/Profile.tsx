@@ -69,7 +69,7 @@ export default function Profile() {
     return () => {
       cancelled = true;
     };
-  }, [handle, viewer]);
+  }, [handle, viewer, t]);
 
   const authorId = profile?.user_id;
   const loadPostsPage = useCallback(
@@ -96,7 +96,7 @@ export default function Profile() {
         setPostsLoading(false);
       }
     },
-    [authorId],
+    [authorId, t],
   );
 
   useEffect(() => {

@@ -40,11 +40,11 @@ export default function CookieBanner() {
   }
 
   return (
-    <div className="cookie-banner" role="region" aria-label={t("cookieBanner.regionLabel")}>
+    <section className="cookie-banner" aria-label={t("cookieBanner.regionLabel")}>
       <p>{t("cookieBanner.text")}</p>
       <button type="button" className="btn-primary" onClick={handleAck}>
         {t("cookieBanner.ack")}
       </button>
-    </div>
+    </section>
   );
 }

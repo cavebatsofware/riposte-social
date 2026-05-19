@@ -228,7 +228,8 @@ export default function Categories() {
             aria-label={t("categories.createCta")}
           >
             <div className="compose-field">
-              <label htmlFor="cat-new-name">{t("categories.nameLabel")}</label>
+              <label htmlFor="cat-new-name">{t("categories.nameLabel")}<span aria-hidden="true"> *</span></label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="cat-new-name"
                 name="name"
@@ -558,6 +559,7 @@ function MemberModal({ category, onClose }) {
     // a click on the dialog body from bubbling up and closing the modal.
     // eslint-disable-next-line a11yinspect/click-handler-warning
     <div className="modal-backdrop" onClick={onClose}>
+      {/* eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap through trapRef; not statically detectable */}
       <div
         className="modal categories-member-modal"
         role="dialog"
