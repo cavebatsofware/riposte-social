@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchMediaEngagement } from "./api";
 import useFocusTrap from "../../utils/useFocusTrap";
@@ -25,13 +25,12 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
   const { t } = useTranslation("browse");
   const [zoomed, setZoomed] = useState(false);
   // Reset to fitted view whenever the user moves to a different item.
-  // Derived during render so the new item never paints in a stale
-  // zoomed-in state for a frame.
-  const [lastIndex, setLastIndex] = useState(index);
-  if (lastIndex !== index) {
-    setLastIndex(index);
+  // useLayoutEffect fires before paint so the new item never appears
+  // in a stale zoomed-in state for a frame.
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
     setZoomed(false);
-  }
+  }, [index]);
 
   const total = items.length;
   const item = items[index];

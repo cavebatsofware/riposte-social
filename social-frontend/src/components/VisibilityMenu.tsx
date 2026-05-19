@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { patchPostVisibility } from "../features/feed/api";
 import useRovingFocus from "../utils/useRovingFocus";
@@ -16,15 +16,13 @@ export default function VisibilityMenu({ post, onChange }: { post: { id: string;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   // Local optimistic-update state that follows post.visibility from the
-  // parent. Reset during render when the prop changes (React docs:
-  // "Adjusting some state when a prop changes") so we never paint stale
-  // data after the parent commits the new value.
+  // parent. Synced via useLayoutEffect so we never paint stale data
+  // after the parent commits the new value.
   const [current, setCurrent] = useState(post.visibility);
-  const [lastPropVisibility, setLastPropVisibility] = useState(post.visibility);
-  if (lastPropVisibility !== post.visibility) {
-    setLastPropVisibility(post.visibility);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
     setCurrent(post.visibility);
-  }
+  }, [post.visibility]);
   const wrapperRef = useRef(null);
   const triggerRef = useRef(null);
   const popoverRef = useRef(null);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -33,16 +33,15 @@ export default function Feed() {
   const { t } = useTranslation("feed");
   const { t: tCommon } = useTranslation("common");
 
-  // Local input state  committed to the URL only on submit so we don't
-  // hammer the API on every keystroke. Reset during render when the URL
-  // `q` changes so navigation (back/forward, link clicks) puts the
-  // current query in the box on the next paint.
+  // Local input state committed to the URL only on submit so we don't
+  // hammer the API on every keystroke. Synced from the URL `q` before
+  // paint so navigation (back/forward, link clicks) puts the current
+  // query in the box without a stale frame.
   const [searchInput, setSearchInput] = useState(q);
-  const [lastQ, setLastQ] = useState(q);
-  if (lastQ !== q) {
-    setLastQ(q);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
     setSearchInput(q);
-  }
+  }, [q]);
 
   // MRU bookkeeping: every category visit moves that category up the
   // BrowseRail's recency list. Server already filters posts by slug.

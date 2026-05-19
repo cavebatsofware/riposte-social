@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useState } from "react";
 
 /// Available colorways. Each one has a light and a dark variant in
 /// `index.css` under `[data-theme="<id>"]` and `[data-theme="<id>-dark"]`.
@@ -77,18 +77,17 @@ function resolveInitialTheme() {
 /// Apply the theme to the document and persist the user's choice.
 ///
 /// State of record is the resolved id (e.g. `forest-dark`); the picker UI
-/// derives colorway and mode from it. Initial state is resolved
-/// synchronously during the first render so localStorage/OS preference
-/// is honored on first paint without a flash.
+/// derives colorway and mode from it. The DOM attribute is applied in
+/// useLayoutEffect so the first paint and every subsequent change pick up
+/// the correct theme without a flash.
 ///
 /// Theme support is scoped to the social-frontend; the admin panel does
 /// not consume this context.
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(() => {
-    const initial = resolveInitialTheme();
-    document.documentElement.dataset.theme = initial;
-    return initial;
-  });
+  const [theme, setThemeState] = useState(resolveInitialTheme);
+  useLayoutEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   // Subscribe to OS preference changes so a fresh visitor (no explicit
   // choice yet) tracks their system theme, and stop tracking the moment
@@ -111,7 +110,6 @@ export function ThemeProvider({ children }) {
       if (isValidThemeId(stored)) return;
       const next = e.matches ? `${DEFAULT_COLORWAY}-dark` : DEFAULT_COLORWAY;
       setThemeState(next);
-      document.documentElement.dataset.theme = next;
     }
     media.addEventListener?.("change", onChange);
     return () => {
@@ -122,7 +120,6 @@ export function ThemeProvider({ children }) {
   function setTheme(id) {
     if (!isValidThemeId(id)) return;
     setThemeState(id);
-    document.documentElement.dataset.theme = id;
     try {
       localStorage.setItem(STORAGE_KEY, id);
     } catch {
