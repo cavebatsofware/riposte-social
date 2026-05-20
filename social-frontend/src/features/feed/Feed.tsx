@@ -5,7 +5,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSiteConfig } from "../../contexts/SiteConfigContext";
 import { recordCategoryVisit } from "../../utils/browseHistory";
 import InviteSplash from "../auth/InviteSplash";
-import Layout from "../../components/Layout";
 import PostCard from "./PostCard";
 import SkeletonCard from "../../components/SkeletonCard";
 import { fetchFeed } from "./api";
@@ -122,7 +121,7 @@ export default function Feed() {
   }
 
   return (
-    <Layout>
+    <>
       <h1 className="sr-only">{t("feed.heading")}</h1>
       <InviteSplash />
 
@@ -218,7 +217,7 @@ export default function Feed() {
           </button>
         </div>
       )}
-    </Layout>
+    </>
   );
 }
 

@@ -8,7 +8,6 @@ import {
   disableMfa as apiDisableMfa,
   startMfaSetup as apiStartMfaSetup,
 } from "./api";
-import Layout from "../../components/Layout";
 import "./Settings.css";
 
 /// `/settings/security`: self-service password change + MFA management
@@ -139,15 +138,11 @@ export default function SettingsSecurity() {
   }
 
   if (authLoading || !user) {
-    return (
-      <Layout>
-        <p className="muted">{tCommon("loading")}</p>
-      </Layout>
-    );
+    return <p className="muted">{tCommon("loading")}</p>;
   }
 
   return (
-    <Layout>
+    <>
       <header className="settings-header">
         <h1>{t("security.title")}</h1>
         <nav className="settings-tabs" aria-label={t("tabsAria")}>
@@ -406,6 +401,6 @@ export default function SettingsSecurity() {
           </section>
         </>
       )}
-    </Layout>
+    </>
   );
 }

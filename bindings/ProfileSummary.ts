@@ -4,4 +4,4 @@
  * Compact profile shape used by the list endpoint. Drops `bio` and
  * `pronouns` since they aren't shown in the rail or directory grid.
  */
-export type ProfileSummary = { user_id: string, handle: string, display_name: string | null, avatar_url: string | null, role: string, };
+export type ProfileSummary = { user_id: string, handle: string, display_name: string | null, avatar_url: string | null, avatar_icon_data: string | null, role: string, };

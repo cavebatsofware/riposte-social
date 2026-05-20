@@ -31,6 +31,11 @@ pub struct AlbumStatsRow {
     pub post_id: Uuid,
     pub photo_count: i64,
     pub cover_id: Option<Uuid>,
+    /// Pre-generated 64px WebP bytes of the implicit cover, surfaced inline
+    /// in `AlbumSummary` so BrowseRail / Albums entries render without
+    /// per-album image fetches. NULL when the cover predates the variant
+    /// generation feature.
+    pub cover_icon_data: Option<Vec<u8>>,
 }
 
 pub async fn find_user<C: ConnectionTrait>(
@@ -200,6 +205,10 @@ pub async fn aggregate_album_stats<C: ConnectionTrait>(
         .column_as(
             Expr::cust("(ARRAY_AGG(id ORDER BY ordinal ASC))[1]"),
             "cover_id",
+        )
+        .column_as(
+            Expr::cust("(ARRAY_AGG(icon_data ORDER BY ordinal ASC))[1]"),
+            "cover_icon_data",
         )
         .filter(post_media::Column::PostId.is_in(album_ids))
         .group_by(post_media::Column::PostId)

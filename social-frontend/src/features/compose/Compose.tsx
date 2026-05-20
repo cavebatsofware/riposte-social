@@ -11,7 +11,6 @@ import {
   fetchPostForEdit,
   updatePost,
 } from "./api";
-import Layout from "../../components/Layout";
 import VisibilityPicker from "../../components/VisibilityPicker";
 
 const ACCEPTED_IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -127,11 +126,7 @@ export default function Compose() {
   }, [body, t]);
 
   if (authLoading) {
-    return (
-      <Layout>
-        <p>{tCommon("loading")}</p>
-      </Layout>
-    );
+    return <p>{tCommon("loading")}</p>;
   }
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -151,14 +146,14 @@ export default function Compose() {
     !(site !== null && site.poster_posting_enabled === true)
   ) {
     return (
-      <Layout>
+      <>
         <Link to="/" className="post-back-link">
           {t("backToFeed")}
         </Link>
         <section className="feed-empty">
           <p>{t("post.disabledNotice")}</p>
         </section>
-      </Layout>
+      </>
     );
   }
 
@@ -263,11 +258,7 @@ export default function Compose() {
   }
 
   if (loadingExisting) {
-    return (
-      <Layout>
-        <p>{t("post.loadingExisting")}</p>
-      </Layout>
-    );
+    return <p>{t("post.loadingExisting")}</p>;
   }
 
   const roleLabel =
@@ -276,7 +267,7 @@ export default function Compose() {
       : t("role.poster");
 
   return (
-    <Layout>
+    <>
       <h1 className="sr-only">
         {editId ? t("post.editTitle") : t("post.newTitle")}
       </h1>
@@ -453,7 +444,7 @@ export default function Compose() {
           </div>
         </div>
       </form>
-    </Layout>
+    </>
   );
 }
 

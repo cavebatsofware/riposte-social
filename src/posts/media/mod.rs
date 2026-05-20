@@ -23,6 +23,7 @@
 pub mod insert;
 pub mod parse;
 pub mod upload;
+pub mod variants;
 
 use crate::entities::post;
 use uuid::Uuid;
@@ -110,9 +111,16 @@ pub(crate) fn kind_noun_title(kind: &str) -> &'static str {
 }
 
 /// Upload-ready media with its allocated row id, S3 key, and ordinal slot.
+/// Image-only fields (`width`, `height`, `thumbnail_data`, `icon_data`) are
+/// populated by `variants::process_image_variants` between plan-build and
+/// S3 upload, and copied into the `post_media` row during DB insert.
 pub(crate) struct PlannedUpload {
     pub media_id: Uuid,
     pub s3_key: String,
     pub media: PendingMedia,
     pub ordinal: i32,
+    pub width: Option<i32>,
+    pub height: Option<i32>,
+    pub thumbnail_data: Option<Vec<u8>>,
+    pub icon_data: Option<Vec<u8>>,
 }

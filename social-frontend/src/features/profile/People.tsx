@@ -3,7 +3,6 @@ import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { fetchProfilesDirectory, fetchUserConnections } from "./api";
-import Layout from "../../components/Layout";
 import "./People.css";
 
 /// Three tabs:
@@ -22,7 +21,7 @@ export default function People() {
   const { t: tCommon } = useTranslation("common");
 
   return (
-    <Layout>
+    <>
       <h1 className="overflow-title">{t("people.pageTitle")}</h1>
 
       <nav className="people-tabs" aria-label={t("people.pageTitle")}>
@@ -70,7 +69,7 @@ export default function People() {
           tCommon={tCommon}
         />
       )}
-    </Layout>
+    </>
   );
 }
 
@@ -236,6 +235,7 @@ function toProfiles(users) {
     handle: u.handle,
     display_name: u.display_name,
     avatar_url: u.avatar_url,
+    avatar_icon_data: u.avatar_icon_data,
     role: u.role,
   }));
 }
@@ -262,8 +262,8 @@ function PeopleList({ people, loading, error, emptyText, tCommon }) {
             className="people-overflow-card"
           >
             <div className="people-overflow-avatar">
-              {p.avatar_url ? (
-                <img src={p.avatar_url} alt="" />
+              {p.avatar_icon_data ? (
+                <img src={p.avatar_icon_data} alt="" />
               ) : (
                 <span
                   className="people-overflow-avatar-empty"

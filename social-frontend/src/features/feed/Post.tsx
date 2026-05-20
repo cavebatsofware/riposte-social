@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import CommentThread from "../engagement/CommentThread";
-import Layout from "../../components/Layout";
 import PostCard from "./PostCard";
 import SkeletonCard from "../../components/SkeletonCard";
 import { deletePost, fetchPost } from "./api";
@@ -88,7 +87,7 @@ export default function Post() {
   }
 
   return (
-    <Layout>
+    <>
       <h1 className="sr-only">{t("post.heading")}</h1>
       <Link to="/" className="post-back-link">
         {tCommon("backToFeed")}
@@ -126,6 +125,6 @@ export default function Post() {
           <CommentThread target={{ kind: "post", postId: post.id }} />
         </>
       )}
-    </Layout>
+    </>
   );
 }

@@ -178,6 +178,9 @@ async fn list_albums(
             let cover_url = stat
                 .and_then(|s| s.cover_id)
                 .map(|id| format!("/album-media/{}", id));
+            let cover_icon_data = stat
+                .and_then(|s| s.cover_icon_data.as_deref())
+                .map(crate::posts::types::encode_webp_data_uri);
             let photo_count = stat.map(|s| s.photo_count).unwrap_or(0);
             let description = if row.body.is_empty() {
                 None
@@ -190,6 +193,7 @@ async fn list_albums(
                 author_display: author.and_then(|u| u.display_name.clone()),
                 author_handle: author.map(|u| u.handle.clone()),
                 cover_url,
+                cover_icon_data,
                 name: row.slug.unwrap_or_default(),
                 description,
                 visibility: row.visibility,

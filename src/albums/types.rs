@@ -93,7 +93,6 @@ pub struct AlbumResponse {
     pub author_id: Uuid,
     pub author_display: Option<String>,
     pub author_handle: Option<String>,
-    pub author_avatar_url: Option<String>,
     pub name: String,
     pub description: Option<String>,
     /// Implicit cover: the lowest-ordinal media. Null when the album has
@@ -142,7 +141,6 @@ pub fn build_album_response(
         author_id: row.author_id,
         author_display: author.and_then(|u| u.display_name.clone()),
         author_handle: author.map(|u| u.handle.clone()),
-        author_avatar_url: author.and_then(crate::profile::avatar_url_for),
         name: row.slug.unwrap_or_default(),
         description,
         cover_media_id,
@@ -191,6 +189,10 @@ pub struct AlbumSummary {
     pub name: String,
     pub description: Option<String>,
     pub cover_url: Option<String>,
+    /// Inline base64 WebP data URI of the album cover's 64px icon. Used by
+    /// BrowseRail album entries and the Albums overview grid to render
+    /// covers without per-row image fetches.
+    pub cover_icon_data: Option<String>,
     pub visibility: String,
     pub published_at: String,
     #[ts(type = "number")]

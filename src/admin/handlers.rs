@@ -186,7 +186,8 @@ async fn login(
             .unwrap_or(true),
     };
 
-    let (handle, avatar_url, locale) = lookup_handle_avatar_locale(&state, user.id).await;
+    let (handle, avatar_url, avatar_icon_data, locale) =
+        lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -198,6 +199,7 @@ async fn login(
         role: user.role,
         handle,
         avatar_url,
+        avatar_icon_data,
         locale,
         features,
     }))
@@ -266,7 +268,8 @@ async fn me(
             .unwrap_or(true),
     };
 
-    let (handle, avatar_url, locale) = lookup_handle_avatar_locale(&state, user.id).await;
+    let (handle, avatar_url, avatar_icon_data, locale) =
+        lookup_handle_avatar_locale(&state, user.id).await;
     Ok(Json(UserResponse {
         id: user.id,
         email: user.email,
@@ -278,6 +281,7 @@ async fn me(
         role: user.role,
         handle,
         avatar_url,
+        avatar_icon_data,
         locale,
         features,
     }))
@@ -291,14 +295,20 @@ async fn me(
 async fn lookup_handle_avatar_locale(
     state: &AdminState,
     user_id: uuid::Uuid,
-) -> (Option<String>, Option<String>, Option<String>) {
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
     match state.auth_backend.get_admin_by_id(user_id).await {
         Ok(Some(model)) => (
             Some(model.handle.clone()),
             crate::profile::avatar_url_for(&model),
+            crate::profile::avatar_icon_data_for(&model),
             model.locale.clone(),
         ),
-        _ => (None, None, None),
+        _ => (None, None, None, None),
     }
 }
 

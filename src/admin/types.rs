@@ -193,6 +193,7 @@ pub struct UserResponse {
     /// fetch.
     pub handle: Option<String>,
     pub avatar_url: Option<String>,
+    pub avatar_icon_data: Option<String>,
     /// Saved UI locale. NULL when the user has never explicitly chosen one;
     /// the frontend's i18next browser-language detector fills the gap.
     pub locale: Option<String>,

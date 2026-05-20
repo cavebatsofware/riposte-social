@@ -23,11 +23,42 @@ use crate::imports::facebook::parser::{FacebookAlbum, FacebookPost};
 use crate::imports::facebook::upload::{
     is_supported_media_mime, mime_for_filename, read_archive_entries,
 };
+use crate::posts::media::is_video_mime;
+use crate::posts::media::variants::{generate_variants_blocking, ImageVariants};
 use crate::s3::S3Service;
 use chrono::TimeZone;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, Set, TransactionTrait};
 use std::path::Path;
 use uuid::Uuid;
+
+/// One uploaded media row pending DB insert. Carries everything the
+/// `post_media` row needs: identity (`media_id`, `s3_key`, `mime`), the
+/// album-only caption, and the derived image variants (None for videos).
+struct UploadedMedia {
+    media_id: Uuid,
+    s3_key: String,
+    mime: String,
+    caption: Option<String>,
+    variants: Option<ImageVariants>,
+}
+
+/// Compute thumbnail + icon + dimensions for an imported image. Returns
+/// None for video items (which don't get derived sizes), bubbling up
+/// decode errors so the importer can roll back the post.
+async fn variants_if_image(
+    mime: &str,
+    bytes: &[u8],
+) -> Result<Option<ImageVariants>, anyhow::Error> {
+    if is_video_mime(mime) {
+        return Ok(None);
+    }
+    let owned = bytes.to_vec();
+    let variants = tokio::task::spawn_blocking(move || generate_variants_blocking(&owned))
+        .await
+        .map_err(|e| anyhow::anyhow!("variant worker join failed: {}", e))?
+        .map_err(|e| anyhow::anyhow!("variant generation failed: {}", e))?;
+    Ok(Some(variants))
+}
 
 /// Process one post: read each attachment from the local archive, upload
 /// to S3, and write the post + post_media rows in a single transaction.
@@ -63,7 +94,7 @@ pub(crate) async fn import_one_post(
         return Ok(());
     }
 
-    let mut uploaded: Vec<(Uuid, String, String)> = Vec::with_capacity(staged_media.len());
+    let mut uploaded: Vec<UploadedMedia> = Vec::with_capacity(staged_media.len());
     for (i, (filename, bytes)) in staged_media.into_iter().enumerate() {
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(&filename);
@@ -73,17 +104,24 @@ pub(crate) async fn import_one_post(
         if !is_supported_media_mime(&mime) {
             continue;
         }
+        let variants = variants_if_image(&mime, &bytes).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes, &mime).await {
             // Roll back any uploads already committed for this post so
             // we don't leave orphan objects when the DB transaction
             // below never runs.
-            for (_, prior_key, _) in &uploaded {
-                let _ = s3.delete_object_at(prior_key).await;
+            for prior in &uploaded {
+                let _ = s3.delete_object_at(&prior.s3_key).await;
             }
             return Err(anyhow::anyhow!("failed to upload media #{}: {}", i, e));
         }
-        uploaded.push((media_id, key, mime));
+        uploaded.push(UploadedMedia {
+            media_id,
+            s3_key: key,
+            mime,
+            caption: None,
+            variants,
+        });
     }
 
     let txn_result: Result<(), sea_orm::DbErr> = async {
@@ -111,33 +149,48 @@ pub(crate) async fn import_one_post(
         .insert(&txn)
         .await?;
 
-        for (i, (media_id, key, mime)) in uploaded.iter().enumerate() {
-            post_media::ActiveModel {
-                id: Set(*media_id),
-                post_id: Set(post_id),
-                s3_key: Set(key.clone()),
-                mime_type: Set(mime.clone()),
-                width: Set(None),
-                height: Set(None),
-                ordinal: Set(i as i32),
-                caption: Set(None),
-                created_at: Set(now),
-            }
-            .insert(&txn)
-            .await?;
-        }
+        insert_media_rows(&txn, post_id, &uploaded, now).await?;
 
         txn.commit().await
     }
     .await;
 
     if let Err(e) = txn_result {
-        for (_, key, _) in &uploaded {
-            let _ = s3.delete_object_at(key).await;
+        for prior in &uploaded {
+            let _ = s3.delete_object_at(&prior.s3_key).await;
         }
         return Err(anyhow::anyhow!("DB write failed: {}", e));
     }
 
+    Ok(())
+}
+
+/// Shared helper: write a `post_media` row per uploaded item, threading
+/// the optional caption and derived image variants from `UploadedMedia`
+/// into the row.
+async fn insert_media_rows<C: sea_orm::ConnectionTrait>(
+    txn: &C,
+    post_id: Uuid,
+    uploaded: &[UploadedMedia],
+    now: sea_orm::prelude::DateTimeWithTimeZone,
+) -> Result<(), sea_orm::DbErr> {
+    for (i, item) in uploaded.iter().enumerate() {
+        post_media::ActiveModel {
+            id: Set(item.media_id),
+            post_id: Set(post_id),
+            s3_key: Set(item.s3_key.clone()),
+            mime_type: Set(item.mime.clone()),
+            width: Set(item.variants.as_ref().map(|v| v.width)),
+            height: Set(item.variants.as_ref().map(|v| v.height)),
+            ordinal: Set(i as i32),
+            caption: Set(item.caption.clone()),
+            created_at: Set(now),
+            thumbnail_data: Set(item.variants.as_ref().map(|v| v.thumbnail.clone())),
+            icon_data: Set(item.variants.as_ref().map(|v| v.icon.clone())),
+        }
+        .insert(txn)
+        .await?;
+    }
     Ok(())
 }
 
@@ -194,16 +247,16 @@ pub(crate) async fn import_one_album(
         .map(|(_, c)| c.clone())
         .collect();
 
-    let mut uploaded: Vec<(Uuid, String, String, Option<String>)> =
-        Vec::with_capacity(supported_indices.len());
+    let mut uploaded: Vec<UploadedMedia> = Vec::with_capacity(supported_indices.len());
     for (out_idx, src_idx) in supported_indices.iter().enumerate() {
         let (filename, bytes) = &staged_media[*src_idx];
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(filename);
+        let variants = variants_if_image(&mime, bytes).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes.clone(), &mime).await {
-            for (_, prior_key, _, _) in &uploaded {
-                let _ = s3.delete_object_at(prior_key).await;
+            for prior in &uploaded {
+                let _ = s3.delete_object_at(&prior.s3_key).await;
             }
             return Err(anyhow::anyhow!(
                 "failed to upload media #{}: {}",
@@ -211,12 +264,13 @@ pub(crate) async fn import_one_album(
                 e
             ));
         }
-        uploaded.push((
+        uploaded.push(UploadedMedia {
             media_id,
-            key,
+            s3_key: key,
             mime,
-            captions.get(*src_idx).cloned().flatten(),
-        ));
+            caption: captions.get(*src_idx).cloned().flatten(),
+            variants,
+        });
     }
 
     let txn_result: Result<(), sea_orm::DbErr> = async {
@@ -245,29 +299,15 @@ pub(crate) async fn import_one_album(
         .insert(&txn)
         .await?;
 
-        for (i, (media_id, key, mime, caption)) in uploaded.iter().enumerate() {
-            post_media::ActiveModel {
-                id: Set(*media_id),
-                post_id: Set(post_id),
-                s3_key: Set(key.clone()),
-                mime_type: Set(mime.clone()),
-                width: Set(None),
-                height: Set(None),
-                ordinal: Set(i as i32),
-                caption: Set(caption.clone()),
-                created_at: Set(now),
-            }
-            .insert(&txn)
-            .await?;
-        }
+        insert_media_rows(&txn, post_id, &uploaded, now).await?;
 
         txn.commit().await
     }
     .await;
 
     if let Err(e) = txn_result {
-        for (_, key, _, _) in &uploaded {
-            let _ = s3.delete_object_at(key).await;
+        for prior in &uploaded {
+            let _ = s3.delete_object_at(&prior.s3_key).await;
         }
         return Err(anyhow::anyhow!("DB write failed: {}", e));
     }

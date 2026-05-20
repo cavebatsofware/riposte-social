@@ -254,6 +254,8 @@ pub(crate) async fn lookup_media(
         ordinal: row.pm_ordinal,
         caption: row.pm_caption,
         created_at: row.pm_created_at,
+        thumbnail_data: None,
+        icon_data: None,
     };
     let parent = crate::visibility::PostVisibilityCols {
         id: row.pm_post_id,

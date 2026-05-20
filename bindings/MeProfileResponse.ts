@@ -4,4 +4,4 @@
  * Response shape for the caller's own profile. Includes `email` since
  * the caller is reading their own row.
  */
-export type MeProfileResponse = { user_id: string, handle: string, email: string, display_name: string | null, bio: string | null, pronouns: string | null, avatar_url: string | null, role: string, follower_count: number, following_count: number, };
+export type MeProfileResponse = { user_id: string, handle: string, email: string, display_name: string | null, bio: string | null, pronouns: string | null, avatar_url: string | null, avatar_icon_data: string | null, role: string, follower_count: number, following_count: number, };

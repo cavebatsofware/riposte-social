@@ -4,7 +4,6 @@ import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { confirmInvite } from "./api";
 import InviteAcceptForm from "./InviteAcceptForm";
-import Layout from "../../components/Layout";
 
 /// First-contact landing for `/invite/:code` links shared via email or chat.
 /// Renders a combined trusted-device + cookie-consent gate before storing
@@ -24,21 +23,19 @@ export default function InviteAccept() {
 
   if (user) {
     return (
-      <Layout>
-        <div className="invite-accept-card">
-          <h1>{t("invite.alreadySignedInTitle")}</h1>
-          <p>
-            <Trans
-              i18nKey="auth:invite.alreadySignedInBody"
-              values={{ email: user.email }}
-              components={{ bold: <strong /> }}
-            />
-          </p>
-          <Link to="/" className="btn-primary">
-            {t("invite.goToFeed")}
-          </Link>
-        </div>
-      </Layout>
+      <div className="invite-accept-card">
+        <h1>{t("invite.alreadySignedInTitle")}</h1>
+        <p>
+          <Trans
+            i18nKey="auth:invite.alreadySignedInBody"
+            values={{ email: user.email }}
+            components={{ bold: <strong /> }}
+          />
+        </p>
+        <Link to="/" className="btn-primary">
+          {t("invite.goToFeed")}
+        </Link>
+      </div>
     );
   }
 
@@ -65,8 +62,7 @@ export default function InviteAccept() {
   }
 
   return (
-    <Layout>
-      <div className="invite-accept-card">
+    <div className="invite-accept-card">
         {step === "gate" && (
           <>
             <h1>{t("invite.youHaveBeenInvitedTitle")}</h1>
@@ -154,7 +150,6 @@ export default function InviteAccept() {
             </Link>
           </>
         )}
-      </div>
-    </Layout>
+    </div>
   );
 }

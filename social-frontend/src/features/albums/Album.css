@@ -74,6 +74,15 @@
   display: block;
 }
 
+/* Shown for grid items whose thumbnail batch hasn't resolved yet. The
+   item cell already carries the muted background; this just fills the
+   cell so there's no flash of empty space mid-load. */
+.album-grid-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .album-grid-video-badge {
   position: absolute;
   top: 50%;

@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { deleteAlbum, fetchAlbum } from "./api";
 import { recordAlbumVisit } from "../../utils/browseHistory";
-import Layout from "../../components/Layout";
 import MediaLightbox from "../engagement/MediaLightbox";
 import SkeletonCard from "../../components/SkeletonCard";
 import VisibilityBadge from "../../components/VisibilityBadge";
+import { useMediaVariants } from "../../hooks/useMediaVariants";
 import "./Album.css";
 
 /// Permalink page at `/album/:id`. Renders the album header (cover/name/
@@ -82,7 +82,7 @@ export default function Album() {
   }
 
   return (
-    <Layout>
+    <>
       <Link to="/" className="post-back-link">
         {tCommon("backToFeed")}
       </Link>
@@ -104,6 +104,7 @@ export default function Album() {
             deleting={deleting}
           />
           <AlbumMediaGrid
+            parentId={album.id}
             media={album.media}
             onOpen={(idx) => setLightboxIndex(idx)}
           />
@@ -119,7 +120,7 @@ export default function Album() {
           onClose={() => setLightboxIndex(null)}
         />
       )}
-    </Layout>
+    </>
   );
 }
 
@@ -169,8 +170,13 @@ function AlbumHeader({ album, isAuthorOrAdmin, onDelete, deleting }) {
   );
 }
 
-function AlbumMediaGrid({ media, onOpen }) {
+function AlbumMediaGrid({ parentId, media, onOpen }) {
   const { t } = useTranslation("browse");
+  const imageIds = useMemo(
+    () => (media || []).filter((m) => m.media_kind !== "video").map((m) => m.id),
+    [media],
+  );
+  const variants = useMediaVariants(parentId, imageIds);
   if (!media || media.length === 0) {
     return <p className="muted">{t("album.noItems")}</p>;
   }
@@ -200,8 +206,18 @@ function AlbumMediaGrid({ media, onOpen }) {
                 ▶
               </span>
             </>
+          ) : variants[m.id] ? (
+            <img src={variants[m.id]} alt={m.caption || ""} />
           ) : (
-            <img src={m.url} alt={m.caption || ""} />
+            <span
+              className="album-grid-placeholder"
+              aria-hidden="true"
+              style={
+                m.width && m.height
+                  ? { aspectRatio: `${m.width} / ${m.height}` }
+                  : undefined
+              }
+            />
           )}
           {m.caption && (
             <span className="album-grid-caption">{m.caption}</span>

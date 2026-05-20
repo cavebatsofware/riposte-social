@@ -22,6 +22,7 @@ use crate::entities::{category, post, post_media, user, Category, Post, PostMedi
 use crate::errors::{AppError, AppResult};
 use crate::posts::media::parse::parse_media_only_multipart;
 use crate::posts::media::upload::{build_media_plan, rollback_uploads, upload_media};
+use crate::posts::media::variants::process_image_variants;
 use crate::posts::media::{kind_noun, kind_noun_title, media_files_max_for_kind};
 use crate::s3::S3Service;
 use crate::settings::SettingsService;
@@ -103,10 +104,12 @@ where
             post_id: Set(post_id),
             s3_key: Set(item.s3_key.clone()),
             mime_type: Set(item.media.mime_type.clone()),
-            width: Set(None),
-            height: Set(None),
+            width: Set(item.width),
+            height: Set(item.height),
             ordinal: Set(item.ordinal),
             caption: Set(item.media.caption.clone()),
+            thumbnail_data: Set(item.thumbnail_data.clone()),
+            icon_data: Set(item.icon_data.clone()),
             ..Default::default()
         }
         .insert(txn)
@@ -167,7 +170,8 @@ pub async fn commit_compose(
     validate_category(db, user, input.category_id).await?;
 
     let post_id = Uuid::new_v4();
-    let plan = build_media_plan(post_id, input.media, 0);
+    let mut plan = build_media_plan(post_id, input.media, 0);
+    process_image_variants(&mut plan).await?;
     let uploaded = upload_media(s3, &plan).await?;
 
     let txn_result = async {
@@ -235,7 +239,8 @@ pub async fn append_media(
         ));
     }
 
-    let plan = build_media_plan(post_id, media, next_ordinal);
+    let mut plan = build_media_plan(post_id, media, next_ordinal);
+    process_image_variants(&mut plan).await?;
     let uploaded = upload_media(s3, &plan).await?;
 
     let txn_result = async {

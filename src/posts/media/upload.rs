@@ -41,6 +41,10 @@ pub(crate) fn build_media_plan(
                 s3_key: format!("posts/{}/{}", post_id, media_id),
                 media: m,
                 ordinal: base_ordinal + i as i32,
+                width: None,
+                height: None,
+                thumbnail_data: None,
+                icon_data: None,
             }
         })
         .collect()

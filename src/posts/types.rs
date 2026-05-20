@@ -132,6 +132,14 @@ impl PostMediaResponse {
     }
 }
 
+/// Encode pre-generated WebP bytes as a base64 data URI for inline embedding
+/// in API responses. Used by `AlbumSummary.cover_icon_data` (and any other
+/// surface that still inlines small variants on already-cheap responses).
+pub(crate) fn encode_webp_data_uri(bytes: &[u8]) -> String {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+    format!("data:image/webp;base64,{}", BASE64.encode(bytes))
+}
+
 pub fn build_post_response(
     row: post::Model,
     author: Option<&user::Model>,
@@ -212,4 +220,37 @@ pub struct FeedQuery {
 pub struct FeedResponse {
     pub posts: Vec<PostResponse>,
     pub next_cursor: Option<String>,
+}
+
+/// Hard cap on the number of media ids the variants endpoint will accept
+/// in a single request. The frontend issues these batches sequentially so
+/// large posts / albums load progressively rather than as one giant JSON
+/// payload.
+pub const MEDIA_VARIANTS_BATCH_MAX: usize = 8;
+
+/// Inline-variant query for `GET /api/posts/{parent_id}/media-variants`.
+/// `variant` selects which derived size to return (`thumbnail` today;
+/// reserved for future expansion). `ids` is a comma-separated list of
+/// media UUIDs, all of which must belong to the path parent.
+#[derive(Deserialize, TS)]
+#[ts(export)]
+pub struct MediaVariantsQuery {
+    pub variant: String,
+    pub ids: String,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct MediaVariantEntry {
+    pub id: Uuid,
+    /// Base64 `data:image/webp;base64,...` URI for the requested variant,
+    /// or `null` if the row has no pre-generated variant (videos, items
+    /// uploaded before the feature shipped, decode failures during import).
+    pub data: Option<String>,
+}
+
+#[derive(Serialize, TS)]
+#[ts(export)]
+pub struct MediaVariantsResponse {
+    pub variants: Vec<MediaVariantEntry>,
 }

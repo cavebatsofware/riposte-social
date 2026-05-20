@@ -8,7 +8,6 @@ import {
   updateMyProfile,
   uploadAvatar,
 } from "./api";
-import Layout from "../../components/Layout";
 import "./Settings.css";
 
 const BIO_MAX = 500;
@@ -164,15 +163,11 @@ export default function SettingsProfile() {
   }
 
   if (authLoading || loadingProfile || !profile) {
-    return (
-      <Layout>
-        <p className="muted">{tCommon("loading")}</p>
-      </Layout>
-    );
+    return <p className="muted">{tCommon("loading")}</p>;
   }
 
   return (
-    <Layout>
+    <>
       <header className="settings-header">
         <h1>{t("profile.title")}</h1>
         <nav className="settings-tabs" aria-label={t("tabsAria")}>
@@ -327,6 +322,6 @@ export default function SettingsProfile() {
           )}
         </div>
       </form>
-    </Layout>
+    </>
   );
 }

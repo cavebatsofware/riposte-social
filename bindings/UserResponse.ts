@@ -7,7 +7,7 @@ export type UserResponse = { id: string, email: string, email_verified: boolean,
  * header dropdown can deep-link to `/u/{handle}` without an extra
  * fetch.
  */
-handle: string | null, avatar_url: string | null, 
+handle: string | null, avatar_url: string | null, avatar_icon_data: string | null, 
 /**
  * Saved UI locale. NULL when the user has never explicitly chosen one;
  * the frontend's i18next browser-language detector fills the gap.

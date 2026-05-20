@@ -16,6 +16,33 @@
   color: var(--color-text);
 }
 
+/* Thin progress strip pinned just under the sticky header, where the
+   eye is already trained for activity. The header sits at z-index 30
+   with its border-bottom at `--layout-header-height` from the viewport
+   top; this rides immediately below that so it doesn't compete with
+   header content but stays clearly visible.
+
+   Fade-in is instant so the bar appears at the moment `startLoad` fires,
+   not when the response begins to arrive. Fade-out keeps the slower
+   transition so the disappearance is smooth and small request gaps
+   don't strobe the bar in and out. */
+.loading-bar {
+  position: fixed;
+  top: var(--layout-header-height);
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--color-primary);
+  z-index: 29;
+  pointer-events: none;
+  opacity: 0;
+  transition: width 200ms ease-out, opacity 300ms ease-out;
+}
+.loading-bar.is-visible {
+  opacity: 1;
+  transition: width 200ms ease-out, opacity 0s;
+}
+
 .layout-skip-link {
   position: absolute;
   left: -10000px;
