@@ -38,6 +38,7 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
   // only on path/search so the effect fires once per route change.
   useEffect(() => {
     if (open) onClose();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: fires on route change only; open/onClose excluded to avoid triggering on every prop update
   }, [location.pathname, location.search]);
 
   return (
@@ -48,9 +49,13 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
     >
       <div
         className="mobile-drawer-backdrop"
+        // Backdrop is aria-hidden and keyboard users dismiss the drawer
+        // with Escape; a synthetic keydown here would shadow that path.
+        // eslint-disable-next-line a11yinspect/click-handler-warning
         onClick={onClose}
         aria-hidden="true"
       />
+      {/* eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap assigned to panelRef; not statically detectable */}
       <aside
         ref={panelRef}
         className="mobile-drawer-panel"

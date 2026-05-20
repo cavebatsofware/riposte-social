@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { addReaction, removeReaction } from "./api";
@@ -58,10 +58,19 @@ const DEFAULT_KIND = REACTION_KINDS[0].id;
 export default function ReactionBar({ target, state, compact = false }) {
   const { user } = useAuth();
   const { t } = useTranslation("feed");
+  // Local optimistic-update state that follows the engagement payload
+  // from the parent. Synced via useLayoutEffect so a new media/post
+  // draws its own counts cleanly and the bar reflects the latest
+  // authoritative state before paint.
   const [counts, setCounts] = useState(state.reaction_counts || {});
   const [viewerKinds, setViewerKinds] = useState(
     state.viewer_reaction_kinds || [],
   );
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
+    setCounts(state.reaction_counts || {});
+    setViewerKinds(state.viewer_reaction_kinds || []);
+  }, [state.id, state.reaction_counts, state.viewer_reaction_kinds]);
   const [pending, setPending] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const longPressTimer = useRef(null);
@@ -74,11 +83,6 @@ export default function ReactionBar({ target, state, compact = false }) {
   // Disabled when the picker is closed so the inactive buttons don't
   // claim a tab stop.
   useRovingFocus(pickerRef, pickerOpen, { orientation: "horizontal" });
-
-  useEffect(() => {
-    setCounts(state.reaction_counts || {});
-    setViewerKinds(state.viewer_reaction_kinds || []);
-  }, [state.id, state.reaction_counts, state.viewer_reaction_kinds]);
 
   // Close the picker when the user taps outside (mobile path; desktop
   // hover-out CSS already handles the close) or when keyboard focus
@@ -263,6 +267,7 @@ export default function ReactionBar({ target, state, compact = false }) {
       ) : (
         totalCount > 0 && (
           <span
+            // eslint-disable-next-line a11yinspect/aria-element-warning -- emoji rendered as text; role=img on span is the correct ARIA pattern for text-based icons
             role="img"
             className="reaction-static"
             aria-label={t("reactions.summaryAria", { count: totalCount })}
@@ -288,10 +293,12 @@ export default function ReactionBar({ target, state, compact = false }) {
       </span>
 
       {canReact && (
+        // eslint-disable-next-line a11yinspect/menu-element-warning -- menuitem children rendered via map; static analyzer cannot traverse
         <div
           ref={pickerRef}
           className="reaction-picker"
           role="menu"
+          tabIndex={-1}
           aria-label={t("reactions.pickerAria")}
         >
           {REACTION_KINDS.map((k) => (

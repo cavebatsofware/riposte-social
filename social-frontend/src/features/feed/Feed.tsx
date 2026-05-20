@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -33,10 +33,13 @@ export default function Feed() {
   const { t } = useTranslation("feed");
   const { t: tCommon } = useTranslation("common");
 
-  // Local input state  committed to the URL only on submit so we don't
-  // hammer the API on every keystroke.
+  // Local input state committed to the URL only on submit so we don't
+  // hammer the API on every keystroke. Synced from the URL `q` before
+  // paint so navigation (back/forward, link clicks) puts the current
+  // query in the box without a stale frame.
   const [searchInput, setSearchInput] = useState(q);
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
     setSearchInput(q);
   }, [q]);
 
@@ -88,7 +91,11 @@ export default function Feed() {
   );
 
   // Re-load from page 0 whenever the active category or search changes.
+  // Resetting the list and cursor synchronously before the fetch is the
+  // intended UX (old posts disappear behind the spinner); the compiler-
+  // aware rule flags it because state writes precede an async load.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPosts([]);
     setCursor(null);
     setHasMore(false);
@@ -119,15 +126,24 @@ export default function Feed() {
       <h1 className="sr-only">{t("feed.heading")}</h1>
       <InviteSplash />
 
-      <form className="feed-search" onSubmit={submitSearch} role="search">
+      <form
+        className="feed-search"
+        onSubmit={submitSearch}
+        role="search"
+        aria-label={t("feed.searchSubmitAria")}
+      >
         <input
           type="search"
+          name="q"
           className="feed-search-input"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder={t("feed.searchPlaceholder")}
           aria-label={t("feed.searchSubmitAria")}
         />
+        <button type="submit" className="sr-only">
+          {t("feed.searchSubmitAria")}
+        </button>
         {q && (
           <button
             type="button"

@@ -29,7 +29,6 @@ export default function BrowseRail() {
   const [searchAlbums, setSearchAlbums] = useState("");
   const [searchPeople, setSearchPeople] = useState("");
   const [openGroups, setOpenGroups] = useState(loadOpenGroups());
-  const [mru, setMru] = useState({ categories: [], albums: [], people: [] });
   const location = useLocation();
   const [params] = useSearchParams();
   const activeCategory = params.get("category");
@@ -54,9 +53,13 @@ export default function BrowseRail() {
 
   // Re-read MRU whenever the route changes (a category click or album
   // visit will have updated localStorage just before navigation).
-  useEffect(() => {
-    setMru(readBrowseHistory());
-  }, [location.pathname, location.search]);
+  // Computed during render so the initial paint already has the
+  // recency lists populated.
+  const mru = useMemo(
+    () => readBrowseHistory(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [location.pathname, location.search],
+  );
 
   // Load category + album lists. Re-fetch when auth state changes (visibility
   // filters apply server-side, so the visible set may grow/shrink on login).
@@ -240,6 +243,7 @@ export default function BrowseRail() {
             title={a.name}
           >
             {a.cover_url ? (
+              // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
                 src={a.cover_url}
@@ -278,6 +282,7 @@ export default function BrowseRail() {
             title={p.display_name || p.handle}
           >
             {p.avatar_url ? (
+              // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
                 src={p.avatar_url}
@@ -329,6 +334,7 @@ function RailSearch({ placeholder, value, onChange }) {
   return (
     <input
       type="search"
+      name="browse-rail-search"
       className="browse-rail-search"
       placeholder={placeholder}
       aria-label={placeholder}

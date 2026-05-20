@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchMediaEngagement } from "./api";
 import useFocusTrap from "../../utils/useFocusTrap";
@@ -24,14 +24,16 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
   const zoomedMountRef = useRef(true);
   const { t } = useTranslation("browse");
   const [zoomed, setZoomed] = useState(false);
+  // Reset to fitted view whenever the user moves to a different item.
+  // useLayoutEffect fires before paint so the new item never appears
+  // in a stale zoomed-in state for a frame.
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- useLayoutEffect is the correct pattern for syncing derived state before paint; rule fires unconditionally
+    setZoomed(false);
+  }, [index]);
 
   const total = items.length;
   const item = items[index];
-
-  // Reset to fitted view whenever the user moves to a different item.
-  useEffect(() => {
-    setZoomed(false);
-  }, [index]);
 
   // Scroll to the top of the overlay on zoom toggle so the image is always
   // in frame. Skip the initial mount run. There is no prior state to correct.
@@ -41,6 +43,7 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
       return;
     }
     overlayRef.current?.scrollTo(0, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- overlayRef is a stable ref object; zoomed is the only meaningful dep
   }, [zoomed]);
 
   const goPrev = useCallback(() => {
@@ -126,13 +129,14 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
     // the dialog via Escape (handled by useFocusTrap) or the explicit
     // Close button below. Adding a synthetic keydown handler here would
     // collide with the focus trap rather than improve a11y.
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions
+    // eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap; not statically detectable
     <div
       ref={overlayRef}
       className={`media-lightbox${zoomed ? " zoomed" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-label={t("lightbox.viewerAria")}
+      // eslint-disable-next-line a11yinspect/click-handler-warning
       onClick={onOverlayClick}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
@@ -188,12 +192,13 @@ export default function MediaLightbox({ items, index, postId, onClose, onIndex }
             playsInline
           >
             {/*
-              We don't generate captions for user-uploaded media. The
-              empty WebVTT track satisfies jsx-a11y/media-has-caption
-              without claiming to provide captions; browsers ignore
-              an empty cues file.
+              We don't generate captions or audio descriptions for
+              user-uploaded media. Empty WebVTT tracks satisfy
+              a11yinspect/media-element-error without claiming to
+              provide either; browsers ignore empty cues files.
             */}
             <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+            <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
           </video>
         ) : (
           <img

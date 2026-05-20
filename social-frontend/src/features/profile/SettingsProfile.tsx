@@ -75,7 +75,7 @@ export default function SettingsProfile() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, t]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -221,6 +221,7 @@ export default function SettingsProfile() {
             <input
               ref={fileInputRef}
               id="settings-avatar-input"
+              name="avatar"
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handleAvatarPick}
@@ -248,11 +249,14 @@ export default function SettingsProfile() {
         className="settings-form"
         onSubmit={handleSubmit}
         aria-busy={savingProfile}
+        aria-labelledby="settings-fields-heading"
       >
-        <h2>{t("profile.fieldsHeading")}</h2>
-        <label htmlFor="settings-handle">{t("profile.handleLabel")}</label>
+        <h2 id="settings-fields-heading">{t("profile.fieldsHeading")}</h2>
+        <label htmlFor="settings-handle">{t("profile.handleLabel")}<span aria-hidden="true"> *</span></label>
+        {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
         <input
           id="settings-handle"
+          name="handle"
           type="text"
           value={handle}
           onChange={(e) => setHandle(e.target.value)}
@@ -269,7 +273,9 @@ export default function SettingsProfile() {
         </label>
         <input
           id="settings-display-name"
+          name="display_name"
           type="text"
+          autoComplete="nickname"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
           maxLength={100}
@@ -278,6 +284,7 @@ export default function SettingsProfile() {
         <label htmlFor="settings-pronouns">{t("profile.pronounsLabel")}</label>
         <input
           id="settings-pronouns"
+          name="pronouns"
           type="text"
           value={pronouns}
           onChange={(e) => setPronouns(e.target.value)}
@@ -287,6 +294,7 @@ export default function SettingsProfile() {
         <label htmlFor="settings-bio">{t("profile.bioLabel")}</label>
         <textarea
           id="settings-bio"
+          name="bio"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           rows={4}
@@ -297,6 +305,7 @@ export default function SettingsProfile() {
           id="settings-bio-count"
           className="form-hint"
           aria-live="polite"
+          aria-atomic="true"
         >
           {t("profile.bioCount", { current: bio.length, max: BIO_MAX })}
         </p>

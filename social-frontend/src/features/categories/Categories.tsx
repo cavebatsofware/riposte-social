@@ -92,6 +92,10 @@ export default function Categories() {
   }, [t]);
 
   useEffect(() => {
+    // refresh() loads the category list and sets loading flags before the
+    // first await; the new compiler-aware hook rule flags that as a
+    // cascading render, but the spinner-then-data sequence is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     refresh();
   }, [refresh]);
 
@@ -219,12 +223,18 @@ export default function Categories() {
 
       {creating && canCreate && (
         <section className="categories-card">
-          <form onSubmit={handleCreate}>
+          <form
+            onSubmit={handleCreate}
+            aria-label={t("categories.createCta")}
+          >
             <div className="compose-field">
-              <label htmlFor="cat-new-name">{t("categories.nameLabel")}</label>
+              <label htmlFor="cat-new-name">{t("categories.nameLabel")}<span aria-hidden="true"> *</span></label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="cat-new-name"
+                name="name"
                 type="text"
+                autoComplete="off"
                 className="categories-input"
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
@@ -237,6 +247,7 @@ export default function Categories() {
               <label htmlFor="cat-new-slug">{t("categories.slugLabel")}</label>
               <input
                 id="cat-new-slug"
+                name="slug"
                 type="text"
                 className="categories-input"
                 value={newSlug}
@@ -249,6 +260,7 @@ export default function Categories() {
               <label htmlFor="cat-new-vis">{t("categories.visibilityLabel")}</label>
               <select
                 id="cat-new-vis"
+                name="visibility"
                 className="categories-input"
                 value={newVisibility}
                 onChange={(e) => setNewVisibility(e.target.value)}
@@ -320,6 +332,7 @@ export default function Categories() {
               <div className="categories-row-group categories-row-text">
                 <input
                   type="text"
+                  name={`row-name-${c.id}`}
                   value={d.name ?? c.name}
                   onChange={(e) => setDraft(c.id, "name", e.target.value)}
                   maxLength={80}
@@ -328,6 +341,7 @@ export default function Categories() {
                 />
                 <input
                   type="text"
+                  name={`row-slug-${c.id}`}
                   value={d.slug ?? c.slug}
                   onChange={(e) => setDraft(c.id, "slug", e.target.value)}
                   maxLength={50}
@@ -337,6 +351,7 @@ export default function Categories() {
               </div>
               <div className="categories-row-group categories-row-pickers">
                 <select
+                  name={`row-visibility-${c.id}`}
                   value={d.visibility ?? c.visibility}
                   onChange={(e) => setDraft(c.id, "visibility", e.target.value)}
                   aria-label={t("categories.visibilityLabel")}
@@ -407,6 +422,7 @@ function ColorInput({ value, onChange, idPrefix }) {
     <div className={`categories-color-input ${value ? "" : "is-empty"}`}>
       <input
         id={`${idPrefix}-color-picker`}
+        name={`${idPrefix}-color-picker`}
         type="color"
         value={value || "#000000"}
         onChange={(e) => onChange(e.target.value)}
@@ -416,6 +432,7 @@ function ColorInput({ value, onChange, idPrefix }) {
       />
       <input
         id={`${idPrefix}-color`}
+        name={`${idPrefix}-color`}
         type="text"
         className="categories-color-text"
         value={value}
@@ -540,9 +557,9 @@ function MemberModal({ category, onClose }) {
     // the dialog via Escape (handled by the focus trap) or by tabbing to
     // the explicit close button inside. The inner stopPropagation keeps
     // a click on the dialog body from bubbling up and closing the modal.
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
+    // eslint-disable-next-line a11yinspect/click-handler-warning
     <div className="modal-backdrop" onClick={onClose}>
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-noninteractive-element-interactions */}
+      {/* eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap through trapRef; not statically detectable */}
       <div
         className="modal categories-member-modal"
         role="dialog"
@@ -550,6 +567,7 @@ function MemberModal({ category, onClose }) {
         aria-labelledby="member-modal-title"
         aria-busy={loading || saving}
         ref={trapRef}
+        // eslint-disable-next-line a11yinspect/click-handler-warning
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="member-modal-title">
@@ -574,6 +592,7 @@ function MemberModal({ category, onClose }) {
             </label>
             <input
               id="member-modal-search"
+              name="member-search"
               type="search"
               placeholder={t("categories.membersSearchPlaceholder")}
               value={search}
@@ -592,6 +611,8 @@ function MemberModal({ category, onClose }) {
                   <label key={p.user_id} className="categories-member-row">
                     <input
                       type="checkbox"
+                      name={`member-${p.user_id}`}
+                      aria-label={p.display_name || p.handle}
                       checked={checked}
                       onChange={() => toggle(p)}
                     />

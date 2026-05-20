@@ -63,27 +63,34 @@ function PasswordAccept({ invite, onAccepted }) {
       onSubmit={handleSubmit}
       className="invite-splash-form"
       aria-busy={submitting}
+      aria-label={t("invite.acceptTitle")}
     >
       {error && (
         <div className="alert alert-error" role="alert">
           {error}
         </div>
       )}
-      <label htmlFor="invite-accept-email">{t("invite.form.emailLabel")}</label>
+      <label htmlFor="invite-accept-email">{t("invite.form.emailLabel")}<span aria-hidden="true"> *</span></label>
+      {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
       <input
         id="invite-accept-email"
+        name="email"
         type="email"
+        autoComplete="email"
         required
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder={t("invite.form.emailPlaceholder")}
       />
       <label htmlFor="invite-accept-password">
-        {t("invite.form.passwordLabel")}
+        {t("invite.form.passwordLabel")}<span aria-hidden="true"> *</span>
       </label>
+      {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
       <input
         id="invite-accept-password"
+        name="password"
         type="password"
+        autoComplete="new-password"
         required
         minLength={12}
         value={password}

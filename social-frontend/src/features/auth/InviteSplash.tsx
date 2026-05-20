@@ -26,22 +26,21 @@ export default function InviteSplash() {
   });
 
   useEffect(() => {
+    async function fetchInvite() {
+      try {
+        const response = await fetchCurrentInvite();
+        if (response.ok) {
+          const data = await response.json();
+          setInvite(data); // null when no live invite
+        }
+      } catch (err) {
+        console.error("Failed to fetch invite:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
     fetchInvite();
   }, []);
-
-  async function fetchInvite() {
-    try {
-      const response = await fetchCurrentInvite();
-      if (response.ok) {
-        const data = await response.json();
-        setInvite(data); // null when no live invite
-      }
-    } catch (err) {
-      console.error("Failed to fetch invite:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function handleDecline() {
     // Dismiss synchronously so Escape and the decline button always
@@ -59,6 +58,7 @@ export default function InviteSplash() {
   }
 
   return (
+    // eslint-disable-next-line a11yinspect/dialog-element-warning -- focus trap applied via useFocusTrap through trapRef; not statically detectable
     <div
       className="invite-splash-overlay"
       role="dialog"

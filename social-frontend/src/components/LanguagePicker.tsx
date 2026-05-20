@@ -56,7 +56,8 @@ export default function LanguagePicker({ variant = "popover" }) {
   }
 
   const list = (
-    <div className="language-picker-list" role="menu" aria-label={t("language.menuAria")}>
+    // eslint-disable-next-line a11yinspect/menu-element-warning -- menuitemradio children rendered via map; static analyzer cannot traverse
+    <div className="language-picker-list" role="menu" tabIndex={-1} aria-label={t("language.menuAria")}>
       <div className="language-picker-title">{t("language.title")}</div>
       {SUPPORTED_LOCALES.map((lng) => {
         const isActive = lng === active;

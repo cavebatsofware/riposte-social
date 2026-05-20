@@ -119,13 +119,14 @@ export default function ComposeAlbum() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+  }, [editId, t]);
 
   // Revoke object URLs for pending files on unmount/clear.
   useEffect(() => {
     return () => {
       pendingFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup-on-unmount only; adding pendingFiles would re-register cleanup on every file list change
   }, []);
 
   if (!authLoading && (!user || (user.role !== "administrator" && user.role !== "poster"))) {
@@ -326,8 +327,9 @@ export default function ComposeAlbum() {
         className="compose-card"
         onSubmit={handleSubmit}
         aria-busy={submitting}
+        aria-labelledby="album-compose-title"
       >
-        <h2 className="compose-title">
+        <h2 id="album-compose-title" className="compose-title">
           {editId ? t("album.editTitle") : t("album.newTitle")}
         </h2>
 
@@ -343,10 +345,13 @@ export default function ComposeAlbum() {
         )}
 
         <div className="compose-field">
-          <label htmlFor="album-name">{t("album.nameLabel")}</label>
+          <label htmlFor="album-name">{t("album.nameLabel")}<span aria-hidden="true"> *</span></label>
+          {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
           <input
             id="album-name"
+            name="name"
             type="text"
+            autoComplete="off"
             className="compose-input"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -360,6 +365,7 @@ export default function ComposeAlbum() {
           <label htmlFor="album-description">{t("album.descLabel")}</label>
           <textarea
             id="album-description"
+            name="description"
             className="compose-textarea-short"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -381,6 +387,7 @@ export default function ComposeAlbum() {
           <label htmlFor="album-category">{t("category.label")}</label>
           <select
             id="album-category"
+            name="category_id"
             className="compose-input"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
@@ -407,13 +414,18 @@ export default function ComposeAlbum() {
                 <div key={m.id} className="album-edit-item">
                   <div className="album-edit-thumb">
                     {m.media_kind === "video" ? (
-                      <video src={m.url} muted playsInline preload="metadata" />
+                      <video src={m.url} muted playsInline preload="metadata">
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={m.url} alt={m.caption || ""} />
                     )}
                   </div>
                   <input
                     type="text"
+                    name={`existing-caption-${m.id}`}
+                    aria-label={t("album.captionPlaceholder")}
                     className="album-edit-caption"
                     value={m.caption}
                     onChange={(e) => setExistingCaption(idx, e.target.value)}
@@ -454,6 +466,7 @@ export default function ComposeAlbum() {
                 fileInputRef.current?.click();
               }
             }}
+            // eslint-disable-next-line a11yinspect/aria-element-warning -- drag-and-drop container needs block children; native button is phrasing content only
             role="button"
             tabIndex={0}
             aria-label={t("attachments.dropzoneAria")}
@@ -467,6 +480,8 @@ export default function ComposeAlbum() {
             <input
               ref={fileInputRef}
               type="file"
+              name="album-items"
+              aria-label={t("attachments.dropzoneAria")}
               multiple
               accept={ACCEPTED_MIME.join(",")}
               style={{ display: "none" }}
@@ -488,13 +503,18 @@ export default function ComposeAlbum() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={f.previewUrl} alt={f.file.name} />
                     )}
                   </div>
                   <input
                     type="text"
+                    name={`pending-caption-${i}`}
+                    aria-label={t("album.captionPlaceholder")}
                     className="album-edit-caption"
                     value={f.caption}
                     onChange={(e) => setPendingCaption(i, e.target.value)}

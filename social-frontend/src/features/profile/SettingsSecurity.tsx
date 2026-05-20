@@ -193,17 +193,20 @@ export default function SettingsSecurity() {
       ) : (
         <>
           <section className="settings-section">
-            <h2>{t("security.passwordHeading")}</h2>
+            <h2 id="security-password-heading">{t("security.passwordHeading")}</h2>
             <form
               className="settings-form"
               onSubmit={handlePasswordChange}
               aria-busy={pwLoading}
+              aria-labelledby="security-password-heading"
             >
               <label htmlFor="security-current-password">
-                {t("security.currentPasswordLabel")}
+                {t("security.currentPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-current-password"
+                name="current_password"
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -211,10 +214,12 @@ export default function SettingsSecurity() {
                 required
               />
               <label htmlFor="security-new-password">
-                {t("security.newPasswordLabel")}
+                {t("security.newPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-new-password"
+                name="new_password"
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -222,10 +227,12 @@ export default function SettingsSecurity() {
                 required
               />
               <label htmlFor="security-confirm-password">
-                {t("security.confirmPasswordLabel")}
+                {t("security.confirmPasswordLabel")}<span aria-hidden="true"> *</span>
               </label>
+              {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
               <input
                 id="security-confirm-password"
+                name="confirm_password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -307,12 +314,14 @@ export default function SettingsSecurity() {
                   onSubmit={confirmMfaSetup}
                   className="settings-form"
                   aria-busy={mfaLoading}
+                  aria-label={t("security.verifyAndEnable")}
                 >
                   <label htmlFor="security-totp-code">
                     {t("security.totpCodeLabel")}
                   </label>
                   <input
                     id="security-totp-code"
+                    name="totp_code"
                     type="text"
                     value={verificationCode}
                     onChange={(e) =>
@@ -354,13 +363,16 @@ export default function SettingsSecurity() {
                 onSubmit={disableMfa}
                 className="settings-form"
                 aria-busy={mfaLoading}
+                aria-label={t("security.disableCta")}
               >
                 <p>{t("security.disableConfirmPrompt")}</p>
                 <label htmlFor="security-disable-password">
-                  {t("security.disablePasswordLabel")}
+                  {t("security.disablePasswordLabel")}<span aria-hidden="true"> *</span>
                 </label>
+                {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
                 <input
                   id="security-disable-password"
+                  name="password"
                   type="password"
                   value={disablePassword}
                   onChange={(e) => setDisablePassword(e.target.value)}

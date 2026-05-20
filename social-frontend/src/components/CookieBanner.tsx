@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const STORAGE_KEY = "rs_cookie_ack_v1";
@@ -14,17 +14,17 @@ const STORAGE_KEY = "rs_cookie_ack_v1";
 /// per ePrivacy guidance for essential cookies. Tracking-grade cookies
 /// (none yet) would need an opt-in here.
 export default function CookieBanner() {
-  const [acknowledged, setAcknowledged] = useState(true);
-  const { t } = useTranslation("common");
-
-  useEffect(() => {
+  // Resolve from localStorage during initial render so the banner state
+  // is correct on first paint and never flashes in after mount.
+  const [acknowledged, setAcknowledged] = useState(() => {
     try {
-      setAcknowledged(localStorage.getItem(STORAGE_KEY) === "1");
+      return localStorage.getItem(STORAGE_KEY) === "1";
     } catch {
       // Browsers in private mode without storage access. Don't block.
-      setAcknowledged(true);
+      return true;
     }
-  }, []);
+  });
+  const { t } = useTranslation("common");
 
   function handleAck() {
     try {
@@ -40,11 +40,11 @@ export default function CookieBanner() {
   }
 
   return (
-    <div className="cookie-banner" role="region" aria-label={t("cookieBanner.regionLabel")}>
+    <section className="cookie-banner" aria-label={t("cookieBanner.regionLabel")}>
       <p>{t("cookieBanner.text")}</p>
       <button type="button" className="btn-primary" onClick={handleAck}>
         {t("cookieBanner.ack")}
       </button>
-    </div>
+    </section>
   );
 }

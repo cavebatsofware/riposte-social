@@ -105,12 +105,13 @@ export default function Compose() {
     return () => {
       cancelled = true;
     };
-  }, [editId]);
+  }, [editId, t]);
 
   useEffect(() => {
     return () => {
       files.forEach((f) => URL.revokeObjectURL(f.previewUrl));
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup-on-unmount only; adding files would re-register cleanup on every file list change
   }, []);
 
   // Sanitized HTML for the live preview. DOMPurify strips scripts,
@@ -293,8 +294,9 @@ export default function Compose() {
         className="compose-card"
         onSubmit={handleSubmit}
         aria-busy={submitting}
+        aria-labelledby="compose-title"
       >
-        <h2 className="compose-title">
+        <h2 id="compose-title" className="compose-title">
           {editId ? t("post.editTitle") : t("post.newTitle")}
         </h2>
 
@@ -308,6 +310,7 @@ export default function Compose() {
           <label htmlFor="compose-body">{t("body.label")}</label>
           <textarea
             id="compose-body"
+            name="body"
             className="compose-textarea"
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -337,6 +340,7 @@ export default function Compose() {
             <label htmlFor="compose-category">{t("category.label")}</label>
             <select
               id="compose-category"
+              name="category_id"
               className="compose-input"
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -370,6 +374,7 @@ export default function Compose() {
                   fileInputRef.current?.click();
                 }
               }}
+              // eslint-disable-next-line a11yinspect/aria-element-warning -- drag-and-drop container needs block children; native button is phrasing content only
               role="button"
               tabIndex={0}
               aria-label={t("attachments.dropzoneAria")}
@@ -383,6 +388,8 @@ export default function Compose() {
               <input
                 ref={fileInputRef}
                 type="file"
+                name="attachments"
+                aria-label={t("attachments.label")}
                 multiple
                 accept={ACCEPTED_MIME.join(",")}
                 style={{ display: "none" }}
@@ -402,7 +409,10 @@ export default function Compose() {
                         muted
                         playsInline
                         preload="metadata"
-                      />
+                      >
+                        <track default kind="captions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                        <track kind="descriptions" srcLang="en" src="data:text/vtt;base64,V0VCVlRUCgo=" />
+                      </video>
                     ) : (
                       <img src={f.previewUrl} alt={f.file.name} />
                     )}

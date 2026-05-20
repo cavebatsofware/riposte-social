@@ -22,12 +22,11 @@ export default function Login() {
   const { t: tCommon } = useTranslation("common");
 
   // Move focus into the email field once the password form mounts. Done
-  // imperatively so the JSX does not need the `autoFocus` prop, which
-  // jsx-a11y/no-autofocus disallows. Layout renders focusable controls
-  // (skip link, nav, theme + language pickers, hamburger) during the
-  // auth-loading window, so the focus call is gated to the body element
-  // a keyboard user who has already tabbed into the header during the
-  // load doesn't get yanked into the form.
+  // imperatively so the JSX does not need the `autoFocus` prop. Layout
+  // renders focusable controls (skip link, nav, theme + language pickers,
+  // hamburger) during the auth-loading window, so the focus call is gated
+  // to the body element: a keyboard user who has already tabbed into the
+  // header during the load doesn't get yanked into the form.
   useEffect(() => {
     if (
       !authLoading &&
@@ -60,7 +59,7 @@ export default function Login() {
   return (
     <Layout>
       <div className="auth-card">
-        <h1>{t("login.title")}</h1>
+        <h1 id="login-title">{t("login.title")}</h1>
 
         {authLoading ? (
           <p>{tCommon("loading")}</p>
@@ -76,25 +75,30 @@ export default function Login() {
             onSubmit={handleSubmit}
             className="auth-form"
             aria-busy={submitting}
+            aria-labelledby="login-title"
           >
             {error && (
               <div className="alert alert-error" role="alert">
                 {error}
               </div>
             )}
-            <label htmlFor="login-email">{t("login.emailLabel")}</label>
+            <label htmlFor="login-email">{t("login.emailLabel")}<span aria-hidden="true"> *</span></label>
+            {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
             <input
               ref={emailRef}
               id="login-email"
+              name="email"
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
             />
-            <label htmlFor="login-password">{t("login.passwordLabel")}</label>
+            <label htmlFor="login-password">{t("login.passwordLabel")}<span aria-hidden="true"> *</span></label>
+            {/* eslint-disable-next-line a11yinspect/required-element-warning -- rule fires unconditionally; asterisk in label above is the visual indicator */}
             <input
               id="login-password"
+              name="password"
               type="password"
               required
               value={password}

@@ -131,6 +131,9 @@ function GraphTab({ viewerId, variant, t, tCommon }) {
 
   useEffect(() => {
     if (!viewerId) {
+      // Anonymous/unresolved viewer: clear the list and stop the
+      // spinner so the sign-in prompt can render instead.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       setPeople([]);
       setCursor(null);

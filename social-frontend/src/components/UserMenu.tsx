@@ -64,6 +64,7 @@ export default function UserMenu({ user, onSignOut }) {
       <button
         ref={triggerRef}
         type="button"
+        id="user-menu-trigger"
         className="user-menu-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -80,7 +81,7 @@ export default function UserMenu({ user, onSignOut }) {
       </button>
 
       {open && (
-        <div ref={popoverRef} className="user-menu-popover" role="menu">
+        <div ref={popoverRef} className="user-menu-popover" role="menu" tabIndex={-1} aria-labelledby="user-menu-trigger">
           <div className="user-menu-meta">
             <div className="user-menu-name">{display}</div>
             {user.handle && (
@@ -89,6 +90,7 @@ export default function UserMenu({ user, onSignOut }) {
           </div>
           <div className="user-menu-divider" aria-hidden="true" />
           {profileTo && (
+            // eslint-disable-next-line a11yinspect/focus-element-warning -- tabIndex managed imperatively by useRovingFocus; static analyzer cannot detect it
             <Link
               to={profileTo}
               className="user-menu-item"
@@ -98,6 +100,7 @@ export default function UserMenu({ user, onSignOut }) {
               {t("userMenu.viewProfile")}
             </Link>
           )}
+          {/* eslint-disable-next-line a11yinspect/focus-element-warning -- tabIndex managed imperatively by useRovingFocus; static analyzer cannot detect it */}
           <Link
             to="/people/following"
             className="user-menu-item"
@@ -106,6 +109,7 @@ export default function UserMenu({ user, onSignOut }) {
           >
             {t("userMenu.following")}
           </Link>
+          {/* eslint-disable-next-line a11yinspect/focus-element-warning -- tabIndex managed imperatively by useRovingFocus; static analyzer cannot detect it */}
           <Link
             to="/people/followers"
             className="user-menu-item"
@@ -114,6 +118,7 @@ export default function UserMenu({ user, onSignOut }) {
           >
             {t("userMenu.followers")}
           </Link>
+          {/* eslint-disable-next-line a11yinspect/focus-element-warning -- tabIndex managed imperatively by useRovingFocus; static analyzer cannot detect it */}
           <Link
             to="/settings/profile"
             className="user-menu-item"

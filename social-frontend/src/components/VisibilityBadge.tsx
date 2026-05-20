@@ -32,7 +32,7 @@ export default function VisibilityBadge({ visibility, fromCategory }) {
     <span className="visibility-badge-wrap">
       <span
         className={cls}
-        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        // eslint-disable-next-line a11yinspect/focus-element-warning
         tabIndex={0}
         aria-describedby={tooltipId}
       >
