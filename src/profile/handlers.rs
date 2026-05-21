@@ -475,8 +475,9 @@ async fn enforce_public_profile_gate(
 /// WebP encodings: the full `AVATAR_OUTPUT_SIDE` avatar (uploaded to S3)
 /// and an `AVATAR_ICON_SIDE` icon (embedded inline on user responses so
 /// list views render without per-row avatar fetches). `max_input_dimension`
-/// rejects oversized inputs before decode to bound peak memory; an NxN
-/// RGBA decode is ~4*N^2 bytes resident.
+/// is enforced from the header before the full decode, so an oversized
+/// image never allocates the RGBA buffer (an NxN decode is ~4*N^2 bytes
+/// resident).
 fn normalize_avatar_bytes(
     input: &[u8],
     max_input_dimension: u32,
@@ -484,14 +485,12 @@ fn normalize_avatar_bytes(
     use image::imageops::{crop_imm, resize, FilterType};
     use image::ImageReader;
 
-    let reader = ImageReader::new(Cursor::new(input))
+    let header_reader = ImageReader::new(Cursor::new(input))
         .with_guessed_format()
         .map_err(|e| format!("Could not read image: {}", e))?;
-    let img = reader
-        .decode()
-        .map_err(|e| format!("Could not decode image: {}", e))?;
-
-    let (w, h) = (img.width(), img.height());
+    let (w, h) = header_reader
+        .into_dimensions()
+        .map_err(|e| format!("Could not read image dimensions: {}", e))?;
     if w == 0 || h == 0 {
         return Err("Image has zero dimension".to_string());
     }
@@ -501,6 +500,13 @@ fn normalize_avatar_bytes(
             max_input_dimension, max_input_dimension
         ));
     }
+
+    let decoder = ImageReader::new(Cursor::new(input))
+        .with_guessed_format()
+        .map_err(|e| format!("Could not read image: {}", e))?;
+    let img = decoder
+        .decode()
+        .map_err(|e| format!("Could not decode image: {}", e))?;
 
     let side = w.min(h);
     let x_off = (w - side) / 2;

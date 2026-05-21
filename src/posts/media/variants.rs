@@ -66,25 +66,24 @@ fn encode_webp_lossless(img: &DynamicImage) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-/// Decode `input` once and produce a 400px WebP thumbnail + 64px WebP icon
-/// plus the native pixel dimensions. `max_input_dimension` rejects oversized
-/// inputs before decode to bound peak memory; an NxN RGBA decode is ~4*N^2
-/// bytes resident. Synchronous and CPU-bound: callers must invoke from a
-/// blocking context (`spawn_blocking` or an importer worker thread). Video
+/// Read dimensions from `input`'s container metadata and produce a 400px WebP
+/// thumbnail + 64px WebP icon plus the native pixel dimensions.
+/// `max_input_dimension` is enforced from the header *before* the full decode,
+/// so an oversized image never allocates the RGBA buffer (an NxN decode is
+/// ~4*N^2 bytes resident). Synchronous and CPU-bound: callers must invoke from
+/// a blocking context (`spawn_blocking` or an importer worker thread). Video
 /// items must be filtered out upstream; this fails on anything `image` can't
 /// decode.
 pub(crate) fn generate_variants_blocking(
     input: &[u8],
     max_input_dimension: u32,
 ) -> Result<ImageVariants, String> {
-    let reader = ImageReader::new(Cursor::new(input))
+    let header_reader = ImageReader::new(Cursor::new(input))
         .with_guessed_format()
         .map_err(|e| format!("Could not read image: {}", e))?;
-    let img = reader
-        .decode()
-        .map_err(|e| format!("Could not decode image: {}", e))?;
-
-    let (w, h) = (img.width(), img.height());
+    let (w, h) = header_reader
+        .into_dimensions()
+        .map_err(|e| format!("Could not read image dimensions: {}", e))?;
     if w == 0 || h == 0 {
         return Err("Image has zero dimension".to_string());
     }
@@ -94,6 +93,13 @@ pub(crate) fn generate_variants_blocking(
             max_input_dimension, max_input_dimension
         ));
     }
+
+    let decoder = ImageReader::new(Cursor::new(input))
+        .with_guessed_format()
+        .map_err(|e| format!("Could not read image: {}", e))?;
+    let img = decoder
+        .decode()
+        .map_err(|e| format!("Could not decode image: {}", e))?;
 
     let thumbnail = encode_webp_lossless(&longest_edge_resize(&img, THUMBNAIL_MAX_PX))?;
     let icon = encode_webp_lossless(&longest_edge_resize(&img, ICON_MAX_PX))?;

@@ -42,25 +42,28 @@ struct UploadedMedia {
     variants: Option<ImageVariants>,
 }
 
-/// Compute thumbnail + icon + dimensions for an imported image. Returns
-/// None for video items (which don't get derived sizes), bubbling up
-/// decode errors so the importer can roll back the post.
+/// Compute thumbnail + icon + dimensions for an imported image. Takes
+/// the bytes by value, moves them into the blocking worker, and returns
+/// them back alongside the variants so the caller can still upload to
+/// S3 without holding a parallel copy in memory during the decode.
+/// Returns `(bytes, None)` for video items, bubbling up decode errors
+/// so the importer can roll back the post.
 async fn variants_if_image(
     mime: &str,
-    bytes: &[u8],
+    bytes: Vec<u8>,
     max_input_dimension: u32,
-) -> Result<Option<ImageVariants>, anyhow::Error> {
+) -> Result<(Vec<u8>, Option<ImageVariants>), anyhow::Error> {
     if is_video_mime(mime) {
-        return Ok(None);
+        return Ok((bytes, None));
     }
-    let owned = bytes.to_vec();
-    let variants = tokio::task::spawn_blocking(move || {
-        generate_variants_blocking(&owned, max_input_dimension)
+    let (bytes, variants) = tokio::task::spawn_blocking(move || {
+        let res = generate_variants_blocking(&bytes, max_input_dimension);
+        (bytes, res)
     })
     .await
-    .map_err(|e| anyhow::anyhow!("variant worker join failed: {}", e))?
-    .map_err(|e| anyhow::anyhow!("variant generation failed: {}", e))?;
-    Ok(Some(variants))
+    .map_err(|e| anyhow::anyhow!("variant worker join failed: {}", e))?;
+    let variants = variants.map_err(|e| anyhow::anyhow!("variant generation failed: {}", e))?;
+    Ok((bytes, Some(variants)))
 }
 
 /// Process one post: read each attachment from the local archive, upload
@@ -108,7 +111,7 @@ pub(crate) async fn import_one_post(
         if !is_supported_media_mime(&mime) {
             continue;
         }
-        let variants = variants_if_image(&mime, &bytes, max_input_dimension).await?;
+        let (bytes, variants) = variants_if_image(&mime, bytes, max_input_dimension).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes, &mime).await {
             // Roll back any uploads already committed for this post so
@@ -231,18 +234,10 @@ pub(crate) async fn import_one_album(
     // Drop unsupported mimes (e.g. .mov). If nothing supported survives,
     // there's nothing to import. Album-with-only-unsupported-media is a
     // legitimate skip-without-failure.
-    let supported_indices: Vec<usize> = staged_media
+    let any_supported = staged_media
         .iter()
-        .enumerate()
-        .filter_map(|(i, (filename, _))| {
-            if is_supported_media_mime(&mime_for_filename(filename)) {
-                Some(i)
-            } else {
-                None
-            }
-        })
-        .collect();
-    if supported_indices.is_empty() {
+        .any(|(filename, _)| is_supported_media_mime(&mime_for_filename(filename)));
+    if !any_supported {
         return Ok(());
     }
 
@@ -252,20 +247,22 @@ pub(crate) async fn import_one_album(
         .map(|(_, c)| c.clone())
         .collect();
 
-    let mut uploaded: Vec<UploadedMedia> = Vec::with_capacity(supported_indices.len());
-    for (out_idx, src_idx) in supported_indices.iter().enumerate() {
-        let (filename, bytes) = &staged_media[*src_idx];
+    let mut uploaded: Vec<UploadedMedia> = Vec::with_capacity(staged_media.len());
+    for (src_idx, (filename, bytes)) in staged_media.into_iter().enumerate() {
+        let mime = mime_for_filename(&filename);
+        if !is_supported_media_mime(&mime) {
+            continue;
+        }
         let media_id = Uuid::new_v4();
-        let mime = mime_for_filename(filename);
-        let variants = variants_if_image(&mime, bytes, max_input_dimension).await?;
+        let (bytes, variants) = variants_if_image(&mime, bytes, max_input_dimension).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
-        if let Err(e) = s3.put_object_at(&key, bytes.clone(), &mime).await {
+        if let Err(e) = s3.put_object_at(&key, bytes, &mime).await {
             for prior in &uploaded {
                 let _ = s3.delete_object_at(&prior.s3_key).await;
             }
             return Err(anyhow::anyhow!(
                 "failed to upload media #{}: {}",
-                out_idx,
+                uploaded.len(),
                 e
             ));
         }
@@ -273,7 +270,7 @@ pub(crate) async fn import_one_album(
             media_id,
             s3_key: key,
             mime,
-            caption: captions.get(*src_idx).cloned().flatten(),
+            caption: captions.get(src_idx).cloned().flatten(),
             variants,
         });
     }
