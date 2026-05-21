@@ -199,3 +199,141 @@ async fn test_update_setting_upserts_existing(pool: sqlx::PgPool) {
     );
     assert_eq!(matches[0]["value"].as_str().unwrap(), "second_value");
 }
+
+// ==================== Encrypted settings ====================
+
+#[sqlx::test(migrations = false)]
+async fn test_set_encrypted_roundtrips_via_get_encrypted(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    service
+        .set_encrypted("secret_smtp_password", "hunter2", Some("smtp"), None)
+        .await
+        .unwrap();
+
+    let decrypted = service
+        .get_encrypted("secret_smtp_password", Some("smtp"), None)
+        .await
+        .unwrap();
+    assert_eq!(decrypted.as_deref(), Some("hunter2"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_get_on_encrypted_row_returns_error(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    service
+        .set_encrypted("secret_oidc_client_secret", "abc123", Some("oidc"), None)
+        .await
+        .unwrap();
+
+    let err = service
+        .get("secret_oidc_client_secret", Some("oidc"), None)
+        .await
+        .expect_err("get() must refuse an encrypted row");
+    assert!(
+        err.to_string().contains("encrypted"),
+        "error should mention encryption: {}",
+        err
+    );
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_set_on_encrypted_row_returns_error(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    service
+        .set_encrypted("secret_s3_secret_key", "first", Some("s3"), None)
+        .await
+        .unwrap();
+
+    let err = service
+        .set("secret_s3_secret_key", "plain", Some("s3"), None)
+        .await
+        .expect_err("set() must refuse to overwrite an encrypted row");
+    assert!(
+        err.to_string().contains("encryption mismatch"),
+        "error should describe the mismatch: {}",
+        err
+    );
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_admin_get_settings_masks_encrypted_value(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let email = test_email("st-mask");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+
+    let service = SettingsService::new(db);
+    service
+        .set_encrypted(
+            "secret_third_party_token",
+            "real-secret-value",
+            Some("external"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let response = server.get("/api/admin/settings").await;
+    assert_eq!(response.status_code(), StatusCode::OK);
+
+    let json: serde_json::Value = response.json();
+    let arr = json.as_array().unwrap();
+    let row = arr
+        .iter()
+        .find(|s| s["key"].as_str() == Some("secret_third_party_token"))
+        .expect("secret_third_party_token should be present");
+
+    assert_eq!(row["encrypted"].as_bool(), Some(true));
+    assert_eq!(row["has_value"].as_bool(), Some(true));
+    assert_eq!(row["value"].as_str(), Some(""));
+    let serialized = serde_json::to_string(row).unwrap();
+    assert!(
+        !serialized.contains("real-secret-value"),
+        "plaintext leaked into admin response: {}",
+        serialized
+    );
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_admin_put_secret_prefix_writes_encrypted_row(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let email = test_email("st-secret-put");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .put("/api/admin/settings")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({
+            "key": "secret_smtp_password",
+            "value": "hunter2",
+            "category": "smtp"
+        }))
+        .await;
+    assert_eq!(response.status_code(), StatusCode::OK);
+
+    let service = SettingsService::new(db);
+    let decrypted = service
+        .get_encrypted("secret_smtp_password", Some("smtp"), None)
+        .await
+        .unwrap();
+    assert_eq!(decrypted.as_deref(), Some("hunter2"));
+
+    let get_response = server.get("/api/admin/settings").await;
+    let json: serde_json::Value = get_response.json();
+    let arr = json.as_array().unwrap();
+    let row = arr
+        .iter()
+        .find(|s| s["key"].as_str() == Some("secret_smtp_password"))
+        .expect("secret_smtp_password should be present");
+    assert_eq!(row["encrypted"].as_bool(), Some(true));
+    assert_eq!(row["value"].as_str(), Some(""));
+}

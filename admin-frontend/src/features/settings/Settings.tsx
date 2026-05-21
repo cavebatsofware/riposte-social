@@ -103,7 +103,11 @@ function Settings() {
 
       setSettings(
         settings.map((s) =>
-          s.id === setting.id ? { ...s, value: newValue } : s,
+          s.id === setting.id
+            ? isSecretSetting(s)
+              ? { ...s, value: "", has_value: true }
+              : { ...s, value: newValue }
+            : s,
         ),
       );
 
@@ -183,6 +187,10 @@ function Settings() {
   function isToggleSetting(key, value) {
     // Boolean settings are those with "true" or "false" values
     return value === "true" || value === "false";
+  }
+
+  function isSecretSetting(setting) {
+    return setting.encrypted === true || setting.key.startsWith("secret_");
   }
 
   function hasUnsavedChanges(settingId) {
@@ -268,6 +276,26 @@ function Settings() {
                         {setting.value === "true" ? "Enabled" : "Disabled"}
                       </span>
                     </>
+                  ) : isSecretSetting(setting) ? (
+                    <div className="text-input-container">
+                      <input
+                        type="password"
+                        className="text-input"
+                        autoComplete="new-password"
+                        value={
+                          editingValues[setting.id] !== undefined
+                            ? editingValues[setting.id]
+                            : ""
+                        }
+                        onChange={(e) =>
+                          handleTextChange(setting.id, e.target.value)
+                        }
+                        onBlur={() => saveTextSetting(setting)}
+                        disabled={saving}
+                        placeholder={setting.has_value ? "(set)" : "Not set"}
+                      />
+                      {getSaveStatus(setting.id)}
+                    </div>
                   ) : (
                     <div className="text-input-container">
                       <input
