@@ -77,12 +77,17 @@ pub fn validate_encryption_key() {
 /// defend against in-process memory disclosure: the key is still
 /// resident in `ENCRYPTION_KEY` for the rest of the process.
 pub fn wipe_encryption_key_from_env() {
-    // SAFETY: `std::env::remove_var` mutates the global environ block
-    // and is unsafe under Rust 1.74+ because concurrent reads from
-    // other threads would race. This helper is only called from the
-    // single-threaded startup path (before the tokio runtime spawns
-    // tasks and before any worker thread reads env vars), so no other
-    // thread can be observing `environ` here.
+    // SAFETY: `env::remove_var` is unsafe because reads and writes of
+    // the C `environ` block from other threads are not synchronized
+    // against it. This helper is a synchronous, non-yielding call
+    // invoked from the startup path in `main.rs` before
+    // `AppState::new()` runs: no axum workers, sqlx pool, or
+    // tokio::spawn task exists yet, so no other thread is currently
+    // in a `getenv`/`setenv` call. Tokio's multi-thread runtime has
+    // already spawned idle worker threads but they are parked, not
+    // executing user code. Preserving this property requires that the
+    // call site stay before `AppState::new()`; moving it after AppState
+    // creation would break the contract.
     unsafe {
         env::remove_var(ENV_VAR);
     }
@@ -182,6 +187,16 @@ pub fn decrypt_value(stored_value: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
+
+    /// Serializes env mutation across this module's tests. Cargo runs
+    /// `#[test]` functions on multiple threads in the same process by
+    /// default, so two `set_var` calls would otherwise race on the C
+    /// `environ` block and corrupt the array. Other threads in the
+    /// test binary (the harness, panic-time backtrace machinery) are
+    /// not coordinated by this mutex; we mitigate by keeping env
+    /// mutation rare and confined to this module.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn generate_encryption_key() -> String {
         let key = Aes256Gcm::generate_key(OsRng);
@@ -190,9 +205,12 @@ mod tests {
 
     fn setup_test_key() -> String {
         let test_key_hex = generate_encryption_key();
-        // SAFETY: test-only setup. Cargo runs each #[test] under a
-        // single thread by default within the test process and these
-        // tests do not spawn additional threads that read env vars.
+        let _guard = ENV_LOCK.lock().expect("env mutex poisoned");
+        // SAFETY: `_guard` holds `ENV_LOCK` for the duration of the
+        // mutation, so no other test in this binary is concurrently
+        // in `set_var`/`remove_var`. No library code in the unit-test
+        // binary reads env from another thread between the lock acq
+        // and release.
         unsafe {
             env::set_var("SECURE_VALUES_KEY", &test_key_hex);
         }
@@ -207,7 +225,9 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        let test_key_hex = setup_test_key();
+        // This test constructs its own cipher and never touches the
+        // `ENCRYPTION_KEY` LazyLock, so no env mutation is needed.
+        let test_key_hex = generate_encryption_key();
 
         let key_bytes = hex::decode(&test_key_hex).unwrap();
         let key: [u8; 32] = key_bytes.try_into().unwrap();

@@ -337,3 +337,40 @@ async fn test_admin_put_secret_prefix_writes_encrypted_row(pool: sqlx::PgPool) {
     assert_eq!(row["encrypted"].as_bool(), Some(true));
     assert_eq!(row["value"].as_str(), Some(""));
 }
+
+#[sqlx::test(migrations = false)]
+async fn test_admin_put_encryption_mismatch_returns_400(pool: sqlx::PgPool) {
+    let (server, backend, db) = build_test_server(pool).await;
+    let email = test_email("st-mismatch-400");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+
+    // Seed an encrypted row under a key that doesn't follow the
+    // secret_* convention. This is a possible programmatic-seed
+    // scenario; the API handler dispatches purely by key prefix, so
+    // a PUT for this exact key routes to `set` (plaintext) and the
+    // service-layer upsert rejects with EncryptionMismatch.
+    let service = SettingsService::new(db);
+    service
+        .set_encrypted("non_prefixed_secret", "stored", Some("legacy"), None)
+        .await
+        .unwrap();
+
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .put("/api/admin/settings")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({
+            "key": "non_prefixed_secret",
+            "value": "plaintext-overwrite",
+            "category": "legacy"
+        }))
+        .await;
+
+    assert_eq!(
+        response.status_code(),
+        StatusCode::BAD_REQUEST,
+        "encryption mismatch should surface as 400, not 500"
+    );
+}

@@ -13,12 +13,33 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use anyhow::{bail, Result};
+use anyhow::Result;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
 use crate::crypto;
 use crate::entities::{setting, Setting};
+
+/// Returned by `SettingsService` when a caller chooses the wrong
+/// encryption-mode helper (e.g. `get` on an encrypted row, or `set` on
+/// a row that is already encrypted). Admin handlers downcast to this
+/// to surface a 400 rather than a 500.
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptionMismatch {
+    #[error("setting {key:?} is encrypted; use get_encrypted")]
+    GetOnEncryptedRow { key: String },
+    #[error("setting {key:?} is not encrypted; use get")]
+    GetOnPlaintextRow { key: String },
+    #[error(
+        "setting {key:?} encryption mismatch: row encrypted={row_encrypted}, \
+         write encrypted={write_encrypted}"
+    )]
+    UpsertModeMismatch {
+        key: String,
+        row_encrypted: bool,
+        write_encrypted: bool,
+    },
+}
 
 #[derive(Debug, Clone)]
 pub struct SettingsService {
@@ -64,7 +85,7 @@ impl SettingsService {
     ) -> Result<Option<String>> {
         match self.find_one(key, category, entity_id).await? {
             Some(row) if row.encrypted => {
-                bail!("setting {:?} is encrypted; use get_encrypted", row.key)
+                Err(EncryptionMismatch::GetOnEncryptedRow { key: row.key }.into())
             }
             Some(row) => Ok(Some(row.value)),
             None => Ok(None),
@@ -80,7 +101,9 @@ impl SettingsService {
         entity_id: Option<Uuid>,
     ) -> Result<Option<String>> {
         match self.find_one(key, category, entity_id).await? {
-            Some(row) if !row.encrypted => bail!("setting {:?} is not encrypted; use get", row.key),
+            Some(row) if !row.encrypted => {
+                Err(EncryptionMismatch::GetOnPlaintextRow { key: row.key }.into())
+            }
             Some(row) => Ok(Some(crypto::decrypt_value(&row.value)?)),
             None => Ok(None),
         }
@@ -134,12 +157,12 @@ impl SettingsService {
 
         if let Some(existing_setting) = existing {
             if existing_setting.encrypted != encrypted {
-                bail!(
-                    "setting {:?} encryption mismatch: row encrypted={}, write encrypted={}",
-                    existing_setting.key,
-                    existing_setting.encrypted,
-                    encrypted
-                );
+                return Err(EncryptionMismatch::UpsertModeMismatch {
+                    key: existing_setting.key,
+                    row_encrypted: existing_setting.encrypted,
+                    write_encrypted: encrypted,
+                }
+                .into());
             }
             let mut active: setting::ActiveModel = existing_setting.into();
             active.value = Set(stored_value.to_string());

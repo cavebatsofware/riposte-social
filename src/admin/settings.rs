@@ -15,7 +15,7 @@
  */
 use crate::errors::AppResult;
 use crate::middleware::AuthenticatedUser;
-use crate::settings::SettingsService;
+use crate::settings::{EncryptionMismatch, SettingsService};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -108,7 +108,13 @@ async fn update_setting(
             .await
     };
 
-    result.map_err(|e| crate::errors::AppError::InternalError(e.to_string()))?;
+    result.map_err(|e| {
+        if e.downcast_ref::<EncryptionMismatch>().is_some() {
+            crate::errors::AppError::ValidationError(e.to_string())
+        } else {
+            crate::errors::AppError::InternalError(e.to_string())
+        }
+    })?;
 
     Ok(StatusCode::OK)
 }
