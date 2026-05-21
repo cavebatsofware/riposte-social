@@ -229,9 +229,19 @@ async fn create_facebook_import(
     // `error` field; the request returns the job id regardless.
     let db_clone = state.db.clone();
     let s3_clone = state.s3.clone();
+    let settings_clone = state.settings.clone();
     let user_id = user.id;
     tokio::spawn(async move {
-        match run_facebook_import(db_clone.clone(), s3_clone, job_id, params, user_id).await {
+        match run_facebook_import(
+            db_clone.clone(),
+            s3_clone,
+            settings_clone,
+            job_id,
+            params,
+            user_id,
+        )
+        .await
+        {
             Ok(summary) => {
                 tracing::info!(
                     "facebook import {} done: {} succeeded, {} skipped, {} failed (of {})",

@@ -78,14 +78,24 @@ export async function fetchApi(
   const loadOpts: LoadOptions = { hasProgress };
   startLoad(loadOpts);
 
+  // Only batch 1 of a hasProgress loop (or a non-progress request) actually
+  // reserves a unit at startLoad; later batches piggyback on that reservation.
+  // On abort, close exactly what THIS call reserved so an aborted later-batch
+  // doesn't over-decrement the bucket and trigger a premature global reset
+  // while unrelated requests are still in flight.
+  const reservedUnit = !hasProgress || hasProgress[0] === 1;
+
   // Idempotent close so multiple body-method calls (or a body call after
   // an early `response.ok === false` close) don't double-decrement.
   let didClose = false;
   const close = (): void => {
     if (didClose) return;
     didClose = true;
-    const aborted = signal?.aborted === true;
-    endLoad(aborted ? undefined : loadOpts);
+    if (signal?.aborted === true) {
+      if (reservedUnit) endLoad(undefined);
+    } else {
+      endLoad(loadOpts);
+    }
   };
 
   let response: Response;

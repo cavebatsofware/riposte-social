@@ -171,7 +171,7 @@ pub async fn commit_compose(
 
     let post_id = Uuid::new_v4();
     let mut plan = build_media_plan(post_id, input.media, 0);
-    process_image_variants(&mut plan).await?;
+    process_image_variants(&mut plan, settings).await?;
     let uploaded = upload_media(s3, &plan).await?;
 
     let txn_result = async {
@@ -216,6 +216,7 @@ pub async fn commit_compose(
 pub async fn append_media(
     db: &DatabaseConnection,
     s3: &S3Service,
+    settings: &SettingsService,
     user: &UserAuth,
     post_id: Uuid,
     expected_kind: &str,
@@ -240,7 +241,7 @@ pub async fn append_media(
     }
 
     let mut plan = build_media_plan(post_id, media, next_ordinal);
-    process_image_variants(&mut plan).await?;
+    process_image_variants(&mut plan, settings).await?;
     let uploaded = upload_media(s3, &plan).await?;
 
     let txn_result = async {

@@ -23,13 +23,14 @@
 
 use crate::errors::{AppError, AppResult};
 use crate::posts::media::{is_video_mime, PlannedUpload};
+use crate::settings::SettingsService;
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageReader};
 use std::io::Cursor;
+use std::mem;
 
 const THUMBNAIL_MAX_PX: u32 = 400;
 const ICON_MAX_PX: u32 = 64;
-const MAX_INPUT_DIMENSION: u32 = 16_000;
 
 pub(crate) struct ImageVariants {
     pub width: i32,
@@ -66,11 +67,16 @@ fn encode_webp_lossless(img: &DynamicImage) -> Result<Vec<u8>, String> {
 }
 
 /// Decode `input` once and produce a 400px WebP thumbnail + 64px WebP icon
-/// plus the native pixel dimensions. Synchronous and CPU-bound: callers
-/// must invoke from a blocking context (`spawn_blocking` or an importer
-/// worker thread). Video items must be filtered out upstream; this fails
-/// on anything `image` can't decode.
-pub(crate) fn generate_variants_blocking(input: &[u8]) -> Result<ImageVariants, String> {
+/// plus the native pixel dimensions. `max_input_dimension` rejects oversized
+/// inputs before decode to bound peak memory; an NxN RGBA decode is ~4*N^2
+/// bytes resident. Synchronous and CPU-bound: callers must invoke from a
+/// blocking context (`spawn_blocking` or an importer worker thread). Video
+/// items must be filtered out upstream; this fails on anything `image` can't
+/// decode.
+pub(crate) fn generate_variants_blocking(
+    input: &[u8],
+    max_input_dimension: u32,
+) -> Result<ImageVariants, String> {
     let reader = ImageReader::new(Cursor::new(input))
         .with_guessed_format()
         .map_err(|e| format!("Could not read image: {}", e))?;
@@ -82,10 +88,10 @@ pub(crate) fn generate_variants_blocking(input: &[u8]) -> Result<ImageVariants, 
     if w == 0 || h == 0 {
         return Err("Image has zero dimension".to_string());
     }
-    if w > MAX_INPUT_DIMENSION || h > MAX_INPUT_DIMENSION {
+    if w > max_input_dimension || h > max_input_dimension {
         return Err(format!(
             "Image dimensions exceed {}x{}",
-            MAX_INPUT_DIMENSION, MAX_INPUT_DIMENSION
+            max_input_dimension, max_input_dimension
         ));
     }
 
@@ -102,13 +108,23 @@ pub(crate) fn generate_variants_blocking(input: &[u8]) -> Result<ImageVariants, 
 
 /// Generate width/height + thumbnail + icon for every image item in `plan`,
 /// in-place. Video items are skipped. Image processing runs on a blocking
-/// worker so the async runtime isn't blocked by libwebp encoding.
-pub(crate) async fn process_image_variants(plan: &mut [PlannedUpload]) -> AppResult<()> {
+/// worker so the async runtime isn't blocked by libwebp encoding. The input
+/// bytes are moved into the worker (not cloned) and written back after to
+/// keep peak memory bounded for multi-image albums.
+pub(crate) async fn process_image_variants(
+    plan: &mut [PlannedUpload],
+    settings: &SettingsService,
+) -> AppResult<()> {
+    let max_input_dimension = settings
+        .get_max_image_dimension()
+        .await
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+
     let image_inputs: Vec<(usize, Vec<u8>)> = plan
-        .iter()
+        .iter_mut()
         .enumerate()
         .filter(|(_, p)| !is_video_mime(&p.media.mime_type))
-        .map(|(i, p)| (i, p.media.bytes.clone()))
+        .map(|(i, p)| (i, mem::take(&mut p.media.bytes)))
         .collect();
 
     if image_inputs.is_empty() {
@@ -118,13 +134,26 @@ pub(crate) async fn process_image_variants(plan: &mut [PlannedUpload]) -> AppRes
     let results = tokio::task::spawn_blocking(move || {
         image_inputs
             .into_iter()
-            .map(|(i, bytes)| (i, generate_variants_blocking(&bytes)))
+            .map(|(i, bytes)| {
+                let res = generate_variants_blocking(&bytes, max_input_dimension);
+                (i, bytes, res)
+            })
             .collect::<Vec<_>>()
     })
     .await
     .map_err(|e| AppError::InternalError(format!("variant worker join failed: {}", e)))?;
 
-    for (i, res) in results {
+    // Restore every byte buffer first so a failure on item N doesn't leave
+    // items N+1.. with empty `media.bytes`. The caller may inspect the plan
+    // on error (e.g. to log filenames), so leaving it consistent matters.
+    let mut variants_out: Vec<(usize, Result<ImageVariants, String>)> =
+        Vec::with_capacity(results.len());
+    for (i, bytes, res) in results {
+        plan[i].media.bytes = bytes;
+        variants_out.push((i, res));
+    }
+
+    for (i, res) in variants_out {
         let variants = res.map_err(AppError::ValidationError)?;
         plan[i].width = Some(variants.width);
         plan[i].height = Some(variants.height);

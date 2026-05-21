@@ -59,10 +59,6 @@ const AVATAR_MAX_BYTES: usize = 5 * 1024 * 1024;
 const AVATAR_OUTPUT_SIDE: u32 = 512;
 const AVATAR_ICON_SIDE: u32 = 64;
 
-/// Reject obviously absurd inputs before we spend memory decoding them.
-/// 8000^2 RGBA is ~256 MiB; anything beyond that is a bomb attempt.
-const AVATAR_MAX_INPUT_DIMENSION: u32 = 8000;
-
 /// Browsers feed us these from `<input type="file" accept="image/*">`; SVG
 /// and HEIC stay out because they have unsafe / patent-encumbered codecs.
 const AVATAR_ALLOWED_MIMES: &[&str] = &["image/jpeg", "image/png", "image/webp"];
@@ -341,10 +337,16 @@ async fn post_me_avatar(
         .ok_or_else(|| AppError::ValidationError("Missing required field: file".to_string()))?;
     let _ = file_mime;
 
-    let (normalized, icon) = tokio::task::spawn_blocking(move || normalize_avatar_bytes(&bytes))
+    let max_input_dimension = state
+        .settings
+        .get_max_image_dimension()
         .await
-        .map_err(|e| AppError::InternalError(format!("avatar worker join failed: {}", e)))?
-        .map_err(AppError::ValidationError)?;
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    let (normalized, icon) =
+        tokio::task::spawn_blocking(move || normalize_avatar_bytes(&bytes, max_input_dimension))
+            .await
+            .map_err(|e| AppError::InternalError(format!("avatar worker join failed: {}", e)))?
+            .map_err(AppError::ValidationError)?;
 
     let new_key = format!("avatars/{}/{}.webp", user_auth.id, Uuid::new_v4());
     state
@@ -472,8 +474,13 @@ async fn enforce_public_profile_gate(
 /// Decode arbitrary input bytes, center-crop to a square, and emit two
 /// WebP encodings: the full `AVATAR_OUTPUT_SIDE` avatar (uploaded to S3)
 /// and an `AVATAR_ICON_SIDE` icon (embedded inline on user responses so
-/// list views render without per-row avatar fetches).
-fn normalize_avatar_bytes(input: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
+/// list views render without per-row avatar fetches). `max_input_dimension`
+/// rejects oversized inputs before decode to bound peak memory; an NxN
+/// RGBA decode is ~4*N^2 bytes resident.
+fn normalize_avatar_bytes(
+    input: &[u8],
+    max_input_dimension: u32,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     use image::imageops::{crop_imm, resize, FilterType};
     use image::ImageReader;
 
@@ -488,10 +495,10 @@ fn normalize_avatar_bytes(input: &[u8]) -> Result<(Vec<u8>, Vec<u8>), String> {
     if w == 0 || h == 0 {
         return Err("Image has zero dimension".to_string());
     }
-    if w > AVATAR_MAX_INPUT_DIMENSION || h > AVATAR_MAX_INPUT_DIMENSION {
+    if w > max_input_dimension || h > max_input_dimension {
         return Err(format!(
             "Image dimensions exceed {}x{}",
-            AVATAR_MAX_INPUT_DIMENSION, AVATAR_MAX_INPUT_DIMENSION
+            max_input_dimension, max_input_dimension
         ));
     }
 
@@ -560,7 +567,7 @@ mod tests {
     #[test]
     fn normalize_centers_and_resizes() {
         let png = synth_png(1024);
-        let (webp, icon) = normalize_avatar_bytes(&png).unwrap();
+        let (webp, icon) = normalize_avatar_bytes(&png, 8000).unwrap();
         let img = image::load_from_memory(&webp).unwrap();
         assert_eq!(img.width(), AVATAR_OUTPUT_SIDE);
         assert_eq!(img.height(), AVATAR_OUTPUT_SIDE);
@@ -571,7 +578,14 @@ mod tests {
 
     #[test]
     fn normalize_rejects_garbage() {
-        let res = normalize_avatar_bytes(b"not an image");
+        let res = normalize_avatar_bytes(b"not an image", 8000);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn normalize_rejects_oversized() {
+        let png = synth_png(1024);
+        let res = normalize_avatar_bytes(&png, 512);
         assert!(res.is_err());
     }
 }

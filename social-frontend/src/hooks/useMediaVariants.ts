@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { fetchApi } from "../utils/api";
 
-/// Per-request id cap. Desktop sends 4 (the server's maximum, set by
-/// `MEDIA_VARIANTS_BATCH_MAX` in `src/posts/types.rs`); touch-primary
-/// devices drop to 1 so the album shows the first item sooner
-/// and the payload over a cellular link stays bounded.
+/// Per-request id cap. Desktop sends 4 (one album-grid row at a time, so
+/// each fulfilled batch fills a visible row top-to-bottom); the server
+/// allows up to `MEDIA_VARIANTS_BATCH_MAX = 8` in `src/posts/types.rs`,
+/// leaving headroom for non-grid callers. Touch-primary devices drop to
+/// 1 so the album shows the first item sooner and the payload over a
+/// cellular link stays bounded.
 /// Detected once at module load via `(pointer: coarse)` rather than
 /// per-request; device input class doesn't change without a reload.
 const BATCH_SIZE: number =

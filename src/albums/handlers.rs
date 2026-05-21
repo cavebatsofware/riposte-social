@@ -342,6 +342,7 @@ async fn append_album_media(
     posts_media::append_media(
         &state.db,
         &state.s3,
+        &state.settings,
         &user,
         id,
         post::KIND_ALBUM,
@@ -449,9 +450,9 @@ async fn serve_album_media(
         .map(|c| c.visibility.as_str())
         .unwrap_or(parent.visibility.as_str());
     let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
-        "public, max-age=86400"
+        "public, max-age=1209600"
     } else {
-        "private, max-age=300"
+        "private, max-age=1209600"
     };
     let content_type = stored_type
         .or(Some(media.mime_type.clone()))

@@ -71,6 +71,7 @@ mod m20260514_000001_drop_tsvector_search;
 mod m20260514_000002_add_bm25_search;
 mod m20260519_000001_add_thumbnail_icon_to_post_media;
 mod m20260519_000002_add_avatar_icon_to_users;
+mod m20260520_000001_seed_max_image_dimension;
 
 pub struct Migrator;
 
@@ -133,6 +134,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260514_000002_add_bm25_search::Migration),
             Box::new(m20260519_000001_add_thumbnail_icon_to_post_media::Migration),
             Box::new(m20260519_000002_add_avatar_icon_to_users::Migration),
+            Box::new(m20260520_000001_seed_max_image_dimension::Migration),
         ]
     }
 }

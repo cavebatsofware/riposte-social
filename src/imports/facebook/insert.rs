@@ -48,15 +48,18 @@ struct UploadedMedia {
 async fn variants_if_image(
     mime: &str,
     bytes: &[u8],
+    max_input_dimension: u32,
 ) -> Result<Option<ImageVariants>, anyhow::Error> {
     if is_video_mime(mime) {
         return Ok(None);
     }
     let owned = bytes.to_vec();
-    let variants = tokio::task::spawn_blocking(move || generate_variants_blocking(&owned))
-        .await
-        .map_err(|e| anyhow::anyhow!("variant worker join failed: {}", e))?
-        .map_err(|e| anyhow::anyhow!("variant generation failed: {}", e))?;
+    let variants = tokio::task::spawn_blocking(move || {
+        generate_variants_blocking(&owned, max_input_dimension)
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("variant worker join failed: {}", e))?
+    .map_err(|e| anyhow::anyhow!("variant generation failed: {}", e))?;
     Ok(Some(variants))
 }
 
@@ -69,6 +72,7 @@ pub(crate) async fn import_one_post(
     fb_post: &FacebookPost,
     visibility: &str,
     created_by: Uuid,
+    max_input_dimension: u32,
 ) -> Result<(), anyhow::Error> {
     let post_id = Uuid::new_v4();
 
@@ -104,7 +108,7 @@ pub(crate) async fn import_one_post(
         if !is_supported_media_mime(&mime) {
             continue;
         }
-        let variants = variants_if_image(&mime, &bytes).await?;
+        let variants = variants_if_image(&mime, &bytes, max_input_dimension).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes, &mime).await {
             // Roll back any uploads already committed for this post so
@@ -207,6 +211,7 @@ pub(crate) async fn import_one_album(
     fb_album: &FacebookAlbum,
     visibility: &str,
     created_by: Uuid,
+    max_input_dimension: u32,
 ) -> Result<(), anyhow::Error> {
     let post_id = Uuid::new_v4();
 
@@ -252,7 +257,7 @@ pub(crate) async fn import_one_album(
         let (filename, bytes) = &staged_media[*src_idx];
         let media_id = Uuid::new_v4();
         let mime = mime_for_filename(filename);
-        let variants = variants_if_image(&mime, bytes).await?;
+        let variants = variants_if_image(&mime, bytes, max_input_dimension).await?;
         let key = format!("posts/{}/{}", post_id, media_id);
         if let Err(e) = s3.put_object_at(&key, bytes.clone(), &mime).await {
             for prior in &uploaded {

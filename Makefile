@@ -434,7 +434,7 @@ rust-run:
 
 # Development without watch (manual restart required for changes)
 .PHONY: dev-no-watch
-dev-no-watch: db-up frontend-build
+dev-no-watch: db-up
 	@echo "🔧 Starting development server (no watch)..."
 	@echo "📝 Logs will appear below. Press Ctrl+C to stop."
 	@echo ""
