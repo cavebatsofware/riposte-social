@@ -1,13 +1,15 @@
-import React, { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import BrowseRail from "./BrowseRail";
 import LanguagePicker from "./LanguagePicker";
+import LoadingBar from "./LoadingBar";
 import MobileDrawer from "./MobileDrawer";
 import ThemePicker from "./ThemePicker";
 import UserMenu from "./UserMenu";
+import { resetLoadCount } from "../utils/loadingState";
 import "./Layout.css";
 
 /// Shared application shell for the social frontend.
@@ -33,7 +35,11 @@ import "./Layout.css";
 interface LayoutProps {
   leftRail?: React.ReactNode;
   rightRail?: React.ReactNode;
-  children: React.ReactNode;
+  /// Optional explicit child content. When omitted (the normal case under
+  /// React Router's layout-route pattern), the matched child route's
+  /// element is rendered via `<Outlet />`. Keeping `children` available
+  /// lets non-routed call sites embed Layout directly when useful.
+  children?: React.ReactNode;
 }
 
 export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
@@ -42,6 +48,19 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { t } = useTranslation("common");
+
+  // Reset the loading bucket on actual route change. Skip the initial
+  // mount: at that point child effects (e.g. the page's data fetch) have
+  // already fired their startLoad and a reset here would wipe their
+  // counters mid-flight, leaving the bucket inconsistent when their
+  // endLoads land.
+  const previousPath = useRef<string | null>(null);
+  useEffect(() => {
+    if (previousPath.current !== null && previousPath.current !== location.pathname) {
+      resetLoadCount();
+    }
+    previousPath.current = location.pathname;
+  }, [location.pathname]);
 
   // Auto-mount the BrowseRail when the caller didn't pass an explicit
   // leftRail. Anonymous viewers also get the rail; categories are public
@@ -67,6 +86,7 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
 
   return (
     <div className="layout">
+      <LoadingBar />
       <a className="layout-skip-link" href="#main-content">
         {t("skipToContent")}
       </a>
@@ -132,7 +152,7 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
           <aside className="layout-rail layout-rail-left">{effectiveLeftRail}</aside>
         )}
         <main id="main-content" className="layout-main">
-          {children}
+          {children ?? <Outlet />}
         </main>
         {rightRail && <aside className="layout-rail layout-rail-right">{rightRail}</aside>}
       </div>

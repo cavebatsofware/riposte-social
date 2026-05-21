@@ -29,6 +29,7 @@ pub struct MeProfileResponse {
     pub bio: Option<String>,
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
+    pub avatar_icon_data: Option<String>,
     pub role: String,
     #[ts(type = "number")]
     pub follower_count: i64,
@@ -52,6 +53,7 @@ pub struct PublicProfileResponse {
     pub bio: Option<String>,
     pub pronouns: Option<String>,
     pub avatar_url: Option<String>,
+    pub avatar_icon_data: Option<String>,
     pub role: String,
     #[ts(type = "number")]
     pub follower_count: i64,
@@ -70,6 +72,7 @@ pub struct ProfileSummary {
     pub handle: String,
     pub display_name: Option<String>,
     pub avatar_url: Option<String>,
+    pub avatar_icon_data: Option<String>,
     pub role: String,
 }
 

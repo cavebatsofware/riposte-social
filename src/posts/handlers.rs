@@ -29,22 +29,23 @@ use crate::middleware::AuthenticatedUser;
 use crate::posts::media::{self, COMPOSE_BODY_MAX_BYTES};
 use crate::posts::queries::{self, FeedPageFilters, PostCategoryFilter};
 use crate::posts::types::{
-    build_post_response, FeedQuery, FeedResponse, MediaOrderItem, PostMediaResponse, PostResponse,
-    UpdatePostMediaRequest, UpdatePostRequest,
+    build_post_response, encode_webp_data_uri, FeedQuery, FeedResponse, MediaOrderItem,
+    MediaVariantEntry, MediaVariantsQuery, MediaVariantsResponse, PostMediaResponse, PostResponse,
+    UpdatePostMediaRequest, UpdatePostRequest, MEDIA_VARIANTS_BATCH_MAX,
 };
 use crate::posts::{FeedTier, PostsState};
 use axum::{
     body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, Query, State},
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Json, Response},
     routing::{get, post},
     Extension, Router,
 };
 use axum_login::AuthSession;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sea_orm::Set;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 pub fn post_write_routes() -> Router<PostsState> {
@@ -74,6 +75,10 @@ pub fn post_write_routes() -> Router<PostsState> {
 pub fn post_read_routes() -> Router<PostsState> {
     Router::new()
         .route("/api/posts/{id}", get(get_post))
+        .route(
+            "/api/posts/{parent_id}/media-variants",
+            get(get_media_variants),
+        )
         .route("/api/feed", get(feed))
         .route("/media/{media_id}", get(serve_media))
 }
@@ -112,6 +117,7 @@ async fn append_post_media(
     let rows = media::append_media(
         &state.db,
         &state.s3,
+        &state.settings,
         &user,
         id,
         post::KIND_POST,
@@ -206,16 +212,22 @@ async fn serve_media(
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to load media: {}", e)))?;
 
-    // Effective visibility (category-driven if categorized) decides cache
-    // policy. Public goes to a shared cache; everything else stays private.
+    // Effective visibility (category-driven if categorized) decides
+    // cache scope: public bytes can live in any cache, anything else
+    // gets `private` so shared proxies / CDNs don't fan out a single
+    // member's restricted view. 14 days strikes a balance between hit
+    // rate and revalidation lag if a post's visibility flips: bytes for
+    // a given `media_id` don't change (re-upload mints a new id), but
+    // access permissions can, so we want the cache to expire on a
+    // human-meaningful timescale rather than be marked `immutable`.
     let effective_vis = parent_cat
         .as_ref()
         .map(|c| c.visibility.as_str())
         .unwrap_or(parent.visibility.as_str());
     let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
-        "public, max-age=86400"
+        "public, max-age=1209600"
     } else {
-        "private, max-age=300"
+        "private, max-age=1209600"
     };
 
     let content_type = stored_type
@@ -231,6 +243,155 @@ async fn serve_media(
         Body::from(bytes),
     )
         .into_response())
+}
+
+/// Batch-fetch pre-generated media variants for a post or album. Single
+/// visibility check against the path parent; every requested media id
+/// must belong to that parent. The frontend issues these batches
+/// sequentially so large albums stream in progressively rather than as
+/// one large JSON payload up front.
+async fn get_media_variants(
+    State(state): State<PostsState>,
+    auth_session: AuthSession<crate::admin::UserAuthBackend>,
+    Path(parent_id): Path<Uuid>,
+    Query(q): Query<MediaVariantsQuery>,
+    headers: HeaderMap,
+) -> AppResult<Response> {
+    if q.variant != "thumbnail" {
+        return Err(AppError::ValidationError(format!(
+            "Unsupported variant '{}'. Allowed: thumbnail",
+            q.variant
+        )));
+    }
+
+    let ids: Vec<Uuid> = q
+        .ids
+        .split(',')
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| {
+            Uuid::parse_str(s.trim())
+                .map_err(|_| AppError::ValidationError("Invalid media id".to_string()))
+        })
+        .collect::<Result<_, _>>()?;
+    if ids.is_empty() {
+        return Ok(Json(MediaVariantsResponse { variants: vec![] }).into_response());
+    }
+    if ids.len() > MEDIA_VARIANTS_BATCH_MAX {
+        return Err(AppError::ValidationError(format!(
+            "Batch size {} exceeds max {}",
+            ids.len(),
+            MEDIA_VARIANTS_BATCH_MAX
+        )));
+    }
+    // Reject duplicates up front. SQL `IN (...)` collapses dupes, so a
+    // request like `?ids=A,A` would otherwise produce one row and trip
+    // the cross-parent check below with a misleading error.
+    let unique: HashSet<Uuid> = ids.iter().copied().collect();
+    if unique.len() != ids.len() {
+        return Err(AppError::ValidationError(
+            "Duplicate media ids in request".to_string(),
+        ));
+    }
+
+    // Visibility check on the parent. Anonymous callers also pass the
+    // public-feed gate, matching `serve_media`. NotFound on any failure
+    // so probe attempts can't distinguish "wrong parent" from "no read".
+    let tier = caller_tier(&auth_session).await;
+    enforce_public_feed_gate(&state.settings, tier)
+        .await
+        .map_err(|_| AppError::NotFound("Post not found".to_string()))?;
+
+    let parent = queries::find_post_active(&state.db, parent_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Post not found".to_string()))?;
+    let parent_cat = match parent.category_id {
+        Some(cid) => queries::find_category(&state.db, cid).await?,
+        None => None,
+    };
+    let ctx = crate::visibility::ViewerCtx::build(&state.db, &auth_session)
+        .await
+        .map_err(|e| AppError::InternalError(format!("viewer ctx: {:#}", e)))?;
+    if !ctx.permits_read(parent.author_id, &parent.visibility, parent_cat.as_ref()) {
+        return Err(AppError::NotFound("Post not found".to_string()));
+    }
+
+    // SQL-side filter already enforces `post_id = parent_id`; any id from
+    // a different parent silently drops out and the size check below
+    // surfaces it to the caller.
+    let rows = queries::list_post_media_thumbnails(&state.db, parent_id, &ids).await?;
+    if rows.len() != ids.len() {
+        return Err(AppError::ValidationError(
+            "One or more media ids do not belong to this post".to_string(),
+        ));
+    }
+
+    // Matches `serve_media` cache policy: 14-day TTL, no `immutable`, so
+    // a visibility flip on the parent post takes effect within two weeks
+    // even on aggressive shared caches.
+    let effective_vis = parent_cat
+        .as_ref()
+        .map(|c| c.visibility.as_str())
+        .unwrap_or(parent.visibility.as_str());
+    let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
+        "public, max-age=1209600"
+    } else {
+        "private, max-age=1209600"
+    };
+
+    // Use the latest row's created_at as the response mtime. HTTP dates
+    // resolve to whole seconds, so truncate before comparing.
+    let last_modified = rows.iter().map(|r| r.created_at).max().map(|t| {
+        let utc: DateTime<Utc> = t.with_timezone(&Utc);
+        DateTime::<Utc>::from_timestamp(utc.timestamp(), 0).unwrap_or(utc)
+    });
+
+    if let (Some(server_mtime), Some(client_header)) =
+        (last_modified, headers.get(header::IF_MODIFIED_SINCE))
+    {
+        if let Ok(client_str) = client_header.to_str() {
+            if let Ok(client_dt) = DateTime::parse_from_rfc2822(client_str) {
+                if client_dt.with_timezone(&Utc) >= server_mtime {
+                    let mut not_modified = Response::new(Body::empty());
+                    *not_modified.status_mut() = StatusCode::NOT_MODIFIED;
+                    not_modified.headers_mut().insert(
+                        header::CACHE_CONTROL,
+                        header::HeaderValue::from_static(cache_control),
+                    );
+                    if let Ok(hv) = header::HeaderValue::from_str(&format_http_date(server_mtime)) {
+                        not_modified.headers_mut().insert(header::LAST_MODIFIED, hv);
+                    }
+                    return Ok(not_modified);
+                }
+            }
+        }
+    }
+
+    let variants = rows
+        .into_iter()
+        .map(|r| MediaVariantEntry {
+            id: r.id,
+            data: r.thumbnail_data.as_deref().map(encode_webp_data_uri),
+        })
+        .collect();
+    let body = Json(MediaVariantsResponse { variants });
+
+    let mut response = body.into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static(cache_control),
+    );
+    if let Some(mtime) = last_modified {
+        if let Ok(hv) = header::HeaderValue::from_str(&format_http_date(mtime)) {
+            response.headers_mut().insert(header::LAST_MODIFIED, hv);
+        }
+    }
+    Ok(response)
+}
+
+/// RFC 7231 IMF-fixdate format: "Sun, 06 Nov 1994 08:49:37 GMT". Used for
+/// `Last-Modified` and parseable by every browser back to HTTP/1.0.
+fn format_http_date(d: DateTime<Utc>) -> String {
+    d.format("%a, %d %b %Y %H:%M:%S GMT").to_string()
 }
 
 async fn get_post(

@@ -146,6 +146,7 @@ function Settings() {
       site_domain: "Site Domain",
       contact_email: "Contact Email",
       from_email: "From Email",
+      max_image_dimension: "Max Image Dimension",
     };
     return labels[key] || key;
   }
@@ -173,6 +174,8 @@ function Settings() {
       site_domain: "The domain name of your website (e.g., example.com)",
       contact_email: "Email address for contact form submissions",
       from_email: "Email address used as the sender for outgoing emails",
+      max_image_dimension:
+        "Largest width or height in pixels accepted for an uploaded image (post media and avatars). Inputs over the limit are rejected before decode to bound server memory. 8000 covers typical phone/DSLR photos at ~256 MiB worst case; raise for a photography-oriented site, lower (e.g. 2048) for tighter storage.",
     };
     return descriptions[key] || "";
   }

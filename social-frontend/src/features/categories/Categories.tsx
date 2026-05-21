@@ -13,7 +13,6 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useSiteConfig } from "../../contexts/SiteConfigContext";
 import { useFocusTrap } from "../../utils/useFocusTrap";
-import Layout from "../../components/Layout";
 import "./Categories.css";
 
 const VISIBILITY_OPTIONS = [
@@ -196,7 +195,7 @@ export default function Categories() {
   }
 
   return (
-    <Layout>
+    <>
       <header className="page-header">
         <h1>{t("categories.pageTitle")}</h1>
         {canCreate && (
@@ -408,7 +407,7 @@ export default function Categories() {
           onClose={() => setMemberModalCat(null)}
         />
       )}
-    </Layout>
+    </>
   );
 }
 

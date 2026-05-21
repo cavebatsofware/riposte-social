@@ -22,7 +22,10 @@ use axum::{
 use std::{env, sync::Arc};
 use time::Duration as TimeDuration;
 use tower::ServiceBuilder;
-use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::TraceLayer};
+use tower_http::{
+    compression::CompressionLayer, services::ServeDir, set_header::SetResponseHeaderLayer,
+    trace::TraceLayer,
+};
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
@@ -315,6 +318,13 @@ async fn main() -> anyhow::Result<()> {
 
     let app = app.layer(
         ServiceBuilder::new()
+            // Outermost: negotiate gzip / brotli on every response. Honors
+            // the client's `Accept-Encoding`, skips responses that already
+            // carry a `Content-Encoding` (so `precompressed_gzip` static
+            // assets pass through untouched), and never compresses small
+            // bodies. Inner middleware sees uncompressed responses, which
+            // keeps TraceLayer's size accounting honest.
+            .layer(CompressionLayer::new())
             .layer(from_fn_with_state(
                 security_config,
                 security_context_middleware_with_config,

@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { fetchAuthorFeed, fetchProfile } from "./api";
 import { recordPersonVisit } from "../../utils/browseHistory";
-import Layout from "../../components/Layout";
 import PostCard from "../feed/PostCard";
 import SkeletonCard from "../../components/SkeletonCard";
 import FollowButton from "../profile/FollowButton";
@@ -115,7 +114,7 @@ export default function Profile() {
   const isSelf = viewer && profile && viewer.id === profile.user_id;
 
   return (
-    <Layout>
+    <>
       {profileLoading && <SkeletonCard />}
 
       {!profileLoading && profileError && (
@@ -177,7 +176,7 @@ export default function Profile() {
           )}
         </>
       )}
-    </Layout>
+    </>
   );
 }
 

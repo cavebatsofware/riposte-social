@@ -1756,6 +1756,16 @@ summary:focus-visible,
   width: 100%;
 }
 
+/* Placeholder shown for image items whose batched variant hasn't resolved
+   yet. The intrinsic `aspect-ratio` is set inline from the row's stored
+   width/height so the slot reserves the right area  no layout shift on
+   thumbnail arrival. */
+.post-media-placeholder {
+  display: block;
+  width: 100%;
+  background: var(--color-media-bg);
+}
+
 /* Play-badge overlay on video thumbnails, identical pattern to
    `.album-grid-video-badge`. The button itself is the click target;
    the badge is purely decorative so it gets aria-hidden. */

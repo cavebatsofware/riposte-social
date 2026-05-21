@@ -15,7 +15,7 @@
  */
 use crate::entities::{follow, user, Follow, User};
 use crate::follows::types::UserSummary;
-use crate::profile::avatar_url_for;
+use crate::profile::{avatar_icon_data_for, avatar_url_for};
 use chrono::{DateTime, FixedOffset};
 use sea_orm::sea_query::OnConflict;
 use sea_orm::{
@@ -209,6 +209,7 @@ pub async fn fetch_user_summaries<C: ConnectionTrait>(
                 handle: m.handle.clone(),
                 display_name: m.display_name.clone(),
                 avatar_url: avatar_url_for(m),
+                avatar_icon_data: avatar_icon_data_for(m),
                 role: m.role.clone(),
             })
         })

@@ -9,4 +9,4 @@
  * only; both are `false` for anonymous reads since the relationship has
  * no defined viewer.
  */
-export type PublicProfileResponse = { user_id: string, handle: string, display_name: string | null, bio: string | null, pronouns: string | null, avatar_url: string | null, role: string, follower_count: number, following_count: number, follows_you: boolean, you_follow: boolean, };
+export type PublicProfileResponse = { user_id: string, handle: string, display_name: string | null, bio: string | null, pronouns: string | null, avatar_url: string | null, avatar_icon_data: string | null, role: string, follower_count: number, following_count: number, follows_you: boolean, you_follow: boolean, };

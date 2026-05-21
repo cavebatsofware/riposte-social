@@ -71,8 +71,8 @@ export default function UserMenu({ user, onSignOut }) {
         aria-label={t("userMenu.openAria")}
         onClick={() => setOpen((v) => !v)}
       >
-        {user.avatar_url ? (
-          <img src={user.avatar_url} alt="" className="user-menu-avatar" />
+        {user.avatar_icon_data ? (
+          <img src={user.avatar_icon_data} alt="" className="user-menu-avatar" />
         ) : (
           <span className="user-menu-avatar user-menu-initials" aria-hidden="true">
             {initials}
@@ -129,7 +129,7 @@ export default function UserMenu({ user, onSignOut }) {
           </Link>
           {user.role === "administrator" && (
             <a
-              href="/admin/"
+              href="/admin/dashboard"
               className="user-menu-item"
               role="menuitem"
               onClick={() => setOpen(false)}

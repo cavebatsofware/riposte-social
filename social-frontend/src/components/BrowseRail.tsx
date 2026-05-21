@@ -242,11 +242,11 @@ export default function BrowseRail() {
             className="browse-rail-link"
             title={a.name}
           >
-            {a.cover_url ? (
+            {a.cover_icon_data ? (
               // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
-                src={a.cover_url}
+                src={a.cover_icon_data}
                 alt=""
                 aria-hidden="true"
               />
@@ -281,11 +281,11 @@ export default function BrowseRail() {
             className="browse-rail-link"
             title={p.display_name || p.handle}
           >
-            {p.avatar_url ? (
+            {p.avatar_icon_data ? (
               // eslint-disable-next-line a11yinspect/img-element-warning -- decorative; alt="" and aria-hidden confirm intent
               <img
                 className="browse-rail-cover"
-                src={p.avatar_url}
+                src={p.avatar_icon_data}
                 alt=""
                 aria-hidden="true"
               />

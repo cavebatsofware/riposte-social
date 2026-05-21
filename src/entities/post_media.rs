@@ -30,6 +30,8 @@ pub struct Model {
     pub ordinal: i32,
     pub caption: Option<String>,
     pub created_at: DateTimeWithTimeZone,
+    pub thumbnail_data: Option<Vec<u8>>,
+    pub icon_data: Option<Vec<u8>>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

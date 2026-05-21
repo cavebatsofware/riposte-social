@@ -178,6 +178,9 @@ async fn list_albums(
             let cover_url = stat
                 .and_then(|s| s.cover_id)
                 .map(|id| format!("/album-media/{}", id));
+            let cover_icon_data = stat
+                .and_then(|s| s.cover_icon_data.as_deref())
+                .map(crate::posts::types::encode_webp_data_uri);
             let photo_count = stat.map(|s| s.photo_count).unwrap_or(0);
             let description = if row.body.is_empty() {
                 None
@@ -190,6 +193,7 @@ async fn list_albums(
                 author_display: author.and_then(|u| u.display_name.clone()),
                 author_handle: author.map(|u| u.handle.clone()),
                 cover_url,
+                cover_icon_data,
                 name: row.slug.unwrap_or_default(),
                 description,
                 visibility: row.visibility,
@@ -338,6 +342,7 @@ async fn append_album_media(
     posts_media::append_media(
         &state.db,
         &state.s3,
+        &state.settings,
         &user,
         id,
         post::KIND_ALBUM,
@@ -445,9 +450,9 @@ async fn serve_album_media(
         .map(|c| c.visibility.as_str())
         .unwrap_or(parent.visibility.as_str());
     let cache_control = if effective_vis == post::VISIBILITY_PUBLIC {
-        "public, max-age=86400"
+        "public, max-age=1209600"
     } else {
-        "private, max-age=300"
+        "private, max-age=1209600"
     };
     let content_type = stored_type
         .or(Some(media.mime_type.clone()))

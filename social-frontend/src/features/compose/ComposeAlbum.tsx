@@ -12,7 +12,6 @@ import {
   updateAlbum,
   updateAlbumMediaCaption,
 } from "./api";
-import Layout from "../../components/Layout";
 import VisibilityPicker from "../../components/VisibilityPicker";
 
 const ACCEPTED_IMAGE_MIME = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -133,11 +132,7 @@ export default function ComposeAlbum() {
     return <Navigate to="/" replace />;
   }
   if (authLoading || loadingExisting) {
-    return (
-      <Layout>
-        <p className="muted">{tCommon("loading")}</p>
-      </Layout>
-    );
+    return <p className="muted">{tCommon("loading")}</p>;
   }
   // Posters lose access if poster_posting_enabled flips off mid-flight.
   if (
@@ -145,11 +140,9 @@ export default function ComposeAlbum() {
     (site === null || site.poster_posting_enabled !== true)
   ) {
     return (
-      <Layout>
-        <div className="alert alert-error" role="alert">
-          {t("album.disabledShort")}
-        </div>
-      </Layout>
+      <div className="alert alert-error" role="alert">
+        {t("album.disabledShort")}
+      </div>
     );
   }
 
@@ -315,7 +308,7 @@ export default function ComposeAlbum() {
   }
 
   return (
-    <Layout>
+    <>
       <h1 className="sr-only">
         {editId ? t("album.editTitle") : t("album.newTitle")}
       </h1>
@@ -559,7 +552,7 @@ export default function ComposeAlbum() {
           </div>
         </div>
       </form>
-    </Layout>
+    </>
   );
 }
 

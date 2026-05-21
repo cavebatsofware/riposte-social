@@ -21,10 +21,48 @@ use chrono::{DateTime, FixedOffset};
 use sea_orm::sea_query::{Expr, IntoCondition};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseBackend, DatabaseConnection, DbErr,
-    EntityTrait, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Statement,
+    EntityTrait, FromQueryResult, QueryFilter, QueryOrder, QuerySelect, QueryTrait, Statement,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Slim projection of `post_media` returning the row id plus its
+/// pre-generated thumbnail bytes and `created_at`. Used by the variants
+/// batch endpoint so the query plan can ignore the rest of the row and
+/// avoid pulling every other column into memory for items the caller
+/// isn't asking about. `created_at` participates in the Last-Modified /
+/// If-Modified-Since path: thumbnail bytes are immutable per row, so
+/// `MAX(created_at)` across the batch is a stable response mtime.
+#[derive(FromQueryResult)]
+pub struct PostMediaThumbnailRow {
+    pub id: Uuid,
+    pub thumbnail_data: Option<Vec<u8>>,
+    pub created_at: sea_orm::prelude::DateTimeWithTimeZone,
+}
+
+/// Project (id, thumbnail_data, created_at) for media rows whose `id` is
+/// in `ids` AND whose `post_id` equals the supplied parent. Cross-parent
+/// ids are dropped silently by the WHERE clause; callers compare result
+/// count to the requested set to detect mismatches and reject the batch.
+pub async fn list_post_media_thumbnails<C: ConnectionTrait>(
+    conn: &C,
+    post_id: Uuid,
+    ids: &[Uuid],
+) -> Result<Vec<PostMediaThumbnailRow>, DbErr> {
+    if ids.is_empty() {
+        return Ok(vec![]);
+    }
+    PostMedia::find()
+        .select_only()
+        .column(post_media::Column::Id)
+        .column(post_media::Column::ThumbnailData)
+        .column(post_media::Column::CreatedAt)
+        .filter(post_media::Column::PostId.eq(post_id))
+        .filter(post_media::Column::Id.is_in(ids.iter().copied()))
+        .into_model::<PostMediaThumbnailRow>()
+        .all(conn)
+        .await
+}
 
 pub async fn find_user<C: ConnectionTrait>(
     conn: &C,

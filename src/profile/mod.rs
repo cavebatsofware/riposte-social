@@ -134,6 +134,17 @@ pub fn avatar_url_for(model: &user::Model) -> Option<String> {
     }
 }
 
+/// Render the inline 64px avatar icon as a base64 WebP data URI, when one
+/// has been generated. Used by list / rail surfaces (BrowseRail, People,
+/// post + comment headers) to render avatars without per-row image fetches.
+pub fn avatar_icon_data_for(model: &user::Model) -> Option<String> {
+    use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
+    model
+        .avatar_icon_data
+        .as_ref()
+        .map(|b| format!("data:image/webp;base64,{}", BASE64.encode(b)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

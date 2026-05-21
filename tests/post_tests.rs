@@ -32,8 +32,23 @@ use riposte_social::entities::{post, user, Post, User};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use uuid::Uuid;
 
-const PNG_BYTES: &[u8] =
-    b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR\0\0\0\x01\0\0\0\x01\x08\x06\0\0\0\x1f\x15\xc4\x89";
+/// Synthesizes a valid 4x4 RGBA PNG for upload tests. The upload path now
+/// decodes images on the way in (to produce thumbnails / icons / dimensions),
+/// so an invalid byte stream rejects with 400 before the row is inserted.
+fn png_bytes() -> Vec<u8> {
+    use image::ImageEncoder;
+    let img = image::RgbaImage::from_pixel(4, 4, image::Rgba([10, 20, 30, 255]));
+    let mut out = Vec::new();
+    image::codecs::png::PngEncoder::new(&mut out)
+        .write_image(
+            img.as_raw(),
+            img.width(),
+            img.height(),
+            image::ExtendedColorType::Rgba8,
+        )
+        .unwrap();
+    out
+}
 
 // ==================== Helpers ====================
 
@@ -555,7 +570,7 @@ async fn test_create_post_with_media_uploads_to_s3(pool: sqlx::PgPool) {
         .add_text("visibility", "public")
         .add_part(
             "media",
-            Part::bytes(PNG_BYTES.to_vec())
+            Part::bytes(png_bytes())
                 .file_name("cat.png")
                 .mime_type("image/png"),
         );
@@ -630,7 +645,7 @@ async fn test_create_post_too_many_media_rejected(pool: sqlx::PgPool) {
     for i in 0..9 {
         form = form.add_part(
             "media",
-            Part::bytes(PNG_BYTES.to_vec())
+            Part::bytes(png_bytes())
                 .file_name(format!("img{}.png", i))
                 .mime_type("image/png"),
         );
@@ -649,8 +664,7 @@ async fn test_serve_media_public_visible_to_anon(pool: sqlx::PgPool) {
     // Mock S3 returns the same body for every GET; both upload and download
     // captured by the spy.
     let spy = s3_mock::S3Spy::new();
-    let s3 =
-        s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(PNG_BYTES.to_vec(), &spy));
+    let s3 = s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(png_bytes(), &spy));
     let (server, backend, _db) = build_test_server_with(
         pool,
         TestServices {
@@ -669,7 +683,7 @@ async fn test_serve_media_public_visible_to_anon(pool: sqlx::PgPool) {
         .add_text("visibility", "public")
         .add_part(
             "media",
-            Part::bytes(PNG_BYTES.to_vec())
+            Part::bytes(png_bytes())
                 .file_name("p.png")
                 .mime_type("image/png"),
         );
@@ -700,8 +714,7 @@ async fn test_serve_media_public_visible_to_anon(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_serve_media_commenter_post_blocked_for_anon(pool: sqlx::PgPool) {
     let spy = s3_mock::S3Spy::new();
-    let s3 =
-        s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(PNG_BYTES.to_vec(), &spy));
+    let s3 = s3_mock::build_test_s3_service(s3_mock::mock_s3_get_ok_put_ok(png_bytes(), &spy));
     let (server, backend, _db) = build_test_server_with(
         pool,
         TestServices {
@@ -720,7 +733,7 @@ async fn test_serve_media_commenter_post_blocked_for_anon(pool: sqlx::PgPool) {
         .add_text("visibility", "commenters")
         .add_part(
             "media",
-            Part::bytes(PNG_BYTES.to_vec())
+            Part::bytes(png_bytes())
                 .file_name("c.png")
                 .mime_type("image/png"),
         );

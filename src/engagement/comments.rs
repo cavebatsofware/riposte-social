@@ -89,7 +89,6 @@ pub(crate) fn build_comment_response_with_engagement(
         user_id: row.user_id,
         author_display: author.and_then(|u| u.display_name.clone()),
         author_handle: author.map(|u| u.handle.clone()),
-        author_avatar_url: author.and_then(crate::profile::avatar_url_for),
         body: row.body,
         body_html,
         created_at: row.created_at.with_timezone(&Utc).to_rfc3339(),

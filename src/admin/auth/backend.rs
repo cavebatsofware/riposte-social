@@ -168,6 +168,7 @@ impl UserAuthBackend {
             bio: Set(None),
             pronouns: Set(None),
             avatar_s3_key: Set(None),
+            avatar_icon_data: Set(None),
             locale: Set(None),
         };
 
@@ -917,6 +918,7 @@ impl UserAuthBackend {
             bio: Set(None),
             pronouns: Set(None),
             avatar_s3_key: Set(None),
+            avatar_icon_data: Set(None),
             locale: Set(None),
         };
         let result = new_user.insert(&self.db).await?;
@@ -994,6 +996,7 @@ impl UserAuthBackend {
             bio: Set(None),
             pronouns: Set(None),
             avatar_s3_key: Set(None),
+            avatar_icon_data: Set(None),
             locale: Set(None),
         };
         let result = new_user.insert(&self.db).await?;

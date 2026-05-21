@@ -1,9 +1,10 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DOMPurify from "dompurify";
 import { useAuth } from "../../contexts/AuthContext";
 import { formatRelativeTime } from "../../utils/formatTime";
+import { useMediaVariants } from "../../hooks/useMediaVariants";
 import MediaLightbox from "../engagement/MediaLightbox";
 import ReactionBar from "../engagement/ReactionBar";
 import VisibilityBadge from "../../components/VisibilityBadge";
@@ -110,7 +111,7 @@ export default function PostCard({ post, variant = "feed" }) {
       <PostBody safeHtml={safeHtml} variant={variant} />
 
       {post.media && post.media.length > 0 && (
-        <PostMedia media={post.media} onOpen={openLightbox} />
+        <PostMedia parentId={post.id} media={post.media} onOpen={openLightbox} />
       )}
 
       <PostActions post={post} variant={variant} target={{ kind: "post", postId: post.id }} />
@@ -228,7 +229,19 @@ function PostBody({ safeHtml, variant }) {
 /// badge rather than an inline `<video controls>`, since the lightbox
 /// provides controls + autoplay when the user clicks in. Keeps the
 /// behavior consistent across post and album surfaces.
-function MediaItem({ m, index, className = "", onOpen }: { m: PostMediaResponse; index: number; className?: string; onOpen: (i: number, e: React.MouseEvent) => void }) {
+function MediaItem({
+  m,
+  index,
+  className = "",
+  onOpen,
+  thumbnail,
+}: {
+  m: PostMediaResponse;
+  index: number;
+  className?: string;
+  onOpen: (i: number, e: React.MouseEvent) => void;
+  thumbnail: string | null | undefined;
+}) {
   const { t } = useTranslation("feed");
   const inner =
     m.media_kind === "video" ? (
@@ -248,8 +261,18 @@ function MediaItem({ m, index, className = "", onOpen }: { m: PostMediaResponse;
           ▶
         </span>
       </>
+    ) : thumbnail ? (
+      <img className={className} src={thumbnail} alt={m.caption || ""} />
     ) : (
-      <img className={className} src={m.url} alt={m.caption || ""} />
+      <span
+        className={`post-media-placeholder ${className}`}
+        aria-hidden="true"
+        style={
+          m.width && m.height
+            ? { aspectRatio: `${m.width} / ${m.height}` }
+            : undefined
+        }
+      />
     );
   return (
     <button
@@ -268,19 +291,35 @@ function MediaItem({ m, index, className = "", onOpen }: { m: PostMediaResponse;
 /// variants. The previous hero+row split made 2-image posts look wrong
 /// on permalink (one thumb half-width, one empty grid cell). Unifying
 /// keeps the visual rhythm consistent across both surfaces.
-function PostMedia({ media, onOpen }) {
+function PostMedia({ parentId, media, onOpen }) {
+  const imageIds = useMemo(
+    () => media.filter((m) => m.media_kind !== "video").map((m) => m.id),
+    [media],
+  );
+  const variants = useMediaVariants(parentId, imageIds);
   if (media.length === 1) {
     const [m] = media;
     return (
       <div className="post-media-single">
-        <MediaItem m={m} index={0} onOpen={onOpen} />
+        <MediaItem
+          m={m}
+          index={0}
+          onOpen={onOpen}
+          thumbnail={variants[m.id]}
+        />
       </div>
     );
   }
   return (
     <div className="post-media-row">
       {media.map((m, i) => (
-        <MediaItem key={m.id} m={m} index={i} onOpen={onOpen} />
+        <MediaItem
+          key={m.id}
+          m={m}
+          index={i}
+          onOpen={onOpen}
+          thumbnail={variants[m.id]}
+        />
       ))}
     </div>
   );

@@ -108,10 +108,12 @@ enum ItemOutcome {
 pub async fn run_facebook_import(
     db: DatabaseConnection,
     s3: S3Service,
+    settings: crate::settings::SettingsService,
     job_id: Uuid,
     params: FacebookImportParams,
     created_by: Uuid,
 ) -> Result<FacebookImportSummary, anyhow::Error> {
+    let max_input_dimension = settings.get_max_image_dimension().await?;
     imports::mark_running(&db, job_id).await?;
     let _ = imports::append_log(
         &db,
@@ -300,6 +302,7 @@ pub async fn run_facebook_import(
                 &p,
                 &visibility,
                 created_by,
+                max_input_dimension,
             )
             .await
             {
@@ -370,6 +373,7 @@ pub async fn run_facebook_import(
                 &a,
                 &visibility,
                 created_by,
+                max_input_dimension,
             )
             .await
             {

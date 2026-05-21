@@ -76,6 +76,11 @@ pub struct Model {
     /// IdP might supply later); the API renders an `avatar_url` field that
     /// prefers the S3-served route over the external URL.
     pub avatar_s3_key: Option<String>,
+    /// 64px WebP icon bytes of the uploaded avatar. Generated alongside the
+    /// S3-stored full avatar in `post_me_avatar` and surfaced inline as a
+    /// base64 data URI on every user-carrying response, so list views render
+    /// avatars without per-row `/avatars/{id}` fan-out.
+    pub avatar_icon_data: Option<Vec<u8>>,
     /// User's saved UI locale. NULL means no explicit choice
     /// yet; the social-frontend's i18next browser-language detector
     /// picks one from `navigator.language`. App-layer validation in

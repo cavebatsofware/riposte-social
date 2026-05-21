@@ -434,11 +434,11 @@ rust-run:
 
 # Development without watch (manual restart required for changes)
 .PHONY: dev-no-watch
-dev-no-watch: db-up frontend-build
+dev-no-watch: db-up
 	@echo "🔧 Starting development server (no watch)..."
 	@echo "📝 Logs will appear below. Press Ctrl+C to stop."
 	@echo ""
-	cargo run --features e2e_testing
+	make -j3 frontend-build rust-run
 
 # Tail development logs
 .PHONY: dev-logs
@@ -482,7 +482,7 @@ admin-build:
 		echo "📦 Installing dependencies first..."; \
 		bun install; \
 	fi
-	bun run build:admin
+	NODE_ENV=production bun run build:admin
 	@echo "✅ Admin frontend built to admin-assets/"
 
 # Build social frontend for production
@@ -493,36 +493,8 @@ social-build:
 		echo "📦 Installing dependencies first..."; \
 		bun install; \
 	fi
-	bun run build:social
+	NODE_ENV=production bun run build:social
 	@echo "✅ Social frontend built to social-assets/"
-
-# Build public Astro site
-.PHONY: public-build
-public-build:
-	@echo "🔨 Building public Astro site..."
-	@if [ -n "$(PUBLIC_FRONTEND_PATH)" ] && [ -d "$(PUBLIC_FRONTEND_PATH)" ]; then \
-		echo "📂 Using external frontend: $(PUBLIC_FRONTEND_PATH)"; \
-		if [ ! -d "$(PUBLIC_FRONTEND_PATH)/node_modules" ]; then \
-			echo "📦 Installing Astro dependencies..."; \
-			(cd "$(PUBLIC_FRONTEND_PATH)" && npm install); \
-		fi && \
-		(cd "$(PUBLIC_FRONTEND_PATH)" && SITE_URL="$(SITE_URL)" npm run build) && \
-		if [ -d "$(PUBLIC_FRONTEND_PATH)/dist" ]; then \
-			rm -rf public-assets && cp -r "$(PUBLIC_FRONTEND_PATH)/dist" public-assets; \
-		else \
-			echo "❌ ERROR: External site did not output to dist/"; \
-			echo "   Your astro.config.mjs must use the default outDir (dist/)"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "📂 Using template frontend"; \
-		if [ ! -d "public-frontend/node_modules" ]; then \
-			echo "📦 Installing Astro dependencies first..."; \
-			(cd public-frontend && npm install); \
-		fi && \
-		(cd public-frontend && SITE_URL="$(SITE_URL)" npm run build); \
-	fi
-	@echo "✅ Public site built to public-assets/"
 
 # Build all frontends
 .PHONY: frontend-build

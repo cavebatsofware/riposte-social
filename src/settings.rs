@@ -209,4 +209,23 @@ impl SettingsService {
         self.get_bool("poster_category_management_enabled", Some("features"), None)
             .await
     }
+
+    /// Maximum width or height in pixels accepted for an uploaded image
+    /// (post media and avatars). Inputs exceeding the limit are rejected
+    /// before decode to bound peak memory: an NxN RGBA decode is ~4*N^2
+    /// bytes resident. 8000 covers every consumer camera at ~256 MiB
+    /// worst case; a photography-focused deployment can raise it, an
+    /// invite-only family network can drop it to a few thousand to keep
+    /// stored bytes small.
+    pub async fn get_max_image_dimension(&self) -> Result<u32> {
+        const DEFAULT: u32 = 8_000;
+        if let Some(value) = self.get("max_image_dimension", Some("media"), None).await? {
+            if let Ok(parsed) = value.parse::<u32>() {
+                if parsed > 0 {
+                    return Ok(parsed);
+                }
+            }
+        }
+        Ok(DEFAULT)
+    }
 }

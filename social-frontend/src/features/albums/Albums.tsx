@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { fetchAlbums } from "./api";
-import Layout from "../../components/Layout";
 import "./Albums.css";
 
 /// Overflow page for the BrowseRail's Albums group. Shows every album
@@ -37,7 +36,7 @@ export default function Albums() {
   }, [t]);
 
   return (
-    <Layout>
+    <>
       <h1 className="overflow-title">{t("albums.pageTitle")}</h1>
 
       {loading && <p className="muted">{tCommon("loading")}</p>}
@@ -71,6 +70,6 @@ export default function Albums() {
           </Link>
         ))}
       </div>
-    </Layout>
+    </>
   );
 }

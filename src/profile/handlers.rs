@@ -34,7 +34,8 @@ use crate::profile::types::{
     PublicProfileResponse,
 };
 use crate::profile::{
-    avatar_url_for, locale, validate_handle_shape, ProfileState, BIO_MAX_LEN, PRONOUNS_MAX_LEN,
+    avatar_icon_data_for, avatar_url_for, locale, validate_handle_shape, ProfileState, BIO_MAX_LEN,
+    PRONOUNS_MAX_LEN,
 };
 use crate::settings::SettingsService;
 use axum::{
@@ -56,10 +57,7 @@ const AVATAR_MAX_BYTES: usize = 5 * 1024 * 1024;
 /// profile cards (256pt @ 2x) and feed-meta thumbnails without an extra
 /// rendition pipeline.
 const AVATAR_OUTPUT_SIDE: u32 = 512;
-
-/// Reject obviously absurd inputs before we spend memory decoding them.
-/// 8000^2 RGBA is ~256 MiB; anything beyond that is a bomb attempt.
-const AVATAR_MAX_INPUT_DIMENSION: u32 = 8000;
+const AVATAR_ICON_SIDE: u32 = 64;
 
 /// Browsers feed us these from `<input type="file" accept="image/*">`; SVG
 /// and HEIC stay out because they have unsafe / patent-encumbered codecs.
@@ -106,6 +104,7 @@ async fn get_me_profile(
         bio: model.bio.clone(),
         pronouns: model.pronouns.clone(),
         avatar_url: avatar_url_for(&model),
+        avatar_icon_data: avatar_icon_data_for(&model),
         role: model.role.clone(),
         follower_count,
         following_count,
@@ -218,6 +217,7 @@ async fn patch_me_profile(
         bio: updated.bio.clone(),
         pronouns: updated.pronouns.clone(),
         avatar_url: avatar_url_for(&updated),
+        avatar_icon_data: avatar_icon_data_for(&updated),
         role: updated.role.clone(),
         follower_count,
         following_count,
@@ -242,6 +242,7 @@ async fn list_profiles(
             handle: m.handle.clone(),
             display_name: m.display_name.clone(),
             avatar_url: avatar_url_for(&m),
+            avatar_icon_data: avatar_icon_data_for(&m),
             role: m.role.clone(),
         })
         .collect();
@@ -285,6 +286,7 @@ async fn get_profile_by_handle(
         bio: model.bio.clone(),
         pronouns: model.pronouns.clone(),
         avatar_url: avatar_url_for(&model),
+        avatar_icon_data: avatar_icon_data_for(&model),
         role: model.role.clone(),
         follower_count,
         following_count,
@@ -335,10 +337,16 @@ async fn post_me_avatar(
         .ok_or_else(|| AppError::ValidationError("Missing required field: file".to_string()))?;
     let _ = file_mime;
 
-    let normalized = tokio::task::spawn_blocking(move || normalize_avatar_bytes(&bytes))
+    let max_input_dimension = state
+        .settings
+        .get_max_image_dimension()
         .await
-        .map_err(|e| AppError::InternalError(format!("avatar worker join failed: {}", e)))?
-        .map_err(AppError::ValidationError)?;
+        .map_err(|e| AppError::InternalError(format!("settings read failed: {:#}", e)))?;
+    let (normalized, icon) =
+        tokio::task::spawn_blocking(move || normalize_avatar_bytes(&bytes, max_input_dimension))
+            .await
+            .map_err(|e| AppError::InternalError(format!("avatar worker join failed: {}", e)))?
+            .map_err(AppError::ValidationError)?;
 
     let new_key = format!("avatars/{}/{}.webp", user_auth.id, Uuid::new_v4());
     state
@@ -347,9 +355,9 @@ async fn post_me_avatar(
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to upload avatar: {:#}", e)))?;
 
-    // Swap the row's avatar_s3_key. Best-effort delete the previous object
-    // after the row update commits; a stale object is harmless storage, a
-    // missing row pointer would break image loads.
+    // Swap the row's avatar_s3_key and inline icon bytes. Best-effort delete
+    // the previous object after the row update commits; a stale object is
+    // harmless storage, a missing row pointer would break image loads.
     let prev_key = {
         let model = queries::find_user(&state.db, user_auth.id)
             .await?
@@ -357,6 +365,7 @@ async fn post_me_avatar(
         let prev = model.avatar_s3_key.clone();
         let mut active: user::ActiveModel = model.into();
         active.avatar_s3_key = Set(Some(new_key.clone()));
+        active.avatar_icon_data = Set(Some(icon));
         queries::update_user(&state.db, active).await?;
         prev
     };
@@ -388,6 +397,7 @@ async fn delete_me_avatar(
 
     let mut active: user::ActiveModel = model.into();
     active.avatar_s3_key = Set(None);
+    active.avatar_icon_data = Set(None);
     queries::update_user(&state.db, active).await?;
 
     if let Some(prev_key) = prev {
@@ -461,36 +471,49 @@ async fn enforce_public_profile_gate(
     Err(AppError::NotFound("Profile not found".to_string()))
 }
 
-/// Decode arbitrary input bytes, center-crop to a square, resize to
-/// `AVATAR_OUTPUT_SIDE`, and encode as webp.
-fn normalize_avatar_bytes(input: &[u8]) -> Result<Vec<u8>, String> {
+/// Decode arbitrary input bytes, center-crop to a square, and emit two
+/// WebP encodings: the full `AVATAR_OUTPUT_SIDE` avatar (uploaded to S3)
+/// and an `AVATAR_ICON_SIDE` icon (embedded inline on user responses so
+/// list views render without per-row avatar fetches). `max_input_dimension`
+/// is enforced from the header before the full decode, so an oversized
+/// image never allocates the RGBA buffer (an NxN decode is ~4*N^2 bytes
+/// resident).
+fn normalize_avatar_bytes(
+    input: &[u8],
+    max_input_dimension: u32,
+) -> Result<(Vec<u8>, Vec<u8>), String> {
     use image::imageops::{crop_imm, resize, FilterType};
     use image::ImageReader;
 
-    let reader = ImageReader::new(Cursor::new(input))
+    let header_reader = ImageReader::new(Cursor::new(input))
         .with_guessed_format()
         .map_err(|e| format!("Could not read image: {}", e))?;
-    let img = reader
-        .decode()
-        .map_err(|e| format!("Could not decode image: {}", e))?;
-
-    let (w, h) = (img.width(), img.height());
+    let (w, h) = header_reader
+        .into_dimensions()
+        .map_err(|e| format!("Could not read image dimensions: {}", e))?;
     if w == 0 || h == 0 {
         return Err("Image has zero dimension".to_string());
     }
-    if w > AVATAR_MAX_INPUT_DIMENSION || h > AVATAR_MAX_INPUT_DIMENSION {
+    if w > max_input_dimension || h > max_input_dimension {
         return Err(format!(
             "Image dimensions exceed {}x{}",
-            AVATAR_MAX_INPUT_DIMENSION, AVATAR_MAX_INPUT_DIMENSION
+            max_input_dimension, max_input_dimension
         ));
     }
+
+    let decoder = ImageReader::new(Cursor::new(input))
+        .with_guessed_format()
+        .map_err(|e| format!("Could not read image: {}", e))?;
+    let img = decoder
+        .decode()
+        .map_err(|e| format!("Could not decode image: {}", e))?;
 
     let side = w.min(h);
     let x_off = (w - side) / 2;
     let y_off = (h - side) / 2;
     let square = crop_imm(&img, x_off, y_off, side, side).to_image();
 
-    let resized = if side != AVATAR_OUTPUT_SIDE {
+    let avatar_img = if side != AVATAR_OUTPUT_SIDE {
         resize(
             &square,
             AVATAR_OUTPUT_SIDE,
@@ -498,16 +521,29 @@ fn normalize_avatar_bytes(input: &[u8]) -> Result<Vec<u8>, String> {
             FilterType::Lanczos3,
         )
     } else {
-        square
+        square.clone()
     };
+    let icon_img = resize(
+        &square,
+        AVATAR_ICON_SIDE,
+        AVATAR_ICON_SIDE,
+        FilterType::Lanczos3,
+    );
 
+    Ok((
+        encode_avatar_webp(&avatar_img)?,
+        encode_avatar_webp(&icon_img)?,
+    ))
+}
+
+fn encode_avatar_webp(img: &image::RgbaImage) -> Result<Vec<u8>, String> {
     let mut out = Vec::new();
     let encoder = image::codecs::webp::WebPEncoder::new_lossless(&mut out);
     image::ImageEncoder::write_image(
         encoder,
-        resized.as_raw(),
-        resized.width(),
-        resized.height(),
+        img.as_raw(),
+        img.width(),
+        img.height(),
         image::ExtendedColorType::Rgba8,
     )
     .map_err(|e| format!("Could not encode webp: {}", e))?;
@@ -537,15 +573,25 @@ mod tests {
     #[test]
     fn normalize_centers_and_resizes() {
         let png = synth_png(1024);
-        let webp = normalize_avatar_bytes(&png).unwrap();
+        let (webp, icon) = normalize_avatar_bytes(&png, 8000).unwrap();
         let img = image::load_from_memory(&webp).unwrap();
         assert_eq!(img.width(), AVATAR_OUTPUT_SIDE);
         assert_eq!(img.height(), AVATAR_OUTPUT_SIDE);
+        let icon_img = image::load_from_memory(&icon).unwrap();
+        assert_eq!(icon_img.width(), AVATAR_ICON_SIDE);
+        assert_eq!(icon_img.height(), AVATAR_ICON_SIDE);
     }
 
     #[test]
     fn normalize_rejects_garbage() {
-        let res = normalize_avatar_bytes(b"not an image");
+        let res = normalize_avatar_bytes(b"not an image", 8000);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn normalize_rejects_oversized() {
+        let png = synth_png(1024);
+        let res = normalize_avatar_bytes(&png, 512);
         assert!(res.is_err());
     }
 }

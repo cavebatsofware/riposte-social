@@ -13,30 +13,33 @@ import Album from "./features/albums/Album";
 import Albums from "./features/albums/Albums";
 import Categories from "./features/categories/Categories";
 import CookieBanner from "./components/CookieBanner";
+import Layout from "./components/Layout";
 
-/// The shared `<Layout>` (header + rails + main + ThemePicker) is mounted
-/// per-page rather than at the App root. Each page picks whether to wrap
-/// in Layout  Login and InviteAccept are intentionally chrome-light, so
-/// they can opt out (or wrap a minimal variant) without an extra prop.
+/// `<Layout>` (header + rails + main) is mounted as a parent layout route
+/// so it persists across navigation. Page components render via Outlet
+/// inside Layout; switching routes no longer remounts the BrowseRail or
+/// re-fetches its categories / albums / profiles data.
 export default function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Feed />} />
-        <Route path="/post/:id" element={<Post />} />
-        <Route path="/compose" element={<Compose />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/invite/:code" element={<InviteAccept />} />
-        <Route path="/u/:handle" element={<Profile />} />
-        <Route path="/settings/profile" element={<SettingsProfile />} />
-        <Route path="/settings/security" element={<SettingsSecurity />} />
-        <Route path="/album/:id" element={<Album />} />
-        <Route path="/albums" element={<Albums />} />
-        <Route path="/categories" element={<Categories />} />
-        <Route path="/people" element={<People />} />
-        <Route path="/people/following" element={<People />} />
-        <Route path="/people/followers" element={<People />} />
-        <Route path="/compose-album" element={<ComposeAlbum />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Feed />} />
+          <Route path="/post/:id" element={<Post />} />
+          <Route path="/compose" element={<Compose />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/invite/:code" element={<InviteAccept />} />
+          <Route path="/u/:handle" element={<Profile />} />
+          <Route path="/settings/profile" element={<SettingsProfile />} />
+          <Route path="/settings/security" element={<SettingsSecurity />} />
+          <Route path="/album/:id" element={<Album />} />
+          <Route path="/albums" element={<Albums />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/people" element={<People />} />
+          <Route path="/people/following" element={<People />} />
+          <Route path="/people/followers" element={<People />} />
+          <Route path="/compose-album" element={<ComposeAlbum />} />
+        </Route>
       </Routes>
       <CookieBanner />
     </>
