@@ -32,7 +32,7 @@ jobs:
       DEV_MODE: "true"
       # Static test-only encryption key. NOT for production use; only
       # protects ephemeral test rows.
-      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      SECURE_VALUES_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       # Seed a known-credential admin so cy.login() can sign in. Both
       # SEED_TEST_ADMIN=true and the e2e_testing cargo feature are
       # required as defense-in-depth gates against the seed path

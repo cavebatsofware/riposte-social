@@ -13,11 +13,13 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Cryptographic utilities for encrypting sensitive data at rest.
+//! AES-256-GCM encryption for sensitive data at rest.
 //!
-//! This module provides AES-256-GCM encryption for TOTP secrets stored in the database.
-//! The encryption key is loaded from the TOTP_ENCRYPTION_KEY environment variable
-//! and must be a 64-character hex string (32 bytes).
+//! Covers TOTP secrets, single-use tokens (email verification, password
+//! reset), and encrypted `settings` rows. One symmetric key is loaded from
+//! the `SECURE_VALUES_KEY` environment variable at startup and cached in
+//! a `LazyLock`. After the runtime forces the lock, the env var is wiped
+//! so later code and crash-time `/proc/self/environ` dumps can't read it.
 
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -28,24 +30,25 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::env;
 use std::sync::LazyLock;
 
-// The encryption key loaded from environment variable
+const ENV_VAR: &str = "SECURE_VALUES_KEY";
+
 static ENCRYPTION_KEY: LazyLock<Option<Key<Aes256Gcm>>> = LazyLock::new(load_encryption_key);
 
-/// Load the encryption key from environment variable
 fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
-    let key_hex = env::var("TOTP_ENCRYPTION_KEY").ok()?;
+    let key_hex = env::var(ENV_VAR).ok()?;
 
     let key_bytes = match hex::decode(&key_hex) {
         Ok(bytes) => bytes,
         Err(e) => {
-            tracing::error!("Failed to decode TOTP_ENCRYPTION_KEY as hex: {}", e);
+            tracing::error!("Failed to decode {} as hex: {}", ENV_VAR, e);
             return None;
         }
     };
 
     if key_bytes.len() != 32 {
         tracing::error!(
-            "TOTP_ENCRYPTION_KEY must be 32 bytes (64 hex characters), got {} bytes",
+            "{} must be 32 bytes (64 hex characters), got {} bytes",
+            ENV_VAR,
             key_bytes.len()
         );
         return None;
@@ -55,72 +58,78 @@ fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
     Some(Key::<Aes256Gcm>::from(key))
 }
 
-/// Validate that the encryption key is configured. Call at startup.
-/// Panics with a clear message if TOTP_ENCRYPTION_KEY is missing or invalid.
+/// Force the encryption-key `LazyLock` to initialize and panic if the key
+/// is missing or malformed. Call at startup before any tokio task is
+/// spawned, then call `wipe_encryption_key_from_env` to remove the var
+/// from the process environment.
 pub fn validate_encryption_key() {
     let _ = ENCRYPTION_KEY.as_ref().expect(
-        "TOTP_ENCRYPTION_KEY environment variable is not set or invalid. \
+        "SECURE_VALUES_KEY environment variable is not set or invalid. \
         It must be a 64-character hex string (32 bytes).",
     );
 }
 
-/// Get the encryption key, returning an error if not configured
+/// Remove the encryption key from the process environment after the
+/// `LazyLock` has cached it. This raises the bar against accidental
+/// disclosure: a later `env`-dumping log line, a crash dump that
+/// includes `/proc/self/environ`, or a sub-process that inherits the
+/// parent environment will no longer expose the key. It does not
+/// defend against in-process memory disclosure: the key is still
+/// resident in `ENCRYPTION_KEY` for the rest of the process.
+pub fn wipe_encryption_key_from_env() {
+    // SAFETY: `env::remove_var` is unsafe because reads and writes of
+    // the C `environ` block from other threads are not synchronized
+    // against it. This helper is a synchronous, non-yielding call
+    // invoked from the startup path in `main.rs` before
+    // `AppState::new()` runs: no axum workers, sqlx pool, or
+    // tokio::spawn task exists yet, so no other thread is currently
+    // in a `getenv`/`setenv` call. Tokio's multi-thread runtime has
+    // already spawned idle worker threads but they are parked, not
+    // executing user code. Preserving this property requires that the
+    // call site stay before `AppState::new()`; moving it after AppState
+    // creation would break the contract.
+    unsafe {
+        env::remove_var(ENV_VAR);
+    }
+}
+
 fn get_encryption_key() -> Result<&'static Key<Aes256Gcm>> {
     ENCRYPTION_KEY.as_ref().ok_or_else(|| {
         anyhow::anyhow!(
-            "TOTP_ENCRYPTION_KEY environment variable is not set or invalid. \
+            "SECURE_VALUES_KEY environment variable is not set or invalid. \
             It must be a 64-character hex string (32 bytes)."
         )
     })
 }
 
-/// Encrypt a TOTP secret for storage
-///
-/// Returns a base64-encoded string containing the nonce and ciphertext.
-/// Format: base64(nonce || ciphertext)
-///
-/// Fails if the encryption key is not configured.
-pub fn encrypt_totp_secret(plaintext: &str) -> Result<String> {
+fn encrypt_bytes(plaintext: &[u8]) -> Result<String> {
     let key = get_encryption_key()?;
     let cipher = Aes256Gcm::new(key);
-
-    // Generate a random 96-bit nonce
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
 
-    // Encrypt the plaintext
     let ciphertext = cipher
-        .encrypt(&nonce, plaintext.as_bytes())
+        .encrypt(&nonce, plaintext)
         .map_err(|e| anyhow::anyhow!("Encryption failed: {}", e))?;
 
-    // Combine nonce and ciphertext: nonce (12 bytes) || ciphertext
     let mut combined = Vec::with_capacity(nonce.len() + ciphertext.len());
     combined.extend_from_slice(&nonce);
     combined.extend_from_slice(&ciphertext);
-
-    // Encode as base64 for storage
     Ok(BASE64.encode(&combined))
 }
 
-/// Decrypt a TOTP secret from storage
-///
-/// Expects a base64-encoded string containing the nonce and ciphertext.
-/// Format: base64(nonce || ciphertext)
-///
-/// Fails if the encryption key is not configured or the data is malformed.
-pub fn decrypt_totp_secret(stored_value: &str) -> Result<String> {
+fn decrypt_bytes(stored_value: &str, label: &str) -> Result<Vec<u8>> {
     let key = get_encryption_key()?;
 
-    // Decode from base64
     let combined = BASE64
         .decode(stored_value)
-        .context("Failed to decode stored TOTP secret as base64")?;
+        .with_context(|| format!("Failed to decode stored {} as base64", label))?;
 
-    // Nonce is 12 bytes for AES-256-GCM
     const NONCE_LEN: usize = 12;
 
     if combined.len() <= NONCE_LEN {
         bail!(
-            "Encrypted TOTP secret is too short: expected at least {} bytes, got {}",
+            "Encrypted {} is too short: expected at least {} bytes, got {}",
+            label,
             NONCE_LEN + 1,
             combined.len()
         );
@@ -128,89 +137,67 @@ pub fn decrypt_totp_secret(stored_value: &str) -> Result<String> {
 
     let (nonce_bytes, ciphertext) = combined.split_at(NONCE_LEN);
     let nonce = Nonce::from_slice(nonce_bytes);
-
     let cipher = Aes256Gcm::new(key);
 
-    let plaintext = cipher
+    cipher
         .decrypt(nonce, ciphertext)
         .map_err(|e| anyhow::anyhow!("Decryption failed: {}", e))
-        .context("Failed to decrypt TOTP secret - the data may be corrupted or the encryption key may have changed")?;
+        .with_context(|| {
+            format!(
+                "Failed to decrypt {} - the data may be corrupted or the encryption key may have changed",
+                label
+            )
+        })
+}
 
+/// Encrypt a TOTP secret for storage as base64(nonce || ciphertext).
+pub fn encrypt_totp_secret(plaintext: &str) -> Result<String> {
+    encrypt_bytes(plaintext.as_bytes())
+}
+
+/// Decrypt a TOTP secret stored as base64(nonce || ciphertext).
+pub fn decrypt_totp_secret(stored_value: &str) -> Result<String> {
+    let plaintext = decrypt_bytes(stored_value, "TOTP secret")?;
     String::from_utf8(plaintext).context("Decrypted TOTP secret is not valid UTF-8")
 }
 
-/// Encrypt a token for storage (verification tokens, password reset tokens, etc.)
-///
-/// Returns a base64-encoded string containing the nonce and ciphertext.
-/// Format: base64(nonce || ciphertext)
-///
-/// Fails if the encryption key is not configured.
+/// Encrypt a single-use token (verification, password reset) for storage.
 pub fn encrypt_token(plaintext: &str) -> Result<String> {
-    let key = get_encryption_key()?;
-    let cipher = Aes256Gcm::new(key);
-
-    // Generate a random 96-bit nonce
-    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
-
-    // Encrypt the plaintext
-    let ciphertext = cipher
-        .encrypt(&nonce, plaintext.as_bytes())
-        .map_err(|e| anyhow::anyhow!("Token encryption failed: {}", e))?;
-
-    // Combine nonce and ciphertext: nonce (12 bytes) || ciphertext
-    let mut combined = Vec::with_capacity(nonce.len() + ciphertext.len());
-    combined.extend_from_slice(&nonce);
-    combined.extend_from_slice(&ciphertext);
-
-    // Encode as base64 for storage
-    Ok(BASE64.encode(&combined))
+    encrypt_bytes(plaintext.as_bytes())
 }
 
-/// Decrypt a token from storage (verification tokens, password reset tokens, etc.)
-///
-/// Expects a base64-encoded string containing the nonce and ciphertext.
-/// Format: base64(nonce || ciphertext)
-///
-/// Fails if the encryption key is not configured or the data is malformed.
+/// Decrypt a single-use token from storage.
 pub fn decrypt_token(stored_value: &str) -> Result<String> {
-    let key = get_encryption_key()?;
-
-    // Decode from base64
-    let combined = BASE64
-        .decode(stored_value)
-        .context("Failed to decode stored token as base64")?;
-
-    // Nonce is 12 bytes for AES-256-GCM
-    const NONCE_LEN: usize = 12;
-
-    if combined.len() <= NONCE_LEN {
-        bail!(
-            "Encrypted token is too short: expected at least {} bytes, got {}",
-            NONCE_LEN + 1,
-            combined.len()
-        );
-    }
-
-    let (nonce_bytes, ciphertext) = combined.split_at(NONCE_LEN);
-    let nonce = Nonce::from_slice(nonce_bytes);
-
-    let cipher = Aes256Gcm::new(key);
-
-    let plaintext = cipher
-        .decrypt(nonce, ciphertext)
-        .map_err(|e| anyhow::anyhow!("Token decryption failed: {}", e))
-        .context("Failed to decrypt token - the data may be corrupted or the encryption key may have changed")?;
-
+    let plaintext = decrypt_bytes(stored_value, "token")?;
     String::from_utf8(plaintext).context("Decrypted token is not valid UTF-8")
+}
+
+/// Encrypt a settings value for storage in `settings.value` when the
+/// row is marked `encrypted = true`.
+pub fn encrypt_value(plaintext: &str) -> Result<String> {
+    encrypt_bytes(plaintext.as_bytes())
+}
+
+/// Decrypt a settings value previously produced by `encrypt_value`.
+pub fn decrypt_value(stored_value: &str) -> Result<String> {
+    let plaintext = decrypt_bytes(stored_value, "setting value")?;
+    String::from_utf8(plaintext).context("Decrypted setting value is not valid UTF-8")
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Mutex;
 
-    /// Generate a new random encryption key (for testing)
-    ///
-    /// Returns a 64-character hex string suitable for TOTP_ENCRYPTION_KEY
+    /// Serializes env mutation across this module's tests. Cargo runs
+    /// `#[test]` functions on multiple threads in the same process by
+    /// default, so two `set_var` calls would otherwise race on the C
+    /// `environ` block and corrupt the array. Other threads in the
+    /// test binary (the harness, panic-time backtrace machinery) are
+    /// not coordinated by this mutex; we mitigate by keeping env
+    /// mutation rare and confined to this module.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
     fn generate_encryption_key() -> String {
         let key = Aes256Gcm::generate_key(OsRng);
         hex::encode(key.as_slice())
@@ -218,7 +205,15 @@ mod tests {
 
     fn setup_test_key() -> String {
         let test_key_hex = generate_encryption_key();
-        env::set_var("TOTP_ENCRYPTION_KEY", &test_key_hex);
+        let _guard = ENV_LOCK.lock().expect("env mutex poisoned");
+        // SAFETY: `_guard` holds `ENV_LOCK` for the duration of the
+        // mutation, so no other test in this binary is concurrently
+        // in `set_var`/`remove_var`. No library code in the unit-test
+        // binary reads env from another thread between the lock acq
+        // and release.
+        unsafe {
+            env::set_var("SECURE_VALUES_KEY", &test_key_hex);
+        }
         test_key_hex
     }
 
@@ -230,16 +225,16 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        let test_key_hex = setup_test_key();
+        // This test constructs its own cipher and never touches the
+        // `ENCRYPTION_KEY` LazyLock, so no env mutation is needed.
+        let test_key_hex = generate_encryption_key();
 
-        // Need to manually construct the key since LazyLock is already initialized
         let key_bytes = hex::decode(&test_key_hex).unwrap();
         let key: [u8; 32] = key_bytes.try_into().unwrap();
         let key = Key::<Aes256Gcm>::from(key);
 
         let secret = "JBSWY3DPEHPK3PXP";
 
-        // Encrypt
         let cipher = Aes256Gcm::new(&key);
         let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
         let ciphertext = cipher.encrypt(&nonce, secret.as_bytes()).unwrap();
@@ -249,7 +244,6 @@ mod tests {
         combined.extend_from_slice(&ciphertext);
         let encrypted = BASE64.encode(&combined);
 
-        // Decrypt
         let decoded = BASE64.decode(&encrypted).unwrap();
         let (nonce_bytes, ct) = decoded.split_at(12);
         let nonce = Nonce::from_slice(nonce_bytes);
@@ -262,11 +256,9 @@ mod tests {
     fn test_decrypt_malformed_data_fails() {
         setup_test_key();
 
-        // Test that invalid base64 fails
         let result = decrypt_totp_secret("not-valid-base64!!!");
         assert!(result.is_err());
 
-        // Test that too-short data fails
         let short_data = BASE64.encode([1, 2, 3, 4, 5]);
         let result = decrypt_totp_secret(&short_data);
         assert!(result.is_err());

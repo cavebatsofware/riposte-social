@@ -15,7 +15,7 @@
  */
 use crate::errors::AppResult;
 use crate::middleware::AuthenticatedUser;
-use crate::settings::SettingsService;
+use crate::settings::{EncryptionMismatch, SettingsService};
 use axum::{
     extract::State,
     http::StatusCode,
@@ -25,6 +25,8 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+const SECRET_KEY_PREFIX: &str = "secret_";
 
 #[derive(Clone)]
 pub struct SettingsState {
@@ -41,34 +43,42 @@ pub fn settings_routes() -> Router<SettingsState> {
 struct SettingResponse {
     id: Uuid,
     key: String,
+    /// Empty string for encrypted rows: the admin UI never receives
+    /// the ciphertext or a decrypted value, only a flag that one is
+    /// set. Admins replace, they don't re-read.
     value: String,
     category: Option<String>,
+    encrypted: bool,
+    /// True when the row is encrypted and has a stored value. Lets
+    /// the UI render "(set)" vs an empty password field.
+    has_value: bool,
 }
 
 async fn get_all_settings(
     State(state): State<SettingsState>,
     _user: AuthenticatedUser,
 ) -> AppResult<Json<Vec<SettingResponse>>> {
-    tracing::info!("Fetching all settings");
-
     let settings = state.settings.get_all().await.map_err(|e| {
         tracing::error!("Failed to get settings from database: {}", e);
         crate::errors::AppError::InternalError(e.to_string())
     })?;
 
-    tracing::info!("Found {} settings", settings.len());
-
     let responses: Vec<SettingResponse> = settings
         .into_iter()
-        .map(|s| SettingResponse {
-            id: s.id,
-            key: s.key,
-            value: s.value,
-            category: s.category,
+        .map(|s| {
+            let has_value = !s.value.is_empty();
+            let value = if s.encrypted { String::new() } else { s.value };
+            SettingResponse {
+                id: s.id,
+                key: s.key,
+                value,
+                category: s.category,
+                encrypted: s.encrypted,
+                has_value,
+            }
         })
         .collect();
 
-    tracing::info!("Returning {} setting responses", responses.len());
     Ok(Json(responses))
 }
 
@@ -84,11 +94,27 @@ async fn update_setting(
     _user: AuthenticatedUser,
     Json(req): Json<UpdateSettingRequest>,
 ) -> AppResult<StatusCode> {
-    state
-        .settings
-        .set(&req.key, &req.value, req.category.as_deref(), None)
-        .await
-        .map_err(|e| crate::errors::AppError::InternalError(e.to_string()))?;
+    let is_secret = req.key.starts_with(SECRET_KEY_PREFIX);
+
+    let result = if is_secret {
+        state
+            .settings
+            .set_encrypted(&req.key, &req.value, req.category.as_deref(), None)
+            .await
+    } else {
+        state
+            .settings
+            .set(&req.key, &req.value, req.category.as_deref(), None)
+            .await
+    };
+
+    result.map_err(|e| {
+        if e.downcast_ref::<EncryptionMismatch>().is_some() {
+            crate::errors::AppError::ValidationError(e.to_string())
+        } else {
+            crate::errors::AppError::InternalError(e.to_string())
+        }
+    })?;
 
     Ok(StatusCode::OK)
 }

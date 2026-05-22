@@ -17,7 +17,29 @@ use anyhow::Result;
 use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set};
 use uuid::Uuid;
 
+use crate::crypto;
 use crate::entities::{setting, Setting};
+
+/// Returned by `SettingsService` when a caller chooses the wrong
+/// encryption-mode helper (e.g. `get` on an encrypted row, or `set` on
+/// a row that is already encrypted). Admin handlers downcast to this
+/// to surface a 400 rather than a 500.
+#[derive(Debug, thiserror::Error)]
+pub enum EncryptionMismatch {
+    #[error("setting {key:?} is encrypted; use get_encrypted")]
+    GetOnEncryptedRow { key: String },
+    #[error("setting {key:?} is not encrypted; use get")]
+    GetOnPlaintextRow { key: String },
+    #[error(
+        "setting {key:?} encryption mismatch: row encrypted={row_encrypted}, \
+         write encrypted={write_encrypted}"
+    )]
+    UpsertModeMismatch {
+        key: String,
+        row_encrypted: bool,
+        write_encrypted: bool,
+    },
+}
 
 #[derive(Debug, Clone)]
 pub struct SettingsService {
@@ -29,13 +51,12 @@ impl SettingsService {
         Self { db }
     }
 
-    /// Get a setting value by key, category, and optional entity_id
-    pub async fn get(
+    async fn find_one(
         &self,
         key: &str,
         category: Option<&str>,
         entity_id: Option<Uuid>,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<setting::Model>> {
         let mut query = Setting::find().filter(setting::Column::Key.eq(key));
 
         if let Some(cat) = category {
@@ -50,11 +71,44 @@ impl SettingsService {
             query = query.filter(setting::Column::EntityId.is_null());
         }
 
-        let setting = query.one(&self.db).await?;
-        Ok(setting.map(|s| s.value))
+        Ok(query.one(&self.db).await?)
     }
 
-    /// Get a boolean setting value
+    /// Get a plaintext setting value. Returns `None` if the row is
+    /// absent. Errors if the row is marked `encrypted = true`; callers
+    /// must use `get_encrypted` for those.
+    pub async fn get(
+        &self,
+        key: &str,
+        category: Option<&str>,
+        entity_id: Option<Uuid>,
+    ) -> Result<Option<String>> {
+        match self.find_one(key, category, entity_id).await? {
+            Some(row) if row.encrypted => {
+                Err(EncryptionMismatch::GetOnEncryptedRow { key: row.key }.into())
+            }
+            Some(row) => Ok(Some(row.value)),
+            None => Ok(None),
+        }
+    }
+
+    /// Decrypt and return an encrypted setting value. Errors if the row
+    /// exists but is not marked `encrypted = true`.
+    pub async fn get_encrypted(
+        &self,
+        key: &str,
+        category: Option<&str>,
+        entity_id: Option<Uuid>,
+    ) -> Result<Option<String>> {
+        match self.find_one(key, category, entity_id).await? {
+            Some(row) if !row.encrypted => {
+                Err(EncryptionMismatch::GetOnPlaintextRow { key: row.key }.into())
+            }
+            Some(row) => Ok(Some(crypto::decrypt_value(&row.value)?)),
+            None => Ok(None),
+        }
+    }
+
     pub async fn get_bool(
         &self,
         key: &str,
@@ -65,7 +119,8 @@ impl SettingsService {
         Ok(value.map(|v| v == "true").unwrap_or(false))
     }
 
-    /// Set a setting value, creating it if it doesn't exist
+    /// Insert or update a plaintext setting. Errors if an existing row
+    /// is marked encrypted; callers must use `set_encrypted` for those.
     pub async fn set(
         &self,
         key: &str,
@@ -73,39 +128,56 @@ impl SettingsService {
         category: Option<&str>,
         entity_id: Option<Uuid>,
     ) -> Result<()> {
-        // Try to find existing setting
-        let mut query = Setting::find().filter(setting::Column::Key.eq(key));
+        self.upsert(key, value, category, entity_id, false).await
+    }
 
-        if let Some(cat) = category {
-            query = query.filter(setting::Column::Category.eq(cat));
-        } else {
-            query = query.filter(setting::Column::Category.is_null());
-        }
+    /// Encrypt and store a value with `encrypted = true`. Errors if an
+    /// existing row is plaintext; callers must use `set` for those.
+    pub async fn set_encrypted(
+        &self,
+        key: &str,
+        value: &str,
+        category: Option<&str>,
+        entity_id: Option<Uuid>,
+    ) -> Result<()> {
+        let ciphertext = crypto::encrypt_value(value)?;
+        self.upsert(key, &ciphertext, category, entity_id, true)
+            .await
+    }
 
-        if let Some(eid) = entity_id {
-            query = query.filter(setting::Column::EntityId.eq(eid));
-        } else {
-            query = query.filter(setting::Column::EntityId.is_null());
-        }
-
-        let existing = query.one(&self.db).await?;
+    async fn upsert(
+        &self,
+        key: &str,
+        stored_value: &str,
+        category: Option<&str>,
+        entity_id: Option<Uuid>,
+        encrypted: bool,
+    ) -> Result<()> {
+        let existing = self.find_one(key, category, entity_id).await?;
 
         if let Some(existing_setting) = existing {
-            // Update existing
+            if existing_setting.encrypted != encrypted {
+                return Err(EncryptionMismatch::UpsertModeMismatch {
+                    key: existing_setting.key,
+                    row_encrypted: existing_setting.encrypted,
+                    write_encrypted: encrypted,
+                }
+                .into());
+            }
             let mut active: setting::ActiveModel = existing_setting.into();
-            active.value = Set(value.to_string());
+            active.value = Set(stored_value.to_string());
             active.updated_at = Set(chrono::Utc::now().into());
             active.update(&self.db).await?;
         } else {
-            // Create new
             let new_setting = setting::ActiveModel {
                 id: Set(Uuid::new_v4()),
                 key: Set(key.to_string()),
-                value: Set(value.to_string()),
+                value: Set(stored_value.to_string()),
                 category: Set(category.map(|s| s.to_string())),
                 entity_id: Set(entity_id),
                 created_at: Set(chrono::Utc::now().into()),
                 updated_at: Set(chrono::Utc::now().into()),
+                encrypted: Set(encrypted),
             };
             new_setting.insert(&self.db).await?;
         }
@@ -113,7 +185,6 @@ impl SettingsService {
         Ok(())
     }
 
-    /// Get all settings
     pub async fn get_all(&self) -> Result<Vec<setting::Model>> {
         let settings = Setting::find().all(&self.db).await?;
         Ok(settings)

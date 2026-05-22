@@ -180,8 +180,11 @@ async fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // Validate encryption key is configured before accepting requests
+    // Validate encryption key is configured before accepting requests,
+    // then remove it from the process environment. Must run before any
+    // tokio worker spawns: see `crypto::wipe_encryption_key_from_env`.
     crypto::validate_encryption_key();
+    crypto::wipe_encryption_key_from_env();
 
     // Register prometheus metrics
     metrics::register_metrics();
@@ -474,6 +477,7 @@ async fn bootstrap_admin(email: &str) -> anyhow::Result<()> {
     use uuid::Uuid;
 
     crypto::validate_encryption_key();
+    crypto::wipe_encryption_key_from_env();
 
     let db = database::establish_connection().await?;
 
@@ -592,6 +596,7 @@ async fn seed_test_admin(email: &str, password: &str) -> anyhow::Result<()> {
     }
 
     crypto::validate_encryption_key();
+    crypto::wipe_encryption_key_from_env();
 
     let db = database::establish_connection().await?;
     let now = Utc::now().fixed_offset();

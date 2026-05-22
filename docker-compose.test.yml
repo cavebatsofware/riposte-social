@@ -98,7 +98,7 @@ services:
       # Static test-only encryption key. NOT for production use; this
       # is checked in so the test container can boot without operator
       # provisioning.
-      TOTP_ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      SECURE_VALUES_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
       SEED_TEST_ADMIN: "true"
       TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-admin@test.local}
       TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-test_admin_password}

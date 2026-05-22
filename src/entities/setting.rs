@@ -27,6 +27,7 @@ pub struct Model {
     pub entity_id: Option<Uuid>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
+    pub encrypted: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -300,6 +300,7 @@ test: test-db-up
 	@echo "🧪 Running tests..."
 	DATABASE_URL="postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:$${TEST_POSTGRES_PASSWORD:-test_password}@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}" \
 	TEST_DATABASE_URL="postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:$${TEST_POSTGRES_PASSWORD:-test_password}@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}" \
+	SECURE_VALUES_KEY="$${SECURE_VALUES_KEY:-0000000000000000000000000000000000000000000000000000000000000000}" \
 	cargo test
 
 # Bring up the containerized test stack: postgres-test + the

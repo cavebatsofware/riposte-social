@@ -148,7 +148,7 @@ Copy `.env.example` to `.env` and configure. See `.env.example` for all options 
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SITE_DOMAIN` | Your domain (used for admin email validation) |
 | `SITE_URL` | Full site URL (used in emails and links) |
-| `TOTP_ENCRYPTION_KEY` | AES-256 key for MFA secrets (generate with `openssl rand -hex 32`) |
+| `SECURE_VALUES_KEY` | AES-256 key for encrypted-at-rest values: TOTP secrets, single-use tokens, encrypted `settings` rows (generate with `openssl rand -hex 32`). Wiped from the process environment after startup. |
 
 ### AWS (required for admin accounts)
 
