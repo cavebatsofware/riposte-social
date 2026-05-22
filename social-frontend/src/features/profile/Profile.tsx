@@ -5,6 +5,8 @@ import { useAuth } from "../../contexts/AuthContext";
 import { fetchAuthorFeed, fetchProfile } from "./api";
 import { recordPersonVisit } from "../../utils/browseHistory";
 import PostCard from "../feed/PostCard";
+import ArticleCard from "../articles/ArticleCard";
+import { fetchUserArticles, fetchMyDrafts } from "../articles/api";
 import SkeletonCard from "../../components/SkeletonCard";
 import FollowButton from "../profile/FollowButton";
 import "./Profile.css";
@@ -31,8 +33,19 @@ export default function Profile() {
   const [hasMore, setHasMore] = useState(false);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState("");
+
+  // Tabbed content view: "posts" | "articles" | "drafts".
+  // The "drafts" tab is only rendered when the viewer is the owner.
+  const [activeTab, setActiveTab] = useState<"posts" | "articles" | "drafts">(
+    "posts",
+  );
+  const [articles, setArticles] = useState([]);
+  const [articlesLoading, setArticlesLoading] = useState(false);
+  const [articlesError, setArticlesError] = useState("");
+
   const { t } = useTranslation("browse");
   const { t: tCommon } = useTranslation("common");
+  const { t: tArticles } = useTranslation("articles");
 
   useEffect(() => {
     let cancelled = false;
@@ -113,6 +126,35 @@ export default function Profile() {
 
   const isSelf = viewer && profile && viewer.id === profile.user_id;
 
+  // Lazy-fetch articles when the Articles or Drafts tab is selected.
+  // The drafts surface is owner-only (server-side authentication enforces it).
+  useEffect(() => {
+    if (!authorId) return;
+    if (activeTab === "posts") return;
+    let cancelled = false;
+    async function load() {
+      setArticlesLoading(true);
+      setArticlesError("");
+      try {
+        const response =
+          activeTab === "drafts"
+            ? await fetchMyDrafts()
+            : await fetchUserArticles(authorId);
+        if (!response.ok) throw new Error(tArticles("browse.loadFailed"));
+        const data = await response.json();
+        if (!cancelled) setArticles(data.articles);
+      } catch (err) {
+        if (!cancelled) setArticlesError(err.message);
+      } finally {
+        if (!cancelled) setArticlesLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [authorId, activeTab, tArticles]);
+
   return (
     <>
       {profileLoading && <SkeletonCard />}
@@ -132,48 +174,120 @@ export default function Profile() {
             onProfileChange={setProfile}
           />
 
-          <h2 className="profile-posts-heading">{t("profile.postsHeading")}</h2>
-
-          {postsError && (
-            <div className="alert alert-error" role="alert">
-              {postsError}
-            </div>
-          )}
-
-          {postsLoading && posts.length === 0 && (
-            <section
-              className="feed-list"
-              aria-label={t("profile.loadingPostsAria")}
-              aria-busy="true"
+          <div className="profile-tabs" role="tablist" aria-label={t("profile.postsHeading")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "posts"}
+              aria-controls="profile-content-panel"
+              className={`profile-tab${activeTab === "posts" ? " is-active" : ""}`}
+              onClick={() => setActiveTab("posts")}
             >
-              {Array.from({ length: 2 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </section>
-          )}
-
-          {!postsLoading && posts.length === 0 && !postsError && (
-            <p className="muted">{t("profile.postsEmpty")}</p>
-          )}
-
-          <section className="feed-list">
-            {posts.map((p) => (
-              <PostCard key={p.id} post={p} variant="feed" />
-            ))}
-          </section>
-
-          {hasMore && (
-            <div className="feed-load-more">
+              {tArticles("profile.tabPosts")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "articles"}
+              aria-controls="profile-content-panel"
+              className={`profile-tab${activeTab === "articles" ? " is-active" : ""}`}
+              onClick={() => setActiveTab("articles")}
+            >
+              {tArticles("profile.tabArticles")}
+            </button>
+            {isSelf && (
               <button
                 type="button"
-                className="btn-secondary"
-                disabled={postsLoading}
-                onClick={() => loadPostsPage(cursor)}
+                role="tab"
+                aria-selected={activeTab === "drafts"}
+                aria-controls="profile-content-panel"
+                className={`profile-tab${activeTab === "drafts" ? " is-active" : ""}`}
+                onClick={() => setActiveTab("drafts")}
               >
-                {postsLoading ? tCommon("loading") : tCommon("loadMore")}
+                {tArticles("profile.tabDrafts")}
               </button>
-            </div>
+            )}
+          </div>
+          <div
+            id="profile-content-panel"
+            role="tabpanel"
+            aria-label={tArticles(`profile.tab${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)}` as never)}
+          >
+
+          {activeTab === "posts" && (
+            <>
+              {postsError && (
+                <div className="alert alert-error" role="alert">
+                  {postsError}
+                </div>
+              )}
+
+              {postsLoading && posts.length === 0 && (
+                <section
+                  className="feed-list"
+                  aria-label={t("profile.loadingPostsAria")}
+                  aria-busy="true"
+                >
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </section>
+              )}
+
+              {!postsLoading && posts.length === 0 && !postsError && (
+                <p className="muted">{t("profile.postsEmpty")}</p>
+              )}
+
+              <section className="feed-list">
+                {posts.map((p) => (
+                  <PostCard key={p.id} post={p} variant="feed" />
+                ))}
+              </section>
+
+              {hasMore && (
+                <div className="feed-load-more">
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    disabled={postsLoading}
+                    onClick={() => loadPostsPage(cursor)}
+                  >
+                    {postsLoading ? tCommon("loading") : tCommon("loadMore")}
+                  </button>
+                </div>
+              )}
+            </>
           )}
+
+          {(activeTab === "articles" || activeTab === "drafts") && (
+            <>
+              {articlesError && (
+                <div className="alert alert-error" role="alert">
+                  {articlesError}
+                </div>
+              )}
+              {articlesLoading && articles.length === 0 && (
+                <div aria-busy="true">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </div>
+              )}
+              {!articlesLoading && articles.length === 0 && !articlesError && (
+                <p className="muted">
+                  {activeTab === "drafts"
+                    ? tArticles("profile.noDrafts")
+                    : tArticles("profile.noArticles")}
+                </p>
+              )}
+              <div className="articles-list">
+                {articles.map((a) => (
+                  <ArticleCard key={a.id} summary={a} />
+                ))}
+              </div>
+            </>
+          )}
+          </div>
         </>
       )}
     </>

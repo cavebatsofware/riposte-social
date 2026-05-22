@@ -22,7 +22,13 @@
     "searchSubmitAria": "Suchen",
     "searchClearAria": "Suche löschen",
     "noResultsFor": "Keine Beiträge entsprechen „{{query}}\".",
-    "clearSearch": "Suche löschen"
+    "clearSearch": "Suche löschen",
+    "kindFilterAria": "Feed nach Inhaltstyp filtern",
+    "kindFilter": {
+      "all": "Alle",
+      "posts": "Beiträge",
+      "articles": "Artikel"
+    }
   },
   "visibility": {
     "private": {

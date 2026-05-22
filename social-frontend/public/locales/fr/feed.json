@@ -22,7 +22,13 @@
     "searchSubmitAria": "Rechercher",
     "searchClearAria": "Effacer la recherche",
     "noResultsFor": "Aucune publication ne correspond à « {{query}} ».",
-    "clearSearch": "Effacer la recherche"
+    "clearSearch": "Effacer la recherche",
+    "kindFilterAria": "Filtrer le flux par type de contenu",
+    "kindFilter": {
+      "all": "Tout",
+      "posts": "Publications",
+      "articles": "Articles"
+    }
   },
   "visibility": {
     "private": {

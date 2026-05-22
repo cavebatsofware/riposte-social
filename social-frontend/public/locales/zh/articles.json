@@ -1,0 +1,33 @@
+{
+  "card": {
+    "readingTime_one": "约 {{count}} 分钟",
+    "readingTime_other": "约 {{count}} 分钟",
+    "statsAria": "互动与评论",
+    "reactions_one": "{{count}} 个互动",
+    "reactions_other": "{{count}} 个互动",
+    "comments_one": "{{count}} 条评论",
+    "comments_other": "{{count}} 条评论"
+  },
+  "view": {
+    "heading": "文章",
+    "notFound": "未找到文章,或没有访问权限。",
+    "loadFailed": "无法加载文章。",
+    "deleteConfirm": "确定要删除此文章吗?此操作无法撤销。",
+    "deleteFailed": "无法删除文章。",
+    "backToArticles": "← 返回文章列表",
+    "draftPill": "草稿",
+    "draftPillAria": "草稿,仅你可见"
+  },
+  "browse": {
+    "title": "文章",
+    "empty": "暂无文章。",
+    "loadFailed": "无法加载文章。"
+  },
+  "profile": {
+    "tabPosts": "帖子",
+    "tabArticles": "文章",
+    "tabDrafts": "我的草稿",
+    "noArticles": "暂无文章。",
+    "noDrafts": "暂无草稿。"
+  }
+}

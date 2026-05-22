@@ -1,0 +1,33 @@
+{
+  "card": {
+    "readingTime_one": "{{count}} Min. Lesezeit",
+    "readingTime_other": "{{count}} Min. Lesezeit",
+    "statsAria": "Reaktionen und Kommentare",
+    "reactions_one": "{{count}} Reaktion",
+    "reactions_other": "{{count}} Reaktionen",
+    "comments_one": "{{count}} Kommentar",
+    "comments_other": "{{count}} Kommentare"
+  },
+  "view": {
+    "heading": "Artikel",
+    "notFound": "Artikel nicht gefunden oder kein Zugriff.",
+    "loadFailed": "Artikel konnte nicht geladen werden.",
+    "deleteConfirm": "Diesen Artikel löschen? Das lässt sich nicht rückgängig machen.",
+    "deleteFailed": "Artikel konnte nicht gelöscht werden.",
+    "backToArticles": "← Zurück zu Artikeln",
+    "draftPill": "Entwurf",
+    "draftPillAria": "Entwurf, nur für dich sichtbar"
+  },
+  "browse": {
+    "title": "Artikel",
+    "empty": "Noch keine Artikel.",
+    "loadFailed": "Artikel konnten nicht geladen werden."
+  },
+  "profile": {
+    "tabPosts": "Beiträge",
+    "tabArticles": "Artikel",
+    "tabDrafts": "Meine Entwürfe",
+    "noArticles": "Noch keine Artikel.",
+    "noDrafts": "Keine Entwürfe."
+  }
+}

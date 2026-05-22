@@ -6,6 +6,7 @@ import { useSiteConfig } from "../../contexts/SiteConfigContext";
 import { recordCategoryVisit } from "../../utils/browseHistory";
 import InviteSplash from "../auth/InviteSplash";
 import PostCard from "./PostCard";
+import ArticleCard from "../articles/ArticleCard";
 import SkeletonCard from "../../components/SkeletonCard";
 import { fetchFeed } from "./api";
 
@@ -24,6 +25,9 @@ export default function Feed() {
   const [params, setParams] = useSearchParams();
   const category = params.get("category");
   const q = params.get("q") || "";
+  const kindParam = params.get("kind");
+  const kind =
+    kindParam === "posts" || kindParam === "articles" ? kindParam : "all";
   const [posts, setPosts] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -70,6 +74,7 @@ export default function Feed() {
         if (nextCursor) qp.set("cursor", nextCursor);
         if (category) qp.set("category", category);
         if (q) qp.set("q", q);
+        if (kind !== "all") qp.set("kind", kind);
         const response = await fetchFeed(qp.toString());
         if (!response.ok) {
           throw new Error(t("feed.loadFailed"));
@@ -86,7 +91,7 @@ export default function Feed() {
         setLoading(false);
       }
     },
-    [category, q, t],
+    [category, q, kind, t],
   );
 
   // Re-load from page 0 whenever the active category or search changes.
@@ -100,6 +105,15 @@ export default function Feed() {
     setHasMore(false);
     loadPage(null);
   }, [loadPage]);
+
+  function setKindFilter(nextKind) {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (nextKind === "all") next.delete("kind");
+      else next.set("kind", nextKind);
+      return next;
+    });
+  }
 
   function submitSearch(e) {
     e.preventDefault();
@@ -199,10 +213,35 @@ export default function Feed() {
         />
       )}
 
-      <section className="feed-list">
-        {posts.map((p) => (
-          <PostCard key={p.id} post={p} variant="feed" />
+      <div className="feed-kind-toggle" role="tablist" aria-label={t("feed.kindFilterAria")}>
+        {(["all", "posts", "articles"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="tab"
+            aria-selected={kind === option}
+            aria-controls="feed-list-panel"
+            className={`feed-kind-toggle-option${kind === option ? " is-active" : ""}`}
+            onClick={() => setKindFilter(option)}
+          >
+            {t(`feed.kindFilter.${option}`)}
+          </button>
         ))}
+      </div>
+
+      <section
+        className="feed-list"
+        id="feed-list-panel"
+        role="tabpanel"
+        aria-label={t(`feed.kindFilter.${kind}`)}
+      >
+        {posts.map((p) =>
+          p.kind === "article" ? (
+            <ArticleCard key={p.id} post={p} />
+          ) : (
+            <PostCard key={p.id} post={p} variant="feed" />
+          ),
+        )}
       </section>
 
       {hasMore && (

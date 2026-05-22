@@ -22,7 +22,13 @@
     "searchSubmitAria": "Search",
     "searchClearAria": "Clear search",
     "noResultsFor": "No posts match \"{{query}}\".",
-    "clearSearch": "Clear search"
+    "clearSearch": "Clear search",
+    "kindFilterAria": "Filter feed by content type",
+    "kindFilter": {
+      "all": "All",
+      "posts": "Posts",
+      "articles": "Articles"
+    }
   },
   "visibility": {
     "private": {

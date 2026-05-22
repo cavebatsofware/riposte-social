@@ -31,7 +31,15 @@ export const LOCALE_NATIVE_NAMES = {
 /// `common` is loaded eagerly via `defaultNS` because Layout, ThemePicker,
 /// LanguagePicker, MobileDrawer, and the cookie banner all read from it
 /// and they're on every route.
-export const NAMESPACES = ["common", "feed", "compose", "settings", "auth", "browse"];
+export const NAMESPACES = [
+  "common",
+  "feed",
+  "compose",
+  "settings",
+  "auth",
+  "browse",
+  "articles",
+];
 
 i18n
   .use(HttpBackend)
