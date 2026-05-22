@@ -49,3 +49,31 @@ Cypress.Commands.add("createPost", (fields) => {
 Cypress.Commands.add("createAlbum", (fields) => {
   return postMultipart("/api/albums", { visibility: "public", ...fields });
 });
+
+/// Create an article via `/api/articles`. JSON body, not multipart;
+/// `title` is required. `is_draft` defaults to false (i.e. published)
+/// for tests since the public surfaces are what we're asserting on;
+/// flip it to true when seeding draft-specific scenarios. No cover
+/// image or inline media: text-only matches the CI test env's S3-free
+/// constraint.
+Cypress.Commands.add("createArticle", (fields) => {
+  const body = {
+    title: fields.title,
+    body: fields.body || "Article body for tests.",
+    is_draft: fields.is_draft ?? false,
+    visibility: fields.visibility || "public",
+  };
+  return cy
+    .request("GET", "/api/auth/csrf-token")
+    .then(({ body: { token } }) =>
+      cy.request({
+        method: "POST",
+        url: "/api/articles",
+        headers: {
+          "x-csrf-token": token,
+          "content-type": "application/json",
+        },
+        body,
+      }),
+    );
+});
