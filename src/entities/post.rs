@@ -42,8 +42,9 @@ pub fn is_valid_visibility(v: &str) -> bool {
 /// (e.g. `'article'`) drop in without DDL. Stored on `posts.kind`.
 pub const KIND_POST: &str = "post";
 pub const KIND_ALBUM: &str = "album";
+pub const KIND_ARTICLE: &str = "article";
 
-pub const ALLOWED_KINDS: &[&str] = &[KIND_POST, KIND_ALBUM];
+pub const ALLOWED_KINDS: &[&str] = &[KIND_POST, KIND_ALBUM, KIND_ARTICLE];
 
 pub fn is_valid_kind(v: &str) -> bool {
     ALLOWED_KINDS.contains(&v)
@@ -70,12 +71,13 @@ pub struct Model {
     /// nullable category FK. NULL means uncategorized. Deleting
     /// a category sets this to NULL via `ON DELETE SET NULL`.
     pub category_id: Option<Uuid>,
-    /// `'post'` (default) or `'album'`. Future
-    /// kinds (`'article'`, ...) extend this without DDL.
+    /// `'post'` (default), `'album'`, or `'article'`. Open-ended TEXT so
+    /// future kinds extend this without DDL.
     pub kind: String,
-    /// For `kind='album'` this carries the album
-    /// name (required at the handler layer); for `kind='post'` it's
-    /// optional.
+    /// Title-like field. Required at the handler layer for
+    /// `kind='album'` (album name) and `kind='article'` (article title);
+    /// optional for `kind='post'`. The column stays nullable so all kinds
+    /// share a single schema.
     pub slug: Option<String>,
 }
 

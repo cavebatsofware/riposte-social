@@ -15,6 +15,7 @@
  */
 pub mod access_code;
 pub mod access_log;
+pub mod article_details;
 pub mod category;
 pub mod category_member;
 pub mod comment;
@@ -33,6 +34,7 @@ pub mod user;
 
 pub use access_code::Entity as AccessCode;
 pub use access_log::Entity as AccessLog;
+pub use article_details::Entity as ArticleDetails;
 pub use category::Entity as Category;
 pub use category_member::Entity as CategoryMember;
 pub use comment::Entity as Comment;
