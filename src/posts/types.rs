@@ -72,6 +72,10 @@ pub struct PostCategoryRef {
 #[ts(export)]
 pub struct PostResponse {
     pub id: Uuid,
+    /// Discriminator: `"post"` or `"article"`. Albums don't appear in the
+    /// feed and don't ship through this struct. Frontend feed branches on
+    /// this to pick PostCard vs. ArticleCard.
+    pub kind: String,
     pub author_id: Uuid,
     pub author_display: Option<String>,
     pub author_handle: Option<String>,
@@ -94,6 +98,22 @@ pub struct PostResponse {
     pub comment_count: i64,
     pub category: Option<PostCategoryRef>,
     pub top_comments: Vec<CommentResponse>,
+    /// Article-specific preview fields. Present iff `kind == "article"`.
+    /// Carries title, subtitle, excerpt, cover URL, and reading time so
+    /// the frontend can render an article card without a second fetch.
+    pub article: Option<ArticlePreview>,
+}
+
+#[derive(Serialize, Clone, TS)]
+#[ts(export)]
+pub struct ArticlePreview {
+    pub title: String,
+    pub subtitle: Option<String>,
+    pub excerpt: Option<String>,
+    pub cover_media_id: Option<Uuid>,
+    pub cover_url: Option<String>,
+    #[ts(type = "number")]
+    pub reading_time_minutes: i32,
 }
 
 #[derive(Serialize, TS)]
@@ -148,6 +168,22 @@ pub fn build_post_response(
     category: Option<&category::Model>,
     top_comment_authors: &HashMap<Uuid, user::Model>,
 ) -> PostResponse {
+    build_post_response_with_article(row, author, media, engagement, category, top_comment_authors, None)
+}
+
+/// Build a feed/post response with an optional embedded `ArticlePreview`.
+/// Pass `Some(...)` only for `kind='article'` rows; the resulting
+/// `article` field on the response acts as the discriminator alongside
+/// `kind` for the frontend's per-row branch.
+pub fn build_post_response_with_article(
+    row: post::Model,
+    author: Option<&user::Model>,
+    media: Vec<post_media::Model>,
+    engagement: PostEngagement,
+    category: Option<&category::Model>,
+    top_comment_authors: &HashMap<Uuid, user::Model>,
+    article: Option<ArticlePreview>,
+) -> PostResponse {
     let body_html = markdown::render_to_html(&row.body);
     let category_ref = category.map(|c| PostCategoryRef {
         id: c.id,
@@ -168,6 +204,7 @@ pub fn build_post_response(
         .unwrap_or_else(|| row.visibility.clone());
     PostResponse {
         id: row.id,
+        kind: row.kind.clone(),
         author_id: row.author_id,
         author_display: author.and_then(|u| u.display_name.clone()),
         author_handle: author.map(|u| u.handle.clone()),
@@ -188,6 +225,7 @@ pub fn build_post_response(
         comment_count: engagement.comment_count,
         category: category_ref,
         top_comments,
+        article,
     }
 }
 
@@ -213,6 +251,10 @@ pub struct FeedQuery {
     /// switches to BM25 relevance and pagination collapses to a single page.
     #[serde(default)]
     pub q: Option<String>,
+    /// Content-type filter: `all` (default), `posts`, or `articles`.
+    /// Anything else returns a 400.
+    #[serde(default)]
+    pub kind: Option<String>,
 }
 
 #[derive(Serialize, TS)]

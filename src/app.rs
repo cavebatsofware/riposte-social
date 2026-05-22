@@ -15,6 +15,7 @@
  */
 use crate::admin::{self, UserAuthBackend};
 use crate::albums;
+use crate::articles;
 use crate::auth;
 use crate::auth::oidc::{OidcConfig, OidcService};
 use crate::categories;
@@ -585,6 +586,34 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .with_state(albums_state)
         .layer(auth_layer.clone());
 
+    // Articles: long-form markdown content. Sit on the shared `posts`
+    // table with `kind='article'` and a 1-to-1 `article_details` row.
+    // Writes mirror posts (admin/poster + author/admin), reads are public
+    // with the same visibility predicate. Inline image uploads on the
+    // composer flow through the existing `/api/posts/{id}/media` against
+    // the draft's id, so this router has no media routes of its own.
+    let articles_state = articles::ArticlesState {
+        db: state.db.clone(),
+        s3: state.s3.clone(),
+        settings: state.settings.clone(),
+    };
+    let article_write_routes = articles::article_write_routes()
+        .with_state(articles_state.clone())
+        .layer(from_fn(require_admin_or_poster))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    // Drafts listing requires authentication (it returns the caller's own
+    // drafts). The rest of the read surface is public with visibility
+    // filtering applied per-row.
+    let article_authed_read_routes = articles::article_authed_read_routes()
+        .with_state(articles_state.clone())
+        .layer(from_fn(require_authenticated))
+        .layer(auth_layer.clone());
+    let article_read_routes = articles::article_read_routes()
+        .with_state(articles_state)
+        .layer(auth_layer.clone());
+
     // Categories. Public list is readable by anyone (used by
     // the social-frontend's left rail); CRUD is admin-only.
     let categories_state = categories::CategoriesState {
@@ -710,6 +739,9 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(post_read_routes)
         .merge(album_write_routes)
         .merge(album_read_routes)
+        .merge(article_write_routes)
+        .merge(article_authed_read_routes)
+        .merge(article_read_routes)
         .merge(public_category_routes)
         .merge(category_management_routes)
         .merge(me_profile_routes)
