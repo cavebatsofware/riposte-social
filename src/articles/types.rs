@@ -145,8 +145,6 @@ pub struct ListArticlesQuery {
     pub author: Option<Uuid>,
     #[serde(default)]
     pub category: Option<String>,
-    #[serde(default)]
-    pub q: Option<String>,
 }
 
 #[derive(Serialize, TS)]

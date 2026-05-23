@@ -16,10 +16,8 @@
 //! DB query builders for posts. Includes the BM25-aware feed query and
 //! the smaller `find_*`/`load_*` helpers handlers compose around.
 
-use crate::entities::{
-    article_details, category, post, post_media, user, ArticleDetails, Category, Post, PostMedia,
-    User,
-};
+use crate::articles::queries::draft_post_ids_subquery;
+use crate::entities::{category, post, post_media, user, Category, Post, PostMedia, User};
 use chrono::{DateTime, FixedOffset};
 use sea_orm::sea_query::{Expr, IntoCondition};
 use sea_orm::{
@@ -262,12 +260,7 @@ where
             q = q.filter(post::Column::Kind.eq(post::KIND_ARTICLE));
         }
     }
-    let drafts_subquery = ArticleDetails::find()
-        .select_only()
-        .column(article_details::Column::PostId)
-        .filter(article_details::Column::IsDraft.eq(true))
-        .into_query();
-    q = q.filter(post::Column::Id.not_in_subquery(drafts_subquery));
+    q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
 
     if let Some(author_id) = filters.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));

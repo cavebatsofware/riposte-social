@@ -54,6 +54,7 @@
     "imageNeedsTitle": "请先添加标题再上传图片。",
     "titleRequired": "标题为必填项。",
     "uploadFailed": "图片上传失败。",
-    "loadFailed": "无法加载此文章。"
+    "loadFailed": "无法加载此文章。",
+    "autosaveFailed": "无法保存最近的更改。请继续编辑以重试,或使用保存草稿。"
   }
 }

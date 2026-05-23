@@ -54,6 +54,7 @@
     "imageNeedsTitle": "Ajoutez un titre avant de téléverser des images.",
     "titleRequired": "Le titre est obligatoire.",
     "uploadFailed": "Échec du téléversement de l'image.",
-    "loadFailed": "Impossible de charger cet article."
+    "loadFailed": "Impossible de charger cet article.",
+    "autosaveFailed": "Impossible d'enregistrer vos dernières modifications. Continuez à écrire pour réessayer, ou utilisez Enregistrer le brouillon."
   }
 }

@@ -7,14 +7,14 @@ import { fetchArticles } from "./api";
 
 const ARTICLES_LIMIT = 20;
 
-/// Browse page at `/articles`. Lists published articles, filtered by
-/// category (slug) and author (handle/uuid via the URL). The backend
-/// already strips drafts and applies the visibility predicate; this
-/// component just renders whatever it returns.
+/// Browse page at `/articles`. Lists published articles, optionally
+/// filtered by category (slug) from the URL. Per-author filtering happens
+/// on the profile page via `/api/users/{id}/articles`, not here. The
+/// backend already strips drafts and applies the visibility predicate;
+/// this component just renders whatever it returns.
 export default function Articles() {
   const [params] = useSearchParams();
   const category = params.get("category");
-  const author = params.get("author");
   const [articles, setArticles] = useState([]);
   const [cursor, setCursor] = useState(null);
   const [hasMore, setHasMore] = useState(false);
@@ -32,7 +32,6 @@ export default function Articles() {
         qp.set("limit", String(ARTICLES_LIMIT));
         if (nextCursor) qp.set("cursor", nextCursor);
         if (category) qp.set("category", category);
-        if (author) qp.set("author", author);
         const response = await fetchArticles(qp.toString());
         if (!response.ok) throw new Error(t("browse.loadFailed"));
         const data = await response.json();
@@ -47,7 +46,7 @@ export default function Articles() {
         setLoading(false);
       }
     },
-    [category, author, t],
+    [category, t],
   );
 
   useEffect(() => {

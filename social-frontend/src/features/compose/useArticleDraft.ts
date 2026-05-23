@@ -117,6 +117,7 @@ export function useArticleDraft({
   );
   const [loading, setLoading] = useState(Boolean(initialId));
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Latest field snapshot for the debounced flush; refs avoid recreating the
   // timer when the user types another character mid-debounce.
@@ -212,7 +213,17 @@ export function useArticleDraft({
     } else {
       patch.clear_category = true;
     }
-    await updateArticle(articleId, patch);
+    try {
+      const response = await updateArticle(articleId, patch);
+      if (!response.ok) throw new Error("save_failed");
+      setSaveError(null);
+    } catch {
+      // Surface the failure so the composer can show an inline message;
+      // re-flag the patch as pending so the next field change (or
+      // explicit Save draft) retries the save.
+      setSaveError("save_failed");
+      pendingPatchRef.current = true;
+    }
   }, []);
 
   const scheduleAutosave = useCallback(() => {
@@ -459,6 +470,7 @@ export function useArticleDraft({
     status,
     loading,
     loadError,
+    saveError,
     setTitle,
     setSubtitle,
     setBody,

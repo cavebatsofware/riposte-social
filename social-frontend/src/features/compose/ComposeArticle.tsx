@@ -291,6 +291,11 @@ export default function ComposeArticle() {
             {error}
           </div>
         )}
+        {!error && draft.saveError && (
+          <div className="alert alert-error" role="alert">
+            {t("compose.autosaveFailed")}
+          </div>
+        )}
 
         <div className="compose-field">
           <label htmlFor="article-title">

@@ -54,6 +54,7 @@
     "imageNeedsTitle": "Titel hinzufügen, bevor du Bilder hochlädst.",
     "titleRequired": "Titel ist erforderlich.",
     "uploadFailed": "Bild-Upload fehlgeschlagen.",
-    "loadFailed": "Dieser Artikel konnte nicht geladen werden."
+    "loadFailed": "Dieser Artikel konnte nicht geladen werden.",
+    "autosaveFailed": "Deine letzten Änderungen konnten nicht gespeichert werden. Schreib weiter, dann versuchen wir es noch einmal, oder nutze Entwurf speichern."
   }
 }

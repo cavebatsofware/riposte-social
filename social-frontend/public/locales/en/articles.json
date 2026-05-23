@@ -54,6 +54,7 @@
     "imageNeedsTitle": "Add a title before uploading images.",
     "titleRequired": "Title is required.",
     "uploadFailed": "Image upload failed.",
-    "loadFailed": "Couldn't load this article."
+    "loadFailed": "Couldn't load this article.",
+    "autosaveFailed": "Couldn't save your latest changes. Keep editing and we'll try again, or use Save draft."
   }
 }

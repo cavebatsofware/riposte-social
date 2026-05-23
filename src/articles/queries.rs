@@ -23,12 +23,26 @@ use crate::entities::{
     article_details, category, post, post_media, ArticleDetails, Category, Post, PostMedia, User,
 };
 use chrono::{DateTime, FixedOffset};
-use sea_orm::sea_query::IntoCondition;
+use sea_orm::sea_query::{IntoCondition, SelectStatement};
 use sea_orm::{
     ColumnTrait, ConnectionTrait, DbErr, EntityTrait, QueryFilter, QueryOrder, QuerySelect,
+    QueryTrait,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
+
+/// Subquery yielding `article_details.post_id` for every draft row.
+/// Compose with `post::Column::Id.not_in_subquery(...)` to strip drafts
+/// from a posts-table query, or `in_subquery(...)` to keep only drafts.
+/// Used by the public article listing, the feed query, and the
+/// author-drafts query so the predicate stays in one place.
+pub fn draft_post_ids_subquery() -> SelectStatement {
+    ArticleDetails::find()
+        .select_only()
+        .column(article_details::Column::PostId)
+        .filter(article_details::Column::IsDraft.eq(true))
+        .into_query()
+}
 
 pub async fn find_article_details<C: ConnectionTrait>(
     conn: &C,
@@ -96,10 +110,7 @@ where
         .filter(post::Column::DeletedAt.is_null())
         .filter(post::Column::Kind.eq(post::KIND_ARTICLE))
         .filter(filters.feed_condition)
-        .filter(sea_orm::sea_query::Expr::cust(
-            "NOT EXISTS (SELECT 1 FROM article_details ad \
-                 WHERE ad.post_id = posts.id AND ad.is_draft = true)",
-        ))
+        .filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()))
         .order_by_desc(post::Column::PublishedAt)
         .order_by_desc(post::Column::Id);
 
@@ -141,10 +152,7 @@ pub async fn list_author_drafts<C: ConnectionTrait>(
         .filter(post::Column::DeletedAt.is_null())
         .filter(post::Column::Kind.eq(post::KIND_ARTICLE))
         .filter(post::Column::AuthorId.eq(author_id))
-        .filter(sea_orm::sea_query::Expr::cust(
-            "EXISTS (SELECT 1 FROM article_details ad \
-                 WHERE ad.post_id = posts.id AND ad.is_draft = true)",
-        ))
+        .filter(post::Column::Id.in_subquery(draft_post_ids_subquery()))
         .order_by_desc(post::Column::UpdatedAt)
         .order_by_desc(post::Column::Id)
         .all(conn)

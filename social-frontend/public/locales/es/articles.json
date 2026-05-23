@@ -54,6 +54,7 @@
     "imageNeedsTitle": "Agrega un título antes de subir imágenes.",
     "titleRequired": "El título es obligatorio.",
     "uploadFailed": "Error al subir la imagen.",
-    "loadFailed": "No se pudo cargar este artículo."
+    "loadFailed": "No se pudo cargar este artículo.",
+    "autosaveFailed": "No se pudieron guardar tus últimos cambios. Sigue editando y lo intentaremos de nuevo, o usa Guardar borrador."
   }
 }

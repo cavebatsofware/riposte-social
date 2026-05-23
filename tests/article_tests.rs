@@ -259,8 +259,7 @@ async fn test_draft_visibility_pinned_on_patch(pool: sqlx::PgPool) {
     // Attempt to relax visibility while keeping the row a draft. The
     // server must pin visibility back to private regardless of the
     // submitted value.
-    let patched =
-        patch_article_via_api(&server, id, json!({ "visibility": "public" })).await;
+    let patched = patch_article_via_api(&server, id, json!({ "visibility": "public" })).await;
     assert_eq!(patched.status_code(), StatusCode::OK, "{}", patched.text());
     let body: serde_json::Value = patched.json();
     assert_eq!(body["is_draft"], true);

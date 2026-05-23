@@ -589,9 +589,10 @@ pub fn build_router(deps: RouterDeps) -> Router {
     // Articles: long-form markdown content. Sit on the shared `posts`
     // table with `kind='article'` and a 1-to-1 `article_details` row.
     // Writes mirror posts (admin/poster + author/admin), reads are public
-    // with the same visibility predicate. Inline image uploads on the
-    // composer flow through the existing `/api/posts/{id}/media` against
-    // the draft's id, so this router has no media routes of its own.
+    // with the same visibility predicate. Inline image uploads and the
+    // cover image flow through the article-specific
+    // `POST /api/articles/{id}/media` (kind-gated on `KIND_ARTICLE`)
+    // registered on `article_write_routes`.
     let articles_state = articles::ArticlesState {
         db: state.db.clone(),
         s3: state.s3.clone(),
