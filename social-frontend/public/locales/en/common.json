@@ -21,6 +21,9 @@
   "nav": {
     "feed": "Feed",
     "compose": "Compose",
+    "composeMenuAria": "Open compose menu",
+    "newPost": "New post",
+    "newArticle": "New article",
     "newAlbum": "New album"
   },
   "auth": {

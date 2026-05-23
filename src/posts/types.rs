@@ -168,7 +168,15 @@ pub fn build_post_response(
     category: Option<&category::Model>,
     top_comment_authors: &HashMap<Uuid, user::Model>,
 ) -> PostResponse {
-    build_post_response_with_article(row, author, media, engagement, category, top_comment_authors, None)
+    build_post_response_with_article(
+        row,
+        author,
+        media,
+        engagement,
+        category,
+        top_comment_authors,
+        None,
+    )
 }
 
 /// Build a feed/post response with an optional embedded `ArticlePreview`.

@@ -21,6 +21,9 @@
   "nav": {
     "feed": "Feed",
     "compose": "Verfassen",
+    "composeMenuAria": "Verfassen-Menü öffnen",
+    "newPost": "Neuer Beitrag",
+    "newArticle": "Neuer Artikel",
     "newAlbum": "Neues Album"
   },
   "auth": {

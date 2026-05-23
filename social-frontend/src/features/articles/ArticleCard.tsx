@@ -71,14 +71,19 @@ export default function ArticleCard({ post, summary }) {
         </Link>
       )}
       <div className="article-card-body">
-        <h2 id={`article-${data.id}-title`} className="article-card-title">
-          <Link to={link}>{data.title}</Link>
-          {data.isDraft && (
-            <span className="article-card-draft-pill" aria-label={t("view.draftPillAria")}>
-              {t("view.draftPill")}
-            </span>
-          )}
-        </h2>
+        <div className="article-card-header">
+          <h2 id={`article-${data.id}-title`} className="article-card-title">
+            <Link to={link}>{data.title}</Link>
+            {data.isDraft && (
+              <span className="article-card-draft-pill" aria-label={t("view.draftPillAria")}>
+                {t("view.draftPill")}
+              </span>
+            )}
+          </h2>
+          <Link to={link} className="article-card-open">
+            {t("card.openArticle")}
+          </Link>
+        </div>
         {data.subtitle && (
           <p className="article-card-subtitle">{data.subtitle}</p>
         )}

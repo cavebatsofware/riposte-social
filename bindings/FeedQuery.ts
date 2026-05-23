@@ -23,4 +23,9 @@ category: string | null,
  * Search term. Empty/whitespace = no filter. When set, ordering
  * switches to BM25 relevance and pagination collapses to a single page.
  */
-q: string | null, };
+q: string | null, 
+/**
+ * Content-type filter: `all` (default), `posts`, or `articles`.
+ * Anything else returns a 400.
+ */
+kind: string | null, };

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import BrowseRail from "./BrowseRail";
+import ComposeMenu from "./ComposeMenu";
 import LanguagePicker from "./LanguagePicker";
 import LoadingBar from "./LoadingBar";
 import MobileDrawer from "./MobileDrawer";
@@ -78,11 +79,15 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
         site !== null &&
         site.poster_posting_enabled === true));
 
-  const navLinks = [
-    { to: "/", label: t("nav.feed") },
-    canCompose ? { to: "/compose", label: t("nav.compose") } : null,
-    canCompose ? { to: "/compose-album", label: t("nav.newAlbum") } : null,
-  ].filter(Boolean);
+  const navLinks = [{ to: "/", label: t("nav.feed") }];
+
+  const composeLinks = canCompose
+    ? [
+        { to: "/compose", label: t("nav.newPost") },
+        { to: "/compose-article", label: t("nav.newArticle") },
+        { to: "/compose-album", label: t("nav.newAlbum") },
+      ]
+    : [];
 
   return (
     <div className="layout">
@@ -109,6 +114,7 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
                 </Link>
               );
             })}
+            {composeLinks.length > 0 && <ComposeMenu links={composeLinks} />}
           </nav>
           <div className="layout-header-actions">
             <LanguagePicker />
@@ -161,6 +167,7 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         navLinks={navLinks}
+        composeLinks={composeLinks}
         user={user}
         onSignOut={logout}
       />

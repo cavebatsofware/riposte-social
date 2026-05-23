@@ -221,11 +221,8 @@ async fn test_other_user_cannot_see_draft(pool: sqlx::PgPool) {
     make_user(&backend, &db, &other_email, user::ROLE_POSTER).await;
 
     login_as(&server, &author_email, TEST_PASSWORD).await;
-    let created = create_article_via_api(
-        &server,
-        json!({ "title": "Secret draft", "body": "wip" }),
-    )
-    .await;
+    let created =
+        create_article_via_api(&server, json!({ "title": "Secret draft", "body": "wip" })).await;
     assert_eq!(created.status_code(), StatusCode::CREATED);
     let id = Uuid::parse_str(created.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
 
@@ -277,7 +274,11 @@ async fn test_drafts_endpoint_lists_only_own_drafts(pool: sqlx::PgPool) {
         .map(|a| a["id"].as_str().unwrap().to_string())
         .collect();
     assert!(ids.contains(&mine_id));
-    assert_eq!(ids.len(), 1, "drafts endpoint should only return own drafts");
+    assert_eq!(
+        ids.len(),
+        1,
+        "drafts endpoint should only return own drafts"
+    );
 }
 
 #[sqlx::test(migrations = false)]
@@ -376,8 +377,12 @@ async fn test_cross_kind_routing(pool: sqlx::PgPool) {
         )
         .await;
     assert_eq!(post_resp.status_code(), StatusCode::CREATED);
-    let post_id =
-        Uuid::parse_str(post_resp.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
+    let post_id = Uuid::parse_str(
+        post_resp.json::<serde_json::Value>()["id"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
 
     let article_resp = create_article_via_api(
         &server,
@@ -424,8 +429,12 @@ async fn test_post_response_omits_article_field(pool: sqlx::PgPool) {
         )
         .await;
     assert_eq!(post_resp.status_code(), StatusCode::CREATED);
-    let post_id =
-        Uuid::parse_str(post_resp.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
+    let post_id = Uuid::parse_str(
+        post_resp.json::<serde_json::Value>()["id"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
 
     let r = server.get(&format!("/api/posts/{}", post_id)).await;
     let body: serde_json::Value = r.json();

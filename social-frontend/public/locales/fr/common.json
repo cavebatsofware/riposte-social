@@ -21,6 +21,9 @@
   "nav": {
     "feed": "Fil",
     "compose": "Rédiger",
+    "composeMenuAria": "Ouvrir le menu de rédaction",
+    "newPost": "Nouvelle publication",
+    "newArticle": "Nouvel article",
     "newAlbum": "Nouvel album"
   },
   "auth": {

@@ -96,12 +96,10 @@ where
         .filter(post::Column::DeletedAt.is_null())
         .filter(post::Column::Kind.eq(post::KIND_ARTICLE))
         .filter(filters.feed_condition)
-        .filter(
-            sea_orm::sea_query::Expr::cust(
-                "NOT EXISTS (SELECT 1 FROM article_details ad \
+        .filter(sea_orm::sea_query::Expr::cust(
+            "NOT EXISTS (SELECT 1 FROM article_details ad \
                  WHERE ad.post_id = posts.id AND ad.is_draft = true)",
-            ),
-        )
+        ))
         .order_by_desc(post::Column::PublishedAt)
         .order_by_desc(post::Column::Id);
 
@@ -143,12 +141,10 @@ pub async fn list_author_drafts<C: ConnectionTrait>(
         .filter(post::Column::DeletedAt.is_null())
         .filter(post::Column::Kind.eq(post::KIND_ARTICLE))
         .filter(post::Column::AuthorId.eq(author_id))
-        .filter(
-            sea_orm::sea_query::Expr::cust(
-                "EXISTS (SELECT 1 FROM article_details ad \
+        .filter(sea_orm::sea_query::Expr::cust(
+            "EXISTS (SELECT 1 FROM article_details ad \
                  WHERE ad.post_id = posts.id AND ad.is_draft = true)",
-            ),
-        )
+        ))
         .order_by_desc(post::Column::UpdatedAt)
         .order_by_desc(post::Column::Id)
         .all(conn)

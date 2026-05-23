@@ -115,6 +115,89 @@
   background: var(--color-overlay);
 }
 
+/* Compose dropdown shares the PopoverPicker chassis with LanguagePicker
+   and ThemePicker. Trigger is a text button (those two are icon-only),
+   so the toggle override below sets size/shape; popover, title eyebrow,
+   list, and items mirror the language-picker rules to keep the menus
+   visually identical inside the header. */
+.compose-picker {
+  position: relative;
+}
+
+.compose-picker-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  background: transparent;
+  border: none;
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  color: var(--color-muted);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.compose-picker-toggle:hover,
+.compose-picker-toggle[aria-expanded="true"] {
+  color: var(--color-text);
+  background: var(--color-overlay);
+}
+.compose-picker-caret {
+  font-size: 0.7em;
+  line-height: 1;
+}
+
+.compose-picker-popover {
+  position: absolute;
+  top: calc(100% + var(--spacing-2));
+  left: 0;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+  min-width: 200px;
+  box-shadow: var(--shadow-popover);
+  z-index: 35;
+}
+
+.compose-picker-title {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted);
+  margin-bottom: var(--spacing-2);
+  padding: 0 var(--spacing-2);
+}
+
+.compose-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compose-picker-item {
+  display: block;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+}
+.compose-picker-item:hover {
+  background: var(--color-overlay);
+}
+
+.compose-picker-inline .compose-picker-title {
+  padding: 0 var(--spacing-1);
+}
+
 .layout-header-actions {
   display: flex;
   align-items: center;

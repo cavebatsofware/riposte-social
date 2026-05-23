@@ -16,7 +16,10 @@
 //! DB query builders for posts. Includes the BM25-aware feed query and
 //! the smaller `find_*`/`load_*` helpers handlers compose around.
 
-use crate::entities::{category, post, post_media, user, Category, Post, PostMedia, User};
+use crate::entities::{
+    article_details, category, post, post_media, user, ArticleDetails, Category, Post, PostMedia,
+    User,
+};
 use chrono::{DateTime, FixedOffset};
 use sea_orm::sea_query::{Expr, IntoCondition};
 use sea_orm::{
@@ -237,10 +240,13 @@ where
     // Kind partitioning. `All` interleaves posts and articles but never
     // surfaces albums (they have their own listing). Drafts are
     // `kind='article' AND article_details.is_draft=true` with
-    // `visibility='private'`; the visibility predicate above already
-    // excludes private rows from every viewer except the author, and the
-    // author's own private rows aren't surfaced in feed-ordered listings,
-    // so no extra draft predicate is needed here.
+    // `visibility='private'`. The visibility predicate keeps private rows
+    // hidden from other viewers, but `feed_condition` includes an
+    // author-override so the author themselves can see their own private
+    // rows; without an explicit draft exclusion the author's drafts leak
+    // into their own feed. NOT IN a subquery over `article_details` keeps
+    // drafts out of all feed shapes (covers All and ArticlesOnly; posts
+    // don't have detail rows so the predicate is a no-op for PostsOnly).
     match filters.kind_filter {
         FeedKindFilter::All => {
             q = q.filter(
@@ -256,6 +262,12 @@ where
             q = q.filter(post::Column::Kind.eq(post::KIND_ARTICLE));
         }
     }
+    let drafts_subquery = ArticleDetails::find()
+        .select_only()
+        .column(article_details::Column::PostId)
+        .filter(article_details::Column::IsDraft.eq(true))
+        .into_query();
+    q = q.filter(post::Column::Id.not_in_subquery(drafts_subquery));
 
     if let Some(author_id) = filters.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));

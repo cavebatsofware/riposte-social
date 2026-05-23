@@ -27,17 +27,16 @@
 //! - `DELETE /api/articles/{id}` author/admin soft delete.
 //! - `GET    /api/users/{user_id}/articles` per-author published articles.
 //!
-//! Article inline images and the cover image both flow through the existing
-//! `POST /api/posts/{id}/media` endpoint against the draft's id, so this
-//! module owns no media routes of its own.
+//! Article inline images and the cover image upload through
+//! `POST /api/articles/{id}/media`. The handler shells out to the shared
+//! `posts::media::append_media` helper (the underlying storage is the
+//! same `post_media` table, just gated on `kind='article'`).
 
-use crate::articles::queries::{
-    self, ArticleCategoryFilter, ArticlePageFilters,
-};
+use crate::articles::queries::{self, ArticleCategoryFilter, ArticlePageFilters};
 use crate::articles::types::{
     build_article_response, build_article_summary, compute_reading_time_minutes, derive_excerpt,
-    ArticleResponse, ArticleSummary, CreateArticleRequest, ListArticlesQuery,
-    ListArticlesResponse, UpdateArticleRequest,
+    ArticleResponse, ArticleSummary, CreateArticleRequest, ListArticlesQuery, ListArticlesResponse,
+    UpdateArticleRequest,
 };
 use crate::articles::ArticlesState;
 use crate::engagement::{fetch_engagement_for_posts, PostEngagement};
@@ -45,9 +44,10 @@ use crate::entities::{article_details, post, post_media, user};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::media as posts_media;
+use crate::posts::types::PostMediaResponse;
 use crate::posts::FeedTier;
 use axum::{
-    extract::{Path, Query, State},
+    extract::{Multipart, Path, Query, State},
     http::StatusCode,
     response::Json,
     routing::{get, post},
@@ -55,9 +55,7 @@ use axum::{
 };
 use axum_login::AuthSession;
 use chrono::Utc;
-use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, TransactionTrait,
-};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, TransactionTrait};
 use uuid::Uuid;
 
 pub fn article_write_routes() -> Router<ArticlesState> {
@@ -67,6 +65,30 @@ pub fn article_write_routes() -> Router<ArticlesState> {
             "/api/articles/{id}",
             axum::routing::patch(update_article).delete(delete_article),
         )
+        .route("/api/articles/{id}/media", post(append_article_media))
+}
+
+async fn append_article_media(
+    State(state): State<ArticlesState>,
+    Extension(user): Extension<crate::admin::UserAuth>,
+    Path(id): Path<Uuid>,
+    mut multipart: Multipart,
+) -> AppResult<Json<Vec<PostMediaResponse>>> {
+    let rows = posts_media::append_media(
+        &state.db,
+        &state.s3,
+        &state.settings,
+        &user,
+        id,
+        post::KIND_ARTICLE,
+        &mut multipart,
+    )
+    .await?;
+    Ok(Json(
+        rows.into_iter()
+            .map(PostMediaResponse::from_model)
+            .collect(),
+    ))
 }
 
 /// Authed-only read surface. Today this is just the caller's own drafts;
@@ -104,10 +126,7 @@ async fn create_article(
     let visibility = if req.is_draft {
         post::VISIBILITY_PRIVATE.to_string()
     } else {
-        let v = req
-            .visibility
-            .as_deref()
-            .unwrap_or(post::VISIBILITY_PUBLIC);
+        let v = req.visibility.as_deref().unwrap_or(post::VISIBILITY_PUBLIC);
         if !post::is_valid_visibility(v) {
             return Err(AppError::ValidationError(format!(
                 "Invalid visibility '{}'",
@@ -130,9 +149,7 @@ async fn create_article(
     if let Some(cover_id) = req.cover_media_id {
         let m = queries::find_cover_media(&state.db, cover_id)
             .await?
-            .ok_or_else(|| {
-                AppError::ValidationError("cover_media_id not found".to_string())
-            })?;
+            .ok_or_else(|| AppError::ValidationError("cover_media_id not found".to_string()))?;
         let parent = posts_media::load_post(&state.db, m.post_id, post::KIND_ARTICLE)
             .await
             .map_err(|_| {
@@ -268,11 +285,19 @@ async fn update_article(
         None => None,
     };
     let new_subtitle = match req.subtitle.as_deref() {
-        Some(s) => Some(validate_optional_string("subtitle", Some(s), SUBTITLE_MAX_LEN)?),
+        Some(s) => Some(validate_optional_string(
+            "subtitle",
+            Some(s),
+            SUBTITLE_MAX_LEN,
+        )?),
         None => None,
     };
     let new_excerpt = match req.excerpt.as_deref() {
-        Some(s) => Some(validate_optional_string("excerpt", Some(s), EXCERPT_MAX_LEN)?),
+        Some(s) => Some(validate_optional_string(
+            "excerpt",
+            Some(s),
+            EXCERPT_MAX_LEN,
+        )?),
         None => None,
     };
 
@@ -287,9 +312,9 @@ async fn update_article(
 
     if let Some(cover_id) = req.cover_media_id {
         if !req.clear_cover {
-            let m = queries::find_cover_media(&state.db, cover_id).await?.ok_or_else(
-                || AppError::ValidationError("cover_media_id not found".to_string()),
-            )?;
+            let m = queries::find_cover_media(&state.db, cover_id)
+                .await?
+                .ok_or_else(|| AppError::ValidationError("cover_media_id not found".to_string()))?;
             if m.post_id != id {
                 return Err(AppError::ValidationError(
                     "cover_media_id must refer to a media item attached to this article"
@@ -342,8 +367,7 @@ async fn update_article(
         details_active.excerpt = Set(derive_excerpt(&updated_post.body));
     }
     if new_body_value.is_some() {
-        details_active.reading_time_minutes =
-            Set(compute_reading_time_minutes(&updated_post.body));
+        details_active.reading_time_minutes = Set(compute_reading_time_minutes(&updated_post.body));
     }
     if req.clear_cover {
         details_active.cover_media_id = Set(None);
@@ -543,14 +567,11 @@ async fn hydrate_summaries(
     let post_ids: Vec<Uuid> = page.iter().map(|p| p.id).collect();
     let category_ids: Vec<Uuid> = page.iter().filter_map(|p| p.category_id).collect();
 
-    let authors =
-        crate::posts::queries::load_users_by_ids(&state.db, author_ids).await?;
+    let authors = crate::posts::queries::load_users_by_ids(&state.db, author_ids).await?;
     let details_by_id =
         queries::load_article_details_for_posts(&state.db, post_ids.clone()).await?;
-    let engagement_by_post =
-        fetch_engagement_for_posts(&state.db, &post_ids, viewer_id).await?;
-    let categories =
-        crate::posts::queries::load_categories_by_ids(&state.db, category_ids).await?;
+    let engagement_by_post = fetch_engagement_for_posts(&state.db, &post_ids, viewer_id).await?;
+    let categories = crate::posts::queries::load_categories_by_ids(&state.db, category_ids).await?;
 
     let cover_ids: Vec<Uuid> = details_by_id
         .values()
@@ -568,10 +589,8 @@ async fn hydrate_summaries(
         covers.into_iter().map(|m| (m.id, m)).collect();
     let authors_by_id: std::collections::HashMap<Uuid, user::Model> =
         authors.into_iter().map(|a| (a.id, a)).collect();
-    let categories_by_id: std::collections::HashMap<
-        Uuid,
-        crate::entities::category::Model,
-    > = categories.into_iter().map(|c| (c.id, c)).collect();
+    let categories_by_id: std::collections::HashMap<Uuid, crate::entities::category::Model> =
+        categories.into_iter().map(|c| (c.id, c)).collect();
 
     let mut summaries = Vec::with_capacity(page.len());
     for row in page {
@@ -589,10 +608,7 @@ async fn hydrate_summaries(
             .category_id
             .as_ref()
             .and_then(|id| categories_by_id.get(id));
-        let engagement = engagement_by_post
-            .get(&row.id)
-            .cloned()
-            .unwrap_or_default();
+        let engagement = engagement_by_post.get(&row.id).cloned().unwrap_or_default();
         summaries.push(build_article_summary(
             row,
             details,

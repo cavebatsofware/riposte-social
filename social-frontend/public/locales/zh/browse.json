@@ -94,6 +94,7 @@
     "followsYou": "关注了你",
     "mutual": "互相关注",
     "followFailed": "无法更新关注状态",
+    "followerCount_one": "{{count}} 位粉丝",
     "followerCount_other": "{{count}} 位粉丝",
     "followingCount": "关注 {{count}} 人"
   },

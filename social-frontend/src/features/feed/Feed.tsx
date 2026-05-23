@@ -175,6 +175,22 @@ export default function Feed() {
         </div>
       )}
 
+      <div className="feed-kind-toggle" role="tablist" aria-label={t("feed.kindFilterAria")}>
+        {(["all", "posts", "articles"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            role="tab"
+            aria-selected={kind === option}
+            aria-controls="feed-list-panel"
+            className={`feed-kind-toggle-option${kind === option ? " is-active" : ""}`}
+            onClick={() => setKindFilter(option)}
+          >
+            {t(`feed.kindFilter.${option}`)}
+          </button>
+        ))}
+      </div>
+
       {loading && posts.length === 0 && (
         <section
           className="feed-list"
@@ -212,22 +228,6 @@ export default function Feed() {
           publicFeedEnabled={site !== null && site.public_feed_enabled === true}
         />
       )}
-
-      <div className="feed-kind-toggle" role="tablist" aria-label={t("feed.kindFilterAria")}>
-        {(["all", "posts", "articles"] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            role="tab"
-            aria-selected={kind === option}
-            aria-controls="feed-list-panel"
-            className={`feed-kind-toggle-option${kind === option ? " is-active" : ""}`}
-            onClick={() => setKindFilter(option)}
-          >
-            {t(`feed.kindFilter.${option}`)}
-          </button>
-        ))}
-      </div>
 
       <section
         className="feed-list"

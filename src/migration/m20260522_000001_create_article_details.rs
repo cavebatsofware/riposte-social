@@ -42,13 +42,8 @@ impl MigrationTrait for Migration {
                     .col(string_null(ArticleDetails::Subtitle))
                     .col(uuid_null(ArticleDetails::CoverMediaId))
                     .col(text_null(ArticleDetails::Excerpt))
-                    .col(
-                        integer(ArticleDetails::ReadingTimeMinutes)
-                            .default(1),
-                    )
-                    .col(
-                        boolean(ArticleDetails::IsDraft).default(false),
-                    )
+                    .col(integer(ArticleDetails::ReadingTimeMinutes).default(1))
+                    .col(boolean(ArticleDetails::IsDraft).default(false))
                     .col(timestamp_with_time_zone(ArticleDetails::CreatedAt))
                     .col(timestamp_with_time_zone(ArticleDetails::UpdatedAt))
                     .foreign_key(

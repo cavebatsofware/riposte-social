@@ -93,6 +93,7 @@ export default function Profile() {
         const params = new URLSearchParams();
         params.set("limit", String(FEED_LIMIT));
         params.set("author", authorId);
+        params.set("kind", "posts");
         if (nextCursor) params.set("cursor", nextCursor);
         const response = await fetchAuthorFeed(params.toString());
         if (!response.ok) throw new Error(t("profile.postsLoadFailed"));
@@ -174,13 +175,13 @@ export default function Profile() {
             onProfileChange={setProfile}
           />
 
-          <div className="profile-tabs" role="tablist" aria-label={t("profile.postsHeading")}>
+          <div className="feed-kind-toggle" role="tablist" aria-label={t("profile.postsHeading")}>
             <button
               type="button"
               role="tab"
               aria-selected={activeTab === "posts"}
               aria-controls="profile-content-panel"
-              className={`profile-tab${activeTab === "posts" ? " is-active" : ""}`}
+              className={`feed-kind-toggle-option${activeTab === "posts" ? " is-active" : ""}`}
               onClick={() => setActiveTab("posts")}
             >
               {tArticles("profile.tabPosts")}
@@ -190,7 +191,7 @@ export default function Profile() {
               role="tab"
               aria-selected={activeTab === "articles"}
               aria-controls="profile-content-panel"
-              className={`profile-tab${activeTab === "articles" ? " is-active" : ""}`}
+              className={`feed-kind-toggle-option${activeTab === "articles" ? " is-active" : ""}`}
               onClick={() => setActiveTab("articles")}
             >
               {tArticles("profile.tabArticles")}
@@ -201,7 +202,7 @@ export default function Profile() {
                 role="tab"
                 aria-selected={activeTab === "drafts"}
                 aria-controls="profile-content-panel"
-                className={`profile-tab${activeTab === "drafts" ? " is-active" : ""}`}
+                className={`feed-kind-toggle-option${activeTab === "drafts" ? " is-active" : ""}`}
                 onClick={() => setActiveTab("drafts")}
               >
                 {tArticles("profile.tabDrafts")}

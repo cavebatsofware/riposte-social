@@ -6,7 +6,8 @@
     "reactions_one": "{{count}} 个互动",
     "reactions_other": "{{count}} 个互动",
     "comments_one": "{{count}} 条评论",
-    "comments_other": "{{count}} 条评论"
+    "comments_other": "{{count}} 条评论",
+    "openArticle": "打开文章"
   },
   "view": {
     "heading": "文章",
@@ -29,5 +30,30 @@
     "tabDrafts": "我的草稿",
     "noArticles": "暂无文章。",
     "noDrafts": "暂无草稿。"
+  },
+  "compose": {
+    "heading": "撰写文章",
+    "title": "标题",
+    "titlePlaceholder": "标题…",
+    "subtitle": "副标题",
+    "subtitlePlaceholder": "副标题(可选)",
+    "body": "正文",
+    "cover": "封面图片",
+    "coverChoose": "选择文件",
+    "coverReplace": "替换",
+    "coverRemove": "移除",
+    "category": "分类",
+    "publish": "发布",
+    "update": "更新",
+    "saveDraft": "保存草稿",
+    "status": {
+      "unsaved": "未保存",
+      "draft": "草稿",
+      "published": "已发布"
+    },
+    "imageNeedsTitle": "请先添加标题再上传图片。",
+    "titleRequired": "标题为必填项。",
+    "uploadFailed": "图片上传失败。",
+    "loadFailed": "无法加载此文章。"
   }
 }

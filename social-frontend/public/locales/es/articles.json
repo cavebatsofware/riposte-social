@@ -6,7 +6,8 @@
     "reactions_one": "{{count}} reacción",
     "reactions_other": "{{count}} reacciones",
     "comments_one": "{{count}} comentario",
-    "comments_other": "{{count}} comentarios"
+    "comments_other": "{{count}} comentarios",
+    "openArticle": "Abrir artículo"
   },
   "view": {
     "heading": "Artículo",
@@ -29,5 +30,30 @@
     "tabDrafts": "Mis borradores",
     "noArticles": "Todavía no hay artículos.",
     "noDrafts": "Sin borradores."
+  },
+  "compose": {
+    "heading": "Escribir artículo",
+    "title": "Título",
+    "titlePlaceholder": "Título…",
+    "subtitle": "Subtítulo",
+    "subtitlePlaceholder": "Subtítulo (opcional)",
+    "body": "Cuerpo",
+    "cover": "Imagen de portada",
+    "coverChoose": "Elegir archivo",
+    "coverReplace": "Reemplazar",
+    "coverRemove": "Quitar",
+    "category": "Categoría",
+    "publish": "Publicar",
+    "update": "Actualizar",
+    "saveDraft": "Guardar borrador",
+    "status": {
+      "unsaved": "Sin guardar",
+      "draft": "Borrador",
+      "published": "Publicado"
+    },
+    "imageNeedsTitle": "Agrega un título antes de subir imágenes.",
+    "titleRequired": "El título es obligatorio.",
+    "uploadFailed": "Error al subir la imagen.",
+    "loadFailed": "No se pudo cargar este artículo."
   }
 }

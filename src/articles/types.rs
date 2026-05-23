@@ -223,13 +223,12 @@ pub fn build_article_response(
     category: Option<&category::Model>,
 ) -> ArticleResponse {
     let body_html = markdown::render_to_html(&row.body);
-    let category_ref =
-        category.map(|c| crate::posts::types::PostCategoryRef {
-            id: c.id,
-            slug: c.slug.clone(),
-            name: c.name.clone(),
-            color: c.color.clone(),
-        });
+    let category_ref = category.map(|c| crate::posts::types::PostCategoryRef {
+        id: c.id,
+        slug: c.slug.clone(),
+        name: c.name.clone(),
+        color: c.color.clone(),
+    });
     let effective_visibility = category
         .map(|c| c.visibility.clone())
         .unwrap_or_else(|| row.visibility.clone());
@@ -269,13 +268,12 @@ pub fn build_article_summary(
     engagement: &PostEngagement,
     category: Option<&category::Model>,
 ) -> ArticleSummary {
-    let category_ref =
-        category.map(|c| crate::posts::types::PostCategoryRef {
-            id: c.id,
-            slug: c.slug.clone(),
-            name: c.name.clone(),
-            color: c.color.clone(),
-        });
+    let category_ref = category.map(|c| crate::posts::types::PostCategoryRef {
+        id: c.id,
+        slug: c.slug.clone(),
+        name: c.name.clone(),
+        color: c.color.clone(),
+    });
     let effective_visibility = category
         .map(|c| c.visibility.clone())
         .unwrap_or_else(|| row.visibility.clone());
@@ -302,4 +300,3 @@ pub fn build_article_summary(
         category: category_ref,
     }
 }
-

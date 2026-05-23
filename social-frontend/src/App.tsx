@@ -3,6 +3,7 @@ import Feed from "./features/feed/Feed";
 import Post from "./features/feed/Post";
 import Compose from "./features/compose/Compose";
 import ComposeAlbum from "./features/compose/ComposeAlbum";
+import ComposeArticle from "./features/compose/ComposeArticle";
 import Login from "./features/auth/Login";
 import InviteAccept from "./features/auth/InviteAccept";
 import Profile from "./features/profile/Profile";
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="/people/following" element={<People />} />
           <Route path="/people/followers" element={<People />} />
           <Route path="/compose-album" element={<ComposeAlbum />} />
+          <Route path="/compose-article" element={<ComposeArticle />} />
         </Route>
       </Routes>
       <CookieBanner />
