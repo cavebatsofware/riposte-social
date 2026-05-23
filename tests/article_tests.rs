@@ -95,12 +95,11 @@ async fn test_create_article_requires_title(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
-async fn test_create_article_rejects_cover_media_id(pool: sqlx::PgPool) {
-    // cover_media_id must be set via PATCH after media is attached to the
-    // new article. On create, the row doesn't exist yet so the
-    // "attached-to-this-article" invariant the PATCH path enforces can't
-    // be checked, leaving a leak where a caller could set cover from an
-    // unrelated article. Reject the field outright.
+async fn test_create_article_ignores_cover_media_id(pool: sqlx::PgPool) {
+    // The create payload no longer accepts `cover_media_id` (set the
+    // cover via PATCH after uploading). Clients that still send the
+    // field get the standard serde "unknown field ignored" behavior,
+    // and the resulting article has no cover.
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("article-cover-on-create");
     create_verified_admin(&backend, &email, TEST_PASSWORD).await;
@@ -115,7 +114,10 @@ async fn test_create_article_rejects_cover_media_id(pool: sqlx::PgPool) {
         }),
     )
     .await;
-    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status_code(), StatusCode::CREATED);
+    let body: serde_json::Value = response.json();
+    assert_eq!(body["cover_media_id"], serde_json::Value::Null);
+    assert_eq!(body["cover_url"], serde_json::Value::Null);
 }
 
 #[sqlx::test(migrations = false)]

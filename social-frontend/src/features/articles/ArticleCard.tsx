@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 
 /// Feed/list preview card for an article. Wider and more horizontal than
 /// PostCard so the cover image (when present) can carry visual weight.
-/// Click anywhere outside the inline reaction/comment counts navigates
-/// to `/articles/:id`.
+/// The cover image, the title, and the explicit "Open article" affordance
+/// each link to `/articles/:id`; the card chrome itself isn't a click
+/// target (so inner links like the author handle stay activatable).
 ///
 /// Accepts either the embedded `article` preview on a feed `PostResponse`
 /// (the feed mixes posts and articles) or a standalone `ArticleSummary`

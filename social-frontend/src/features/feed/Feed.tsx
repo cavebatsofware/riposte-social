@@ -175,14 +175,12 @@ export default function Feed() {
         </div>
       )}
 
-      <div className="feed-kind-toggle" role="tablist" aria-label={t("feed.kindFilterAria")}>
+      <div className="feed-kind-toggle" role="group" aria-label={t("feed.kindFilterAria")}>
         {(["all", "posts", "articles"] as const).map((option) => (
           <button
             key={option}
             type="button"
-            role="tab"
-            aria-selected={kind === option}
-            aria-controls="feed-list-panel"
+            aria-pressed={kind === option}
             className={`feed-kind-toggle-option${kind === option ? " is-active" : ""}`}
             onClick={() => setKindFilter(option)}
           >
@@ -231,8 +229,6 @@ export default function Feed() {
 
       <section
         className="feed-list"
-        id="feed-list-panel"
-        role="tabpanel"
         aria-label={t(`feed.kindFilter.${kind}`)}
       >
         {posts.map((p) =>

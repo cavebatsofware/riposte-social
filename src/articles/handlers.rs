@@ -143,18 +143,6 @@ async fn create_article(
         crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
-    // Reject cover_media_id at create time: the row doesn't exist yet, so
-    // the only check we could run ("belongs to some article you own") is
-    // weaker than the PATCH-time invariant ("attached to this article") and
-    // would let a caller create an article whose cover points at another
-    // article's media. The composer flow mints a draft first, uploads to it,
-    // then PATCHes cover_media_id, so this path was never exercised.
-    if req.cover_media_id.is_some() {
-        return Err(AppError::ValidationError(
-            "cover_media_id is not accepted on create; set it via PATCH after uploading media to the article".to_string(),
-        ));
-    }
-
     let excerpt = supplied_excerpt.or_else(|| derive_excerpt(&body));
     let reading_time = compute_reading_time_minutes(&body);
     let now = Utc::now();

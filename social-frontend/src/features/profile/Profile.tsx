@@ -175,12 +175,10 @@ export default function Profile() {
             onProfileChange={setProfile}
           />
 
-          <div className="feed-kind-toggle" role="tablist" aria-label={t("profile.postsHeading")}>
+          <div className="feed-kind-toggle" role="group" aria-label={t("profile.postsHeading")}>
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "posts"}
-              aria-controls="profile-content-panel"
+              aria-pressed={activeTab === "posts"}
               className={`feed-kind-toggle-option${activeTab === "posts" ? " is-active" : ""}`}
               onClick={() => setActiveTab("posts")}
             >
@@ -188,9 +186,7 @@ export default function Profile() {
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={activeTab === "articles"}
-              aria-controls="profile-content-panel"
+              aria-pressed={activeTab === "articles"}
               className={`feed-kind-toggle-option${activeTab === "articles" ? " is-active" : ""}`}
               onClick={() => setActiveTab("articles")}
             >
@@ -199,9 +195,7 @@ export default function Profile() {
             {isSelf && (
               <button
                 type="button"
-                role="tab"
-                aria-selected={activeTab === "drafts"}
-                aria-controls="profile-content-panel"
+                aria-pressed={activeTab === "drafts"}
                 className={`feed-kind-toggle-option${activeTab === "drafts" ? " is-active" : ""}`}
                 onClick={() => setActiveTab("drafts")}
               >
@@ -210,8 +204,6 @@ export default function Profile() {
             )}
           </div>
           <div
-            id="profile-content-panel"
-            role="tabpanel"
             aria-label={tArticles(`profile.tab${activeTab.charAt(0).toUpperCase()}${activeTab.slice(1)}` as never)}
           >
 

@@ -22,6 +22,11 @@ use std::collections::HashMap;
 use ts_rs::TS;
 use uuid::Uuid;
 
+/// Create payload for `POST /api/articles`. `cover_media_id` is
+/// intentionally absent: set the cover via PATCH after uploading media
+/// to the new article (the row id doesn't exist yet at create time, so
+/// the PATCH path's "media must belong to this article" invariant can't
+/// be enforced here).
 #[derive(Deserialize, Default, TS)]
 #[ts(export)]
 pub struct CreateArticleRequest {
@@ -36,8 +41,6 @@ pub struct CreateArticleRequest {
     pub visibility: Option<String>,
     #[serde(default)]
     pub category_id: Option<Uuid>,
-    #[serde(default)]
-    pub cover_media_id: Option<Uuid>,
     /// Defaults to true: composer's first call mints a draft.
     /// Set to false to publish directly without a draft round-trip.
     #[serde(default = "default_true")]
