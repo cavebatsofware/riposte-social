@@ -26,7 +26,7 @@ use common::{
 
 use axum::http::StatusCode;
 use riposte_social::admin::UserAuthBackend;
-use riposte_social::entities::{user, User};
+use riposte_social::entities::{post, user, Post, User};
 use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 use serde_json::json;
 use uuid::Uuid;
@@ -241,6 +241,100 @@ async fn test_other_user_cannot_see_draft(pool: sqlx::PgPool) {
         .filter(|a| a["id"] == id.to_string())
         .count();
     assert_eq!(articles, 0);
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_draft_visibility_pinned_on_patch(pool: sqlx::PgPool) {
+    let (mut server, backend, db) = build_test_server(pool).await;
+    let author_email = test_email("article-pin-author");
+    create_verified_admin(&backend, &author_email, TEST_PASSWORD).await;
+    let other_email = test_email("article-pin-other");
+    make_user(&backend, &db, &other_email, user::ROLE_POSTER).await;
+
+    login_as(&server, &author_email, TEST_PASSWORD).await;
+    let created =
+        create_article_via_api(&server, json!({ "title": "Pin draft", "body": "wip" })).await;
+    let id = Uuid::parse_str(created.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
+
+    // Attempt to relax visibility while keeping the row a draft. The
+    // server must pin visibility back to private regardless of the
+    // submitted value.
+    let patched =
+        patch_article_via_api(&server, id, json!({ "visibility": "public" })).await;
+    assert_eq!(patched.status_code(), StatusCode::OK, "{}", patched.text());
+    let body: serde_json::Value = patched.json();
+    assert_eq!(body["is_draft"], true);
+    assert_eq!(body["visibility"], "private");
+
+    // Another viewer still 404s, because the visibility was never relaxed.
+    server.clear_cookies();
+    login_as(&server, &other_email, TEST_PASSWORD).await;
+    let r = server.get(&format!("/api/articles/{}", id)).await;
+    assert_eq!(r.status_code(), StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_publish_applies_supplied_visibility(pool: sqlx::PgPool) {
+    // Companion check to the draft pinning rule: when the same PATCH
+    // both flips is_draft=false and supplies a visibility tier, the new
+    // tier sticks. Confirms the pinning logic doesn't strangle the
+    // normal publish path.
+    let (server, backend, _db) = build_test_server(pool).await;
+    let email = test_email("article-publish-vis");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let created =
+        create_article_via_api(&server, json!({ "title": "Publish vis", "body": "x" })).await;
+    let id = Uuid::parse_str(created.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
+
+    let patched = patch_article_via_api(
+        &server,
+        id,
+        json!({ "is_draft": false, "visibility": "commenters" }),
+    )
+    .await;
+    assert_eq!(patched.status_code(), StatusCode::OK, "{}", patched.text());
+    let body: serde_json::Value = patched.json();
+    assert_eq!(body["is_draft"], false);
+    assert_eq!(body["visibility"], "commenters");
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_get_article_404s_draft_regardless_of_visibility(pool: sqlx::PgPool) {
+    // Defense-in-depth: even if a draft row somehow ends up with a
+    // non-private visibility (older buggy data, a future code path that
+    // bypasses update_article, an admin SQL fix gone wrong), the read
+    // path must still hide it from non-authors. Bypass the API and flip
+    // visibility directly to construct the bad state.
+    let (mut server, backend, db) = build_test_server(pool).await;
+    let author_email = test_email("article-defense-author");
+    create_verified_admin(&backend, &author_email, TEST_PASSWORD).await;
+    let other_email = test_email("article-defense-other");
+    make_user(&backend, &db, &other_email, user::ROLE_POSTER).await;
+
+    login_as(&server, &author_email, TEST_PASSWORD).await;
+    let created =
+        create_article_via_api(&server, json!({ "title": "Leaky draft", "body": "x" })).await;
+    let id = Uuid::parse_str(created.json::<serde_json::Value>()["id"].as_str().unwrap()).unwrap();
+
+    let row = Post::find_by_id(id).one(&db).await.unwrap().expect("post");
+    let mut active: post::ActiveModel = row.into();
+    active.visibility = Set(post::VISIBILITY_PUBLIC.to_string());
+    active.update(&db).await.unwrap();
+
+    // Non-author still 404s because get_article rejects drafts even when
+    // the row's visibility column would otherwise allow the read.
+    server.clear_cookies();
+    login_as(&server, &other_email, TEST_PASSWORD).await;
+    let r = server.get(&format!("/api/articles/{}", id)).await;
+    assert_eq!(r.status_code(), StatusCode::NOT_FOUND);
+
+    // Author still sees their own draft.
+    server.clear_cookies();
+    login_as(&server, &author_email, TEST_PASSWORD).await;
+    let r = server.get(&format!("/api/articles/{}", id)).await;
+    assert_eq!(r.status_code(), StatusCode::OK);
 }
 
 #[sqlx::test(migrations = false)]

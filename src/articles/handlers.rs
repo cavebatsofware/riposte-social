@@ -243,6 +243,21 @@ async fn get_article(
     let details = queries::find_article_details(&state.db, id)
         .await?
         .ok_or_else(|| AppError::NotFound("Article not found".to_string()))?;
+
+    // Draft permalink is author-only (and admin). update_article pins
+    // visibility='private' on draft rows so the visibility check above
+    // already filters them for other viewers, but this is the same kind of
+    // belt-and-suspenders check that posts make for hidden rows: a draft
+    // is invisible to everyone except its author regardless of the row's
+    // visibility value.
+    let viewer = auth_session.user().await;
+    let viewer_id = viewer.as_ref().map(|u| u.id);
+    let viewer_is_admin = viewer
+        .as_ref()
+        .is_some_and(|u| u.role == user::ROLE_ADMINISTRATOR);
+    if details.is_draft && viewer_id != Some(row.author_id) && !viewer_is_admin {
+        return Err(AppError::NotFound("Article not found".to_string()));
+    }
     let cover = match details.cover_media_id {
         Some(media_id) => queries::find_cover_media(&state.db, media_id).await?,
         None => None,
@@ -338,7 +353,15 @@ async fn update_article(
     if let Some(body) = req.body {
         post_active.body = Set(body.trim_end().to_string());
     }
-    if let Some(v) = req.visibility.clone() {
+    // Draft rows must stay `visibility='private'` so the row-level visibility
+    // predicate keeps them out of every listing for non-authors. Pin it
+    // server-side regardless of the supplied value while the row remains a
+    // draft after this PATCH; defense-in-depth against a client that PATCHes
+    // visibility without also flipping `is_draft=false` to publish.
+    let resulting_is_draft = req.is_draft.unwrap_or(details.is_draft);
+    if resulting_is_draft {
+        post_active.visibility = Set(post::VISIBILITY_PRIVATE.to_string());
+    } else if let Some(v) = req.visibility.clone() {
         post_active.visibility = Set(v);
     } else if is_publishing {
         // Default new visibility on publish is public unless the caller
