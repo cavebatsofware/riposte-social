@@ -95,6 +95,30 @@ async fn test_create_article_requires_title(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_create_article_rejects_cover_media_id(pool: sqlx::PgPool) {
+    // cover_media_id must be set via PATCH after media is attached to the
+    // new article. On create, the row doesn't exist yet so the
+    // "attached-to-this-article" invariant the PATCH path enforces can't
+    // be checked, leaving a leak where a caller could set cover from an
+    // unrelated article. Reject the field outright.
+    let (server, backend, _db) = build_test_server(pool).await;
+    let email = test_email("article-cover-on-create");
+    create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    let response = create_article_via_api(
+        &server,
+        json!({
+            "title": "Has cover",
+            "body": "x",
+            "cover_media_id": Uuid::new_v4(),
+        }),
+    )
+    .await;
+    assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_create_article_draft_defaults_to_private(pool: sqlx::PgPool) {
     let (server, backend, _db) = build_test_server(pool).await;
     let email = test_email("article-draft");

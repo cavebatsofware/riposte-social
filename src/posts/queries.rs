@@ -243,8 +243,9 @@ where
     // author-override so the author themselves can see their own private
     // rows; without an explicit draft exclusion the author's drafts leak
     // into their own feed. NOT IN a subquery over `article_details` keeps
-    // drafts out of all feed shapes (covers All and ArticlesOnly; posts
-    // don't have detail rows so the predicate is a no-op for PostsOnly).
+    // drafts out of the article-bearing shapes (All and ArticlesOnly).
+    // PostsOnly skips the subquery entirely  posts have no detail row,
+    // so the predicate would be a no-op but still costs a plan step.
     match filters.kind_filter {
         FeedKindFilter::All => {
             q = q.filter(
@@ -252,15 +253,16 @@ where
                     .add(post::Column::Kind.eq(post::KIND_POST))
                     .add(post::Column::Kind.eq(post::KIND_ARTICLE)),
             );
+            q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
         }
         FeedKindFilter::PostsOnly => {
             q = q.filter(post::Column::Kind.eq(post::KIND_POST));
         }
         FeedKindFilter::ArticlesOnly => {
             q = q.filter(post::Column::Kind.eq(post::KIND_ARTICLE));
+            q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
         }
     }
-    q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
 
     if let Some(author_id) = filters.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));

@@ -143,25 +143,16 @@ async fn create_article(
         crate::visibility::ensure_can_compose_into_category(&state.db, &user, &cat).await?;
     }
 
-    // cover_media_id on create is rare (the composer normally sets it via
-    // PATCH after uploading), but if present it must already belong to a
-    // post the caller owns. We validate that here too.
-    if let Some(cover_id) = req.cover_media_id {
-        let m = queries::find_cover_media(&state.db, cover_id)
-            .await?
-            .ok_or_else(|| AppError::ValidationError("cover_media_id not found".to_string()))?;
-        let parent = posts_media::load_post(&state.db, m.post_id, post::KIND_ARTICLE)
-            .await
-            .map_err(|_| {
-                AppError::ValidationError(
-                    "cover_media_id must belong to an article you own".to_string(),
-                )
-            })?;
-        if parent.author_id != user.id && user.role != user::ROLE_ADMINISTRATOR {
-            return Err(AppError::ValidationError(
-                "cover_media_id must belong to an article you own".to_string(),
-            ));
-        }
+    // Reject cover_media_id at create time: the row doesn't exist yet, so
+    // the only check we could run ("belongs to some article you own") is
+    // weaker than the PATCH-time invariant ("attached to this article") and
+    // would let a caller create an article whose cover points at another
+    // article's media. The composer flow mints a draft first, uploads to it,
+    // then PATCHes cover_media_id, so this path was never exercised.
+    if req.cover_media_id.is_some() {
+        return Err(AppError::ValidationError(
+            "cover_media_id is not accepted on create; set it via PATCH after uploading media to the article".to_string(),
+        ));
     }
 
     let excerpt = supplied_excerpt.or_else(|| derive_excerpt(&body));
@@ -189,7 +180,7 @@ async fn create_article(
     let details_active = article_details::ActiveModel {
         post_id: Set(post_row.id),
         subtitle: Set(subtitle),
-        cover_media_id: Set(req.cover_media_id),
+        cover_media_id: Set(None),
         excerpt: Set(excerpt),
         reading_time_minutes: Set(reading_time),
         is_draft: Set(req.is_draft),
@@ -198,10 +189,9 @@ async fn create_article(
     let details_row = details_active.insert(&txn).await?;
     txn.commit().await?;
 
-    let cover = match details_row.cover_media_id {
-        Some(id) => queries::find_cover_media(&state.db, id).await?,
-        None => None,
-    };
+    // Cover is always None on the freshly-created row (rejected above); set
+    // it via PATCH after the author uploads media to this article.
+    let cover: Option<post_media::Model> = None;
     let author = queries::find_user(&state.db, post_row.author_id).await?;
     let category = match post_row.category_id {
         Some(cid) => queries::find_category(&state.db, cid).await?,

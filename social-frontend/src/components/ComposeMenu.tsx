@@ -41,7 +41,9 @@ export default function ComposeMenu({
       tabIndex={-1}
       aria-label={t("nav.compose")}
     >
-      <div className="compose-picker-title">{t("nav.compose")}</div>
+      <div className="compose-picker-title" role="presentation">
+        {t("nav.compose")}
+      </div>
       {links.map((l) => (
         // eslint-disable-next-line a11yinspect/focus-element-warning -- tabIndex managed imperatively by useRovingFocus; static analyzer cannot detect it
         <Link

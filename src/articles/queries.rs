@@ -96,8 +96,8 @@ pub enum ArticleCategoryFilter {
 /// Drafts have `visibility='private'`, so the existing private-tier rule
 /// in `feed_condition` already excludes them for non-authors. To keep
 /// the public `/api/articles` surface entirely draft-free even for the
-/// author, we also exclude any row with an `article_details.is_draft=true`
-/// row via a NOT EXISTS subquery.
+/// author, we also exclude any row whose id appears in the draft
+/// subquery via `Id.not_in_subquery(draft_post_ids_subquery())`.
 pub async fn list_article_posts<C, F>(
     conn: &C,
     filters: ArticlePageFilters<F>,

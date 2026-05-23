@@ -95,7 +95,7 @@ export default function ArticleCard({ post, summary }) {
           ) : (
             <span className="article-card-author">{data.authorDisplay}</span>
           )}
-          {formattedDate && (
+          {formattedDate && !data.isDraft && (
             <>
               <span aria-hidden="true"> · </span>
               <time dateTime={data.publishedAt}>{formattedDate}</time>
