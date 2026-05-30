@@ -602,6 +602,7 @@
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.625rem;
+  --radius-full: 999px;
 
   --shadow-card: 0 1px 0 rgba(0, 0, 0, 0.04);
   --shadow-popover: 0 8px 24px -8px rgba(0, 0, 0, 0.18);
@@ -1256,10 +1257,343 @@ summary:focus-visible,
   align-items: center;
 }
 
+.feed-kind-toggle {
+  display: flex;
+  gap: var(--spacing-1);
+  margin-bottom: var(--spacing-4);
+  padding: var(--spacing-1);
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.feed-kind-toggle-option {
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-muted);
+  background-color: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-1) var(--spacing-4);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.feed-kind-toggle-option:hover {
+  color: var(--color-text);
+}
+.feed-kind-toggle-option.is-active {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-weight: 600;
+}
+
 .feed-list {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-4);
+}
+
+/* ==========================================================================
+   Articles
+   Browse page, feed/list card, and permalink view. Cards share the same
+   chassis as .post-card; the article variant adds a cover-image rail and
+   a heavier title to read as long-form rather than a social post.
+   ========================================================================== */
+
+.articles-browse {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+.articles-browse > h1 {
+  font-size: var(--font-size-3xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--spacing-2);
+}
+
+.articles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.article-card {
+  display: flex;
+  gap: var(--spacing-6);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.15s ease;
+}
+.article-card:hover {
+  border-color: var(--color-primary);
+}
+
+.article-card-cover-link {
+  flex: 0 0 200px;
+  display: block;
+  line-height: 0;
+}
+.article-card-cover {
+  width: 200px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background-color: var(--color-media-bg);
+  display: block;
+}
+
+.article-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.article-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+}
+
+.article-card-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  flex-wrap: wrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.article-card-title > a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+.article-card-title > a:hover {
+  color: var(--color-primary);
+}
+
+/* Secondary affordance to open the article  mirrors PostCard's
+   .post-meta-open so the two card types feel consistent in a mixed feed. */
+.article-card-open {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.article-card-open:hover {
+  background: var(--color-overlay);
+  color: var(--color-text);
+}
+.article-card-open:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.article-card-draft-pill,
+.article-view-draft-pill {
+  display: inline-block;
+  padding: 2px var(--spacing-2);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  vertical-align: middle;
+}
+
+.article-card-subtitle {
+  font-size: var(--font-size-lg);
+  color: var(--color-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.article-card-byline {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin: 0;
+}
+.article-card-author {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.article-card-author:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.article-card-excerpt {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: 1.55;
+  margin: 0;
+  /* Two-line clamp keeps cards visually consistent regardless of excerpt
+     length; the full excerpt is always available on the permalink. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-card-stats {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .article-card {
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+  .article-card-cover-link {
+    flex: 0 0 auto;
+  }
+  .article-card-cover {
+    width: 100%;
+    height: 200px;
+  }
+}
+
+/* Permalink view at /articles/:id  the long-form reading surface.
+   Uses the same card chassis as .post-card / .compose-card so it reads
+   as a contained editorial panel against the page background. */
+.article-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-card);
+}
+
+.article-view-cover {
+  width: 100%;
+  max-height: 420px;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  background-color: var(--color-media-bg);
+  display: block;
+}
+
+.article-view-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding-bottom: var(--spacing-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+
+.article-view-title {
+  font-size: var(--font-size-3xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+  color: var(--color-text);
+}
+
+.article-view-subtitle {
+  font-size: var(--font-size-xl);
+  color: var(--color-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.article-view-byline {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+  margin: 0;
+}
+.article-view-byline > a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.article-view-byline > a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.article-view-body {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.article-view-body h1,
+.article-view-body h2,
+.article-view-body h3 {
+  letter-spacing: -0.01em;
+  margin-top: var(--spacing-8);
+  margin-bottom: var(--spacing-3);
+}
+.article-view-body h1 { font-size: var(--font-size-2xl); }
+.article-view-body h2 { font-size: var(--font-size-xl); }
+.article-view-body h3 { font-size: var(--font-size-lg); }
+.article-view-body p {
+  margin: 0 0 var(--spacing-4);
+}
+.article-view-body a {
+  color: var(--color-primary);
+}
+.article-view-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  background-color: var(--color-media-bg);
+  margin: var(--spacing-4) 0;
+}
+.article-view-body blockquote {
+  margin: var(--spacing-4) 0;
+  padding-left: var(--spacing-4);
+  border-left: 3px solid var(--color-border);
+  color: var(--color-muted);
+  font-style: italic;
+}
+.article-view-body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  padding: 1px var(--spacing-1);
+  background-color: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+}
+.article-view-body pre {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-3);
+  overflow-x: auto;
+}
+.article-view-body pre > code {
+  background: none;
+  padding: 0;
 }
 
 .feed-load-more {
@@ -2545,6 +2879,229 @@ summary:focus-visible,
     flex-direction: column;
     align-items: stretch;
   }
+}
+
+/* Article composer additions. Reuses .compose-card and the .compose-field
+   chassis; only the pieces ComposePost doesn't have land here: a header
+   row that anchors the status pill, larger title/subtitle inputs that
+   read as a heading rather than a form field, a cover thumbnail row, and
+   a small block of overrides that retheme @uiw/react-md-editor's chrome
+   to use Riposte's surface/border/divider/primary tokens (so all 16
+   themes work without per-theme CSS). */
+
+.compose-article-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-4);
+}
+.compose-article-header > .compose-title {
+  margin-bottom: 0;
+}
+
+.compose-article-status {
+  display: inline-block;
+  padding: 2px var(--spacing-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-2);
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.compose-article-status.status-draft {
+  color: var(--color-text);
+}
+.compose-article-status.status-published {
+  background-color: transparent;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.compose-article-title-input {
+  font-size: var(--font-size-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.compose-article-subtitle-input {
+  font-size: var(--font-size-lg);
+}
+
+.compose-article-cover {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+.compose-article-cover-thumb {
+  width: 120px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  background-color: var(--color-media-bg);
+  border: 1px solid var(--color-border);
+  display: block;
+}
+.compose-article-cover-actions {
+  display: flex;
+  gap: var(--spacing-2);
+}
+@media (max-width: 600px) {
+  .compose-article-cover {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .compose-article-cover-thumb {
+    width: 100%;
+    height: 160px;
+  }
+}
+
+/* @uiw/react-md-editor uses GitHub Primer color tokens internally; mapping
+   them to Riposte tokens here themes the editor for all 16 colorways
+   without per-theme rules. The library's textarea uses
+   `-webkit-text-fill-color: transparent` so a syntax-highlight overlay
+   shows the visible text  the overlay reads `--color-fg-default` so
+   that's the key var to set. */
+/* Specificity matters here: the library re-applies its prettylights vars
+   at `[data-color-mode='light'] .wmde-markdown` (0,2,0) and
+   `.wmde-markdown-var[data-color-mode='light']` (0,2,0). Chaining the
+   attribute onto our wrapper class gives us (0,2,0) too, and the
+   descendant `.w-md-editor` (0,3,0) selector below guarantees we beat
+   them in both the editor pane (.w-md-editor-text-pre, not inside any
+   .wmde-markdown) and the preview pane. Without that bump, the lib's
+   prettylights values cascade into the syntax-highlight overlay and
+   the textarea reads as faint gray or near-invisible against the
+   surface. */
+.compose-article-editor[data-color-mode] .w-md-editor,
+.compose-article-editor[data-color-mode] .wmde-markdown {
+  --color-canvas-default: var(--color-surface);
+  --color-canvas-subtle: var(--color-surface-2);
+  --color-fg-default: var(--color-text);
+  --color-fg-muted: var(--color-muted);
+  --color-fg-subtle: var(--color-muted);
+  --color-border-default: var(--color-border);
+  --color-border-muted: var(--color-divider);
+  --color-neutral-muted: var(--color-overlay);
+  --color-accent-fg: var(--color-primary);
+  --md-editor-background-color: var(--color-surface);
+  --md-editor-box-shadow-color: var(--color-border);
+  /* Editor textarea + syntax overlay use JetBrains Mono (the system's
+     `--font-mono` stack), matching the convention for code/handles
+     elsewhere in the chrome. The library reads `--md-editor-font-family`
+     for the textarea pane; the preview pane keeps the prose body font. */
+  --md-editor-font-family: var(--font-mono);
+  --color-prettylights-syntax-comment: var(--color-text);
+  --color-prettylights-syntax-constant: var(--color-primary);
+  --color-prettylights-syntax-entity: var(--color-primary);
+  --color-prettylights-syntax-storage-modifier-import: var(--color-text);
+  --color-prettylights-syntax-entity-tag: var(--color-primary);
+  --color-prettylights-syntax-keyword: var(--color-primary);
+  --color-prettylights-syntax-string: var(--color-text);
+  --color-prettylights-syntax-variable: var(--color-text);
+  --color-prettylights-syntax-brackethighlighter-unmatched: var(--color-text);
+  --color-prettylights-syntax-invalid-illegal-text: var(--color-text);
+  --color-prettylights-syntax-invalid-illegal-bg: transparent;
+  --color-prettylights-syntax-carriage-return-text: var(--color-text);
+  --color-prettylights-syntax-carriage-return-bg: transparent;
+  --color-prettylights-syntax-string-regexp: var(--color-text);
+  --color-prettylights-syntax-markup-list: var(--color-text);
+  --color-prettylights-syntax-markup-heading: var(--color-text);
+  --color-prettylights-syntax-markup-italic: var(--color-text);
+  --color-prettylights-syntax-markup-bold: var(--color-text);
+  --color-prettylights-syntax-markup-deleted-text: var(--color-muted);
+  --color-prettylights-syntax-markup-deleted-bg: transparent;
+  --color-prettylights-syntax-markup-inserted-text: var(--color-text);
+  --color-prettylights-syntax-markup-inserted-bg: transparent;
+  --color-prettylights-syntax-markup-changed-text: var(--color-text);
+  --color-prettylights-syntax-markup-changed-bg: transparent;
+  --color-prettylights-syntax-markup-ignored-text: var(--color-muted);
+  --color-prettylights-syntax-markup-ignored-bg: transparent;
+  --color-prettylights-syntax-meta-diff-range: var(--color-muted);
+  --color-prettylights-syntax-sublimelinter-gutter-mark: var(--color-muted);
+}
+.compose-article-editor .w-md-editor {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  min-height: 520px;
+}
+.compose-article-editor .w-md-editor-content {
+  height: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.compose-article-editor .w-md-editor-input,
+.compose-article-editor .w-md-editor-preview {
+  height: 100%;
+  min-height: 480px;
+}
+.compose-article-editor .w-md-editor-area {
+  height: 100%;
+}
+.compose-article-editor .w-md-editor-text {
+  min-height: 100%;
+}
+.compose-article-editor .w-md-editor-toolbar {
+  background-color: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-divider);
+  padding: var(--spacing-1) var(--spacing-2);
+}
+.compose-article-editor .w-md-editor-toolbar ul > li > button {
+  color: var(--color-text);
+}
+.compose-article-editor .w-md-editor-toolbar ul > li > button:hover,
+.compose-article-editor .w-md-editor-toolbar ul > li > button:focus-visible {
+  background-color: var(--color-overlay);
+  color: var(--color-primary);
+}
+.compose-article-editor .w-md-editor-text {
+  background-color: var(--color-surface);
+}
+.compose-article-editor .w-md-editor-preview,
+.compose-article-editor .wmde-markdown {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: 1.65;
+}
+/* The textarea overlays the syntax-highlight <pre>; giving it a solid
+   fill would hide the pre's visible text, since the textarea itself has
+   `-webkit-text-fill-color: transparent`. Keep both transparent so the
+   colored pre shows through. Both layers use the mono font so the
+   character grid aligns; if they drift, typed text and overlay drift
+   apart and the caret lands in the wrong column. */
+.compose-article-editor .w-md-editor-text-input,
+.compose-article-editor .w-md-editor-text-pre,
+.compose-article-editor .w-md-editor-text-pre > code {
+  background-color: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+.compose-article-editor .w-md-editor-text-pre,
+.compose-article-editor .w-md-editor-text-pre > code {
+  color: var(--color-text);
+}
+.compose-article-editor .w-md-editor-preview {
+  border-left: 1px solid var(--color-divider);
+  padding: var(--spacing-4);
+}
+.compose-article-editor .w-md-editor-preview .wmde-markdown {
+  padding: 0;
+}
+.compose-article-editor .w-md-editor-text-input::placeholder {
+  color: var(--color-muted);
+}
+.compose-article-editor .w-md-editor-text-input:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 /* Respect prefers-reduced-motion across the entire app. Component

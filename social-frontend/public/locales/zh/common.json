@@ -21,6 +21,9 @@
   "nav": {
     "feed": "动态",
     "compose": "发布",
+    "composeMenuAria": "打开发布菜单",
+    "newPost": "新建帖子",
+    "newArticle": "新建文章",
     "newAlbum": "新建相册"
   },
   "auth": {

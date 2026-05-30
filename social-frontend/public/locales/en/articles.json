@@ -1,0 +1,60 @@
+{
+  "card": {
+    "readingTime_one": "{{count}} min read",
+    "readingTime_other": "{{count}} min read",
+    "statsAria": "Reactions and comments",
+    "reactions_one": "{{count}} reaction",
+    "reactions_other": "{{count}} reactions",
+    "comments_one": "{{count}} comment",
+    "comments_other": "{{count}} comments",
+    "openArticle": "Open article"
+  },
+  "view": {
+    "heading": "Article",
+    "notFound": "Article not found, or you don't have access.",
+    "loadFailed": "Failed to load article.",
+    "deleteConfirm": "Delete this article? This cannot be undone.",
+    "deleteFailed": "Failed to delete article.",
+    "backToArticles": "← Back to articles",
+    "draftPill": "Draft",
+    "draftPillAria": "Draft, only visible to you"
+  },
+  "browse": {
+    "title": "Articles",
+    "empty": "No articles yet.",
+    "loadFailed": "Failed to load articles."
+  },
+  "profile": {
+    "tabPosts": "Posts",
+    "tabArticles": "Articles",
+    "tabDrafts": "My drafts",
+    "noArticles": "No articles yet.",
+    "noDrafts": "No drafts."
+  },
+  "compose": {
+    "heading": "Compose article",
+    "title": "Title",
+    "titlePlaceholder": "Title…",
+    "subtitle": "Subtitle",
+    "subtitlePlaceholder": "Subtitle (optional)",
+    "body": "Body",
+    "cover": "Cover image",
+    "coverChoose": "Choose file",
+    "coverReplace": "Replace",
+    "coverRemove": "Remove",
+    "category": "Category",
+    "publish": "Publish",
+    "update": "Update",
+    "saveDraft": "Save draft",
+    "status": {
+      "unsaved": "Unsaved",
+      "draft": "Draft",
+      "published": "Published"
+    },
+    "imageNeedsTitle": "Add a title before uploading images.",
+    "titleRequired": "Title is required.",
+    "uploadFailed": "Image upload failed.",
+    "loadFailed": "Couldn't load this article.",
+    "autosaveFailed": "Couldn't save your latest changes. Keep editing and we'll try again, or use Save draft."
+  }
+}

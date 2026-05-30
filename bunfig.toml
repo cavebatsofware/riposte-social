@@ -1,0 +1,4 @@
+# Workaround for Bun 1.3 regression: without a bunfig.toml present, `bun build`
+# emits `jsxDEV(...)` calls while resolving React's `jsx-dev-runtime` to the
+# production no-op (`jsxDEV = void 0`), breaking the bundle at runtime.
+# Tracking: https://github.com/oven-sh/bun/issues/23959

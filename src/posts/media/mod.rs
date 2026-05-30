@@ -92,21 +92,21 @@ pub fn media_files_max_for_kind(kind: &str) -> usize {
 
 /// Lowercase, human-friendly label for a kind. Used in 404 / 403 messages
 /// so a kind-mismatch hit looks like a normal "post not found" / "album
-/// not found" rather than disclosing the wrong kind.
+/// not found" / "article not found" rather than disclosing the wrong kind.
 pub(crate) fn kind_noun(kind: &str) -> &'static str {
-    if kind == post::KIND_ALBUM {
-        "album"
-    } else {
-        "post"
+    match kind {
+        k if k == post::KIND_ALBUM => "album",
+        k if k == post::KIND_ARTICLE => "article",
+        _ => "post",
     }
 }
 
 /// Title-cased version of `kind_noun` for sentence-leading messages.
 pub(crate) fn kind_noun_title(kind: &str) -> &'static str {
-    if kind == post::KIND_ALBUM {
-        "Album"
-    } else {
-        "Post"
+    match kind {
+        k if k == post::KIND_ALBUM => "Album",
+        k if k == post::KIND_ARTICLE => "Article",
+        _ => "Post",
     }
 }
 

@@ -16,6 +16,7 @@
 //! DB query builders for posts. Includes the BM25-aware feed query and
 //! the smaller `find_*`/`load_*` helpers handlers compose around.
 
+use crate::articles::queries::draft_post_ids_subquery;
 use crate::entities::{category, post, post_media, user, Category, Post, PostMedia, User};
 use chrono::{DateTime, FixedOffset};
 use sea_orm::sea_query::{Expr, IntoCondition};
@@ -183,6 +184,30 @@ pub enum PostCategoryFilter {
     InCategory(Uuid),
 }
 
+/// Which `kind` values participate in a feed page. The default is `All`,
+/// which interleaves `post` and `article` rows (albums are excluded
+/// regardless because they have their own listing surface).
+#[derive(Clone, Copy)]
+pub enum FeedKindFilter {
+    /// Mixed feed: posts + articles, interleaved by published_at.
+    All,
+    /// Posts only (kind='post').
+    PostsOnly,
+    /// Articles only (kind='article').
+    ArticlesOnly,
+}
+
+impl FeedKindFilter {
+    pub fn from_query(value: Option<&str>) -> Result<Self, &'static str> {
+        match value.map(str::trim).filter(|s| !s.is_empty()) {
+            None | Some("all") => Ok(Self::All),
+            Some("posts") => Ok(Self::PostsOnly),
+            Some("articles") => Ok(Self::ArticlesOnly),
+            Some(_) => Err("kind must be one of: all, posts, articles"),
+        }
+    }
+}
+
 pub struct FeedPageFilters<F>
 where
     F: IntoCondition,
@@ -190,6 +215,7 @@ where
     pub feed_condition: F,
     pub author: Option<Uuid>,
     pub category_filter: PostCategoryFilter,
+    pub kind_filter: FeedKindFilter,
     pub cursor: Option<(DateTime<FixedOffset>, Uuid)>,
     pub limit: u64,
     pub search_term: Option<String>,
@@ -207,8 +233,36 @@ where
 {
     let mut q = Post::find()
         .filter(post::Column::DeletedAt.is_null())
-        .filter(post::Column::Kind.eq(post::KIND_POST))
         .filter(filters.feed_condition);
+
+    // Kind partitioning. `All` interleaves posts and articles but never
+    // surfaces albums (they have their own listing). Drafts are
+    // `kind='article' AND article_details.is_draft=true` with
+    // `visibility='private'`. The visibility predicate keeps private rows
+    // hidden from other viewers, but `feed_condition` includes an
+    // author-override so the author themselves can see their own private
+    // rows; without an explicit draft exclusion the author's drafts leak
+    // into their own feed. NOT IN a subquery over `article_details` keeps
+    // drafts out of the article-bearing shapes (All and ArticlesOnly).
+    // PostsOnly skips the subquery entirely  posts have no detail row,
+    // so the predicate would be a no-op but still costs a plan step.
+    match filters.kind_filter {
+        FeedKindFilter::All => {
+            q = q.filter(
+                sea_orm::Condition::any()
+                    .add(post::Column::Kind.eq(post::KIND_POST))
+                    .add(post::Column::Kind.eq(post::KIND_ARTICLE)),
+            );
+            q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
+        }
+        FeedKindFilter::PostsOnly => {
+            q = q.filter(post::Column::Kind.eq(post::KIND_POST));
+        }
+        FeedKindFilter::ArticlesOnly => {
+            q = q.filter(post::Column::Kind.eq(post::KIND_ARTICLE));
+            q = q.filter(post::Column::Id.not_in_subquery(draft_post_ids_subquery()));
+        }
+    }
 
     if let Some(author_id) = filters.author {
         q = q.filter(post::Column::AuthorId.eq(author_id));
@@ -243,7 +297,9 @@ where
         let bm25_clause = format!(
             " AND id @@@ paradedb.boolean(should => ARRAY[\
              paradedb.match('body', ${n}, distance => 1), \
-             paradedb.match('body_ngram', ${n})])"
+             paradedb.match('body_ngram', ${n}), \
+             paradedb.match('slug', ${n}, distance => 1), \
+             paradedb.match('slug_ngram', ${n})])"
         );
         let order_pos = rendered_sql.find(" ORDER BY").unwrap_or(rendered_sql.len());
         let mut final_sql = String::with_capacity(rendered_sql.len() + bm25_clause.len() + 32);

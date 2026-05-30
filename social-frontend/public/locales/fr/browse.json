@@ -96,8 +96,7 @@
     "followFailed": "Impossible de mettre à jour l'abonnement",
     "followerCount_one": "{{count}} abonné",
     "followerCount_other": "{{count}} abonnés",
-    "followingCount_one": "{{count}} abonnement",
-    "followingCount_other": "{{count}} abonnements"
+    "followingCount": "{{count}} abonnements"
   },
   "lightbox": {
     "viewerAria": "Visionneuse de médias",

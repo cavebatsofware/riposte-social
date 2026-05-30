@@ -73,6 +73,8 @@ mod m20260519_000001_add_thumbnail_icon_to_post_media;
 mod m20260519_000002_add_avatar_icon_to_users;
 mod m20260520_000001_seed_max_image_dimension;
 mod m20260520_000002_add_encrypted_to_settings;
+mod m20260522_000001_create_article_details;
+mod m20260522_000002_extend_bm25_with_slug;
 
 pub struct Migrator;
 
@@ -137,6 +139,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260519_000002_add_avatar_icon_to_users::Migration),
             Box::new(m20260520_000001_seed_max_image_dimension::Migration),
             Box::new(m20260520_000002_add_encrypted_to_settings::Migration),
+            Box::new(m20260522_000001_create_article_details::Migration),
+            Box::new(m20260522_000002_extend_bm25_with_slug::Migration),
         ]
     }
 }

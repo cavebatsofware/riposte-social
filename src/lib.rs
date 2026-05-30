@@ -19,6 +19,7 @@
 pub mod admin;
 pub mod albums;
 pub mod app;
+pub mod articles;
 pub mod auth;
 pub mod categories;
 pub mod contact;

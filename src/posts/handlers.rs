@@ -27,11 +27,12 @@ use crate::entities::{post, post_media, user};
 use crate::errors::{AppError, AppResult};
 use crate::middleware::AuthenticatedUser;
 use crate::posts::media::{self, COMPOSE_BODY_MAX_BYTES};
-use crate::posts::queries::{self, FeedPageFilters, PostCategoryFilter};
+use crate::posts::queries::{self, FeedKindFilter, FeedPageFilters, PostCategoryFilter};
 use crate::posts::types::{
-    build_post_response, encode_webp_data_uri, FeedQuery, FeedResponse, MediaOrderItem,
-    MediaVariantEntry, MediaVariantsQuery, MediaVariantsResponse, PostMediaResponse, PostResponse,
-    UpdatePostMediaRequest, UpdatePostRequest, MEDIA_VARIANTS_BATCH_MAX,
+    build_post_response, build_post_response_with_article, encode_webp_data_uri, ArticlePreview,
+    FeedQuery, FeedResponse, MediaOrderItem, MediaVariantEntry, MediaVariantsQuery,
+    MediaVariantsResponse, PostMediaResponse, PostResponse, UpdatePostMediaRequest,
+    UpdatePostRequest, MEDIA_VARIANTS_BATCH_MAX,
 };
 use crate::posts::{FeedTier, PostsState};
 use axum::{
@@ -590,6 +591,9 @@ async fn feed(
         limit + 1
     };
 
+    let kind_filter = FeedKindFilter::from_query(query.kind.as_deref())
+        .map_err(|m| AppError::ValidationError(m.to_string()))?;
+
     let feed_filters = FeedPageFilters {
         feed_condition: ctx.feed_condition(
             post::Column::Visibility,
@@ -598,6 +602,7 @@ async fn feed(
         ),
         author: query.author,
         category_filter,
+        kind_filter,
         cursor,
         limit: fetch_limit,
         search_term: search_term.clone(),
@@ -654,6 +659,35 @@ async fn feed(
     let top_comment_authors =
         load_top_comment_authors(&state.db, engagement_by_post.values()).await?;
 
+    // Batch-load article_details for any kind='article' rows in the page
+    // so the feed card has title/excerpt/cover/reading_time without a
+    // second round-trip. Post and album rows never participate in this
+    // lookup; the relation lives only on the article-side entity.
+    let article_post_ids: Vec<Uuid> = page
+        .iter()
+        .filter(|p| p.kind == post::KIND_ARTICLE)
+        .map(|p| p.id)
+        .collect();
+    let article_details_by_post =
+        crate::articles::queries::load_article_details_for_posts(&state.db, article_post_ids)
+            .await?;
+    let cover_ids: Vec<Uuid> = article_details_by_post
+        .values()
+        .filter_map(|d| d.cover_media_id)
+        .collect();
+    let article_covers: HashMap<Uuid, post_media::Model> = if cover_ids.is_empty() {
+        HashMap::new()
+    } else {
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+        post_media::Entity::find()
+            .filter(post_media::Column::Id.is_in(cover_ids))
+            .all(&state.db)
+            .await?
+            .into_iter()
+            .map(|m| (m.id, m))
+            .collect()
+    };
+
     let posts: Vec<PostResponse> = page
         .into_iter()
         .map(|row| {
@@ -661,13 +695,28 @@ async fn feed(
             let media_list = media_by_post.remove(&row.id).unwrap_or_default();
             let engagement = engagement_by_post.remove(&row.id).unwrap_or_default();
             let cat = row.category_id.and_then(|id| categories_by_id.get(&id));
-            build_post_response(
+            let article_preview = article_details_by_post.get(&row.id).map(|d| {
+                let cover = d
+                    .cover_media_id
+                    .as_ref()
+                    .and_then(|id| article_covers.get(id));
+                ArticlePreview {
+                    title: row.slug.clone().unwrap_or_default(),
+                    subtitle: d.subtitle.clone(),
+                    excerpt: d.excerpt.clone(),
+                    cover_media_id: d.cover_media_id,
+                    cover_url: cover.map(|m| format!("/media/{}", m.id)),
+                    reading_time_minutes: d.reading_time_minutes,
+                }
+            });
+            build_post_response_with_article(
                 row,
                 author,
                 media_list,
                 engagement,
                 cat,
                 &top_comment_authors,
+                article_preview,
             )
         })
         .collect();

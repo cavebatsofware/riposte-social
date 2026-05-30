@@ -1,0 +1,60 @@
+{
+  "card": {
+    "readingTime_one": "{{count}} min de lecture",
+    "readingTime_other": "{{count}} min de lecture",
+    "statsAria": "Réactions et commentaires",
+    "reactions_one": "{{count}} réaction",
+    "reactions_other": "{{count}} réactions",
+    "comments_one": "{{count}} commentaire",
+    "comments_other": "{{count}} commentaires",
+    "openArticle": "Ouvrir l'article"
+  },
+  "view": {
+    "heading": "Article",
+    "notFound": "Article introuvable ou accès refusé.",
+    "loadFailed": "Échec du chargement de l'article.",
+    "deleteConfirm": "Supprimer cet article ? Cette action est irréversible.",
+    "deleteFailed": "Échec de la suppression de l'article.",
+    "backToArticles": "← Retour aux articles",
+    "draftPill": "Brouillon",
+    "draftPillAria": "Brouillon, visible uniquement par vous"
+  },
+  "browse": {
+    "title": "Articles",
+    "empty": "Aucun article pour le moment.",
+    "loadFailed": "Échec du chargement des articles."
+  },
+  "profile": {
+    "tabPosts": "Publications",
+    "tabArticles": "Articles",
+    "tabDrafts": "Mes brouillons",
+    "noArticles": "Aucun article pour le moment.",
+    "noDrafts": "Aucun brouillon."
+  },
+  "compose": {
+    "heading": "Rédiger un article",
+    "title": "Titre",
+    "titlePlaceholder": "Titre…",
+    "subtitle": "Sous-titre",
+    "subtitlePlaceholder": "Sous-titre (facultatif)",
+    "body": "Contenu",
+    "cover": "Image de couverture",
+    "coverChoose": "Choisir un fichier",
+    "coverReplace": "Remplacer",
+    "coverRemove": "Retirer",
+    "category": "Catégorie",
+    "publish": "Publier",
+    "update": "Mettre à jour",
+    "saveDraft": "Enregistrer le brouillon",
+    "status": {
+      "unsaved": "Non enregistré",
+      "draft": "Brouillon",
+      "published": "Publié"
+    },
+    "imageNeedsTitle": "Ajoutez un titre avant de téléverser des images.",
+    "titleRequired": "Le titre est obligatoire.",
+    "uploadFailed": "Échec du téléversement de l'image.",
+    "loadFailed": "Impossible de charger cet article.",
+    "autosaveFailed": "Impossible d'enregistrer vos dernières modifications. Continuez à écrire pour réessayer, ou utilisez Enregistrer le brouillon."
+  }
+}

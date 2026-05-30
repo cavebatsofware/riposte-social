@@ -23,6 +23,7 @@
 const PUBLIC_ROUTES = [
   { path: "/", label: "Feed (anonymous)" },
   { path: "/login", label: "Login" },
+  { path: "/articles", label: "Articles browse (anonymous)" },
 ];
 
 const STRICTNESS_LEVELS = {

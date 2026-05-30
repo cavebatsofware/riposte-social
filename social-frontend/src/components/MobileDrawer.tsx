@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useFocusTrap } from "../utils/useFocusTrap";
+import ComposeMenu from "./ComposeMenu";
 import LanguagePicker from "./LanguagePicker";
 import ThemePicker from "./ThemePicker";
 import "./MobileDrawer.css";
@@ -17,7 +18,7 @@ import "./MobileDrawer.css";
 /// Closed-state always renders an empty placeholder so the markup stays
 /// stable; the slide animation comes from a `data-open` attribute and a
 /// CSS transition on transform/opacity.
-export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut }) {
+export default function MobileDrawer({ open, onClose, navLinks, composeLinks = [], user, onSignOut }) {
   const { t } = useTranslation("common");
   const location = useLocation();
   const panelRef = useFocusTrap(open, { onEscape: onClose });
@@ -89,6 +90,11 @@ export default function MobileDrawer({ open, onClose, navLinks, user, onSignOut 
               </Link>
             );
           })}
+          {composeLinks.length > 0 && (
+            <div className="mobile-drawer-section">
+              <ComposeMenu variant="inline" links={composeLinks} />
+            </div>
+          )}
           {user && user.handle && (
             <Link
               to={`/u/${user.handle}`}
