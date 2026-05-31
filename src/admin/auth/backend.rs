@@ -25,7 +25,7 @@ use axum_login::{AuthUser, AuthnBackend, UserId};
 use chrono::Utc;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
-    Set,
+    QuerySelect, Set, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use std::{env, fmt};
@@ -473,29 +473,46 @@ impl UserAuthBackend {
         Ok(None)
     }
 
-    /// Complete password reset using a valid token
-    /// Note: Token is kept until expiry to prevent new reset requests during cooldown
+    /// Complete password reset using a valid token. The token is kept until
+    /// its original expiry so the cooldown enforced by
+    /// `create_password_reset_token` continues to apply for the next request.
+    ///
+    /// Atomic consume: the candidate row is located via
+    /// `validate_reset_token` (decrypt-and-match scan), then re-checked
+    /// under a `SELECT ... FOR UPDATE` inside a transaction. A racer that
+    /// presents the same plaintext token waits for our txn to commit and
+    /// then finds `password_reset_token IS NULL`, so the second reset
+    /// surfaces as "invalid or expired" instead of overwriting the first.
     pub async fn reset_password_with_token(
         &self,
         token: &str,
         new_password: &str,
     ) -> Result<user::Model> {
-        let admin = self
+        let candidate = self
             .validate_reset_token(token)
             .await?
             .ok_or_else(|| anyhow::anyhow!("Invalid or expired password reset token"))?;
 
         let password_hash = hash_password(new_password)?;
+        let now = Utc::now();
 
-        let mut admin_active: user::ActiveModel = admin.into();
-        admin_active.password_hash = Set(password_hash);
-        admin_active.force_password_change = Set(false);
-        // Clear token after use (single-use). Cooldown still works via
-        // password_reset_token_expires_at which remains set.
-        admin_active.password_reset_token = Set(None);
-        admin_active.updated_at = Set(Utc::now().into());
+        let txn = self.db.begin().await?;
+        let locked = User::find_by_id(candidate.id)
+            .filter(user::Column::PasswordResetToken.is_not_null())
+            .filter(user::Column::PasswordResetTokenExpiresAt.gt(now))
+            .lock_exclusive()
+            .one(&txn)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Invalid or expired password reset token"))?;
 
-        let updated = admin_active.update(&self.db).await?;
+        let mut active: user::ActiveModel = locked.into();
+        active.password_hash = Set(password_hash);
+        active.force_password_change = Set(false);
+        active.password_reset_token = Set(None);
+        active.updated_at = Set(now.into());
+
+        let updated = active.update(&txn).await?;
+        txn.commit().await?;
         Ok(updated)
     }
 
@@ -932,7 +949,7 @@ impl UserAuthBackend {
             );
         }
 
-        tracing::info!("Created new password-mode commenter via invite: {}", email);
+        tracing::info!("Created new password-mode commenter via invite: {}", new_user_id);
         Ok(result)
     }
 
@@ -1010,7 +1027,7 @@ impl UserAuthBackend {
             );
         }
 
-        tracing::info!("Created new OIDC commenter via invite: {}", claims.email);
+        tracing::info!("Created new OIDC commenter via invite: {}", new_user_id);
         Ok(result)
     }
 

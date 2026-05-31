@@ -16,6 +16,7 @@
     "deleteConfirm": "Diesen Artikel löschen? Das lässt sich nicht rückgängig machen.",
     "deleteFailed": "Artikel konnte nicht gelöscht werden.",
     "backToArticles": "← Zurück zu Artikeln",
+    "backToMyDrafts": "← Zurück zu meinen Entwürfen",
     "draftPill": "Entwurf",
     "draftPillAria": "Entwurf, nur für dich sichtbar"
   },

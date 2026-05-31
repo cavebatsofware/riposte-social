@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { fetchAuthorFeed, fetchProfile } from "./api";
@@ -36,8 +36,13 @@ export default function Profile() {
 
   // Tabbed content view: "posts" | "articles" | "drafts".
   // The "drafts" tab is only rendered when the viewer is the owner.
+  // The initial tab honors `?tab=` so a deep link (e.g. "back to my
+  // drafts" from the article composer) lands on the right tab. We do not
+  // sync user tab clicks back to the URL; the param is a one-shot hint.
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<"posts" | "articles" | "drafts">(
-    "posts",
+    tabParam === "articles" || tabParam === "drafts" ? tabParam : "posts",
   );
   const [articles, setArticles] = useState([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
@@ -275,7 +280,18 @@ export default function Profile() {
               )}
               <div className="articles-list">
                 {articles.map((a) => (
-                  <ArticleCard key={a.id} summary={a} />
+                  <ArticleCard
+                    key={a.id}
+                    summary={a}
+                    backLink={
+                      activeTab === "drafts"
+                        ? {
+                            to: `/u/${handle}?tab=drafts`,
+                            labelKey: "view.backToMyDrafts",
+                          }
+                        : undefined
+                    }
+                  />
                 ))}
               </div>
             </>

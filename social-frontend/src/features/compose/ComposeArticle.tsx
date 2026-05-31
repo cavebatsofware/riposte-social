@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Link,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
@@ -18,8 +24,15 @@ export default function ComposeArticle() {
   const { config: site } = useSiteConfig();
   const { mode: themeMode } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const initialId = searchParams.get("id");
+
+  // Back-link target attached by the originating page via Link state.
+  // Falls back to /articles when absent (typed URL, refresh, no hint).
+  const backLink = (
+    location.state as { back?: { to: string; labelKey: string } } | null
+  )?.back ?? { to: "/articles", labelKey: "view.backToArticles" };
   const { t } = useTranslation("articles");
   const { t: tCompose } = useTranslation("compose");
   const { t: tCommon } = useTranslation("common");
@@ -69,8 +82,8 @@ export default function ComposeArticle() {
   ) {
     return (
       <>
-        <Link to="/articles" className="post-back-link">
-          {t("view.backToArticles")}
+        <Link to={backLink.to} className="post-back-link">
+          {t(backLink.labelKey)}
         </Link>
         <section className="feed-empty">
           <p>{tCompose("post.disabledNotice")}</p>
@@ -245,8 +258,8 @@ export default function ComposeArticle() {
   if (draft.loadError) {
     return (
       <>
-        <Link to="/articles" className="post-back-link">
-          {t("view.backToArticles")}
+        <Link to={backLink.to} className="post-back-link">
+          {t(backLink.labelKey)}
         </Link>
         <div className="alert alert-error" role="alert">
           {t("compose.loadFailed")}
@@ -265,8 +278,8 @@ export default function ComposeArticle() {
 
   return (
     <>
-      <Link to="/articles" className="post-back-link">
-        {t("view.backToArticles")}
+      <Link to={backLink.to} className="post-back-link">
+        {t(backLink.labelKey)}
       </Link>
 
       <section

@@ -44,8 +44,34 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
-use sea_orm::{Set, TransactionTrait};
+use sea_orm::{DbErr, RuntimeErr, Set, TransactionTrait};
 use uuid::Uuid;
+
+/// Surface a Postgres unique-constraint violation on `categories.name` or
+/// `categories.slug` as a `ValidationError` so the API returns a 400 with
+/// the expected message instead of a generic 500. Other DbErr variants
+/// (connection, deadlock, etc.) fall through to the default mapping.
+fn map_category_conflict(e: DbErr) -> AppError {
+    if let DbErr::Exec(RuntimeErr::SqlxError(sqlx_err)) = &e {
+        if let Some(db_err) = sqlx_err.as_database_error() {
+            if db_err.code().as_deref() == Some("23505") {
+                if let Some(constraint) = db_err.constraint() {
+                    if constraint.contains("name") {
+                        return AppError::ValidationError(
+                            "A category with that name already exists".to_string(),
+                        );
+                    }
+                    if constraint.contains("slug") {
+                        return AppError::ValidationError(
+                            "A category with that slug already exists".to_string(),
+                        );
+                    }
+                }
+            }
+        }
+    }
+    AppError::from(e)
+}
 
 pub fn public_category_routes() -> Router<CategoriesState> {
     Router::new().route("/api/categories", get(list_categories))
@@ -159,23 +185,6 @@ async fn create_category(
         )));
     }
 
-    if queries::find_category_by_name(&state.db, &name)
-        .await?
-        .is_some()
-    {
-        return Err(AppError::ValidationError(
-            "A category with that name already exists".to_string(),
-        ));
-    }
-    if queries::find_category_by_slug(&state.db, &slug)
-        .await?
-        .is_some()
-    {
-        return Err(AppError::ValidationError(
-            "A category with that slug already exists".to_string(),
-        ));
-    }
-
     let txn = state.db.begin().await?;
     let active = category::ActiveModel {
         id: Set(Uuid::new_v4()),
@@ -187,7 +196,9 @@ async fn create_category(
         created_by: Set(Some(user.id)),
         ..Default::default()
     };
-    let row = queries::insert_category(&txn, active).await?;
+    let row = queries::insert_category(&txn, active)
+        .await
+        .map_err(map_category_conflict)?;
 
     if visibility == VISIBILITY_USER_LIST {
         queries::insert_member(&txn, row.id, user.id).await?;
@@ -231,31 +242,9 @@ async fn update_category(
     }
 
     if let Some(ref name) = req.name {
-        let trimmed = name.trim();
-        if trimmed.is_empty() {
+        if name.trim().is_empty() {
             return Err(AppError::ValidationError(
                 "Name cannot be empty".to_string(),
-            ));
-        }
-        if trimmed != row.name
-            && queries::find_category_by_name_excluding(&state.db, trimmed, id)
-                .await?
-                .is_some()
-        {
-            return Err(AppError::ValidationError(
-                "A category with that name already exists".to_string(),
-            ));
-        }
-    }
-    if let Some(ref slug) = req.slug {
-        let trimmed = slug.trim();
-        if trimmed != row.slug
-            && queries::find_category_by_slug_excluding(&state.db, trimmed, id)
-                .await?
-                .is_some()
-        {
-            return Err(AppError::ValidationError(
-                "A category with that slug already exists".to_string(),
             ));
         }
     }
@@ -288,7 +277,9 @@ async fn update_category(
     if let Some(v) = req.visibility {
         active.visibility = Set(v.trim().to_string());
     }
-    let updated = queries::update_category(&txn, active).await?;
+    let updated = queries::update_category(&txn, active)
+        .await
+        .map_err(map_category_conflict)?;
 
     // Cycling user_list -> public -> user_list can leave a stale member
     // row from the first round, so the existence check keeps the insert
