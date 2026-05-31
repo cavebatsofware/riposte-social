@@ -194,17 +194,24 @@ export function useArticleDraft({
   // Autosave + retry plumbing.
   // - timerRef: shared slot for the debounced autosave OR a backoff retry.
   //   At most one is armed at a time; user activity replaces whichever it is.
-  // - inFlightRef: true while a flushPatch is awaiting the server. Prevents
-  //   a second PATCH from racing the first, which would let the network
-  //   reorder them and overwrite newer edits with older ones.
-  // - pendingPatchRef: true when an edit happened during an in-flight flush;
-  //   the completing flush re-arms itself to capture the new state.
   // - retryAttemptRef: index into RETRY_DELAYS_MS. Reset on success or on
   //   any user edit (a fresh edit is not a retry).
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const inFlightRef = useRef(false);
-  const pendingPatchRef = useRef(false);
   const retryAttemptRef = useRef(0);
+
+  // Every write to this article (autosave, Save draft, Publish) runs through
+  // one promise chain so two PATCHes can never overlap and let the network
+  // reorder them, clobbering newer fields with older ones. Tasks run FIFO and
+  // read fieldsRef when they execute, so each sends the latest state.
+  const writeChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Bounds the chain to a single queued autosave. While one is queued or in
+  // flight (autosavePendingRef), a fresh edit only marks the draft dirty; the
+  // in-flight autosave re-fires once on success to capture the trailing edits.
+  // Combined with the composer's submitting flag gating Save/Publish, chain
+  // depth stays at one autosave plus at most one user-initiated write.
+  const autosavePendingRef = useRef(false);
+  const autosaveDirtyRef = useRef(false);
 
   // flushPatch is referenced by scheduleAutosave, by the retry-arm inside
   // flushPatch itself, and by the unmount-cleanup effect. A ref lets the
@@ -250,53 +257,78 @@ export function useArticleDraft({
     };
   }, [initialId]);
 
+  // Serializes a write behind any in-flight write. Chains regardless of the
+  // prior outcome so one failed PATCH does not wedge the queue; the stored
+  // tail swallows its own result so a rejection never surfaces as unhandled.
+  // The caller observes success/failure through the returned promise.
+  const runExclusive = useCallback(<T>(task: () => Promise<T>): Promise<T> => {
+    const run = writeChainRef.current.then(task, task);
+    writeChainRef.current = run.then(
+      () => {},
+      () => {},
+    );
+    return run;
+  }, []);
+
+  // Low-level PATCH. Throws on a non-ok response so callers can set policy:
+  // autosave swallows and retries, Save draft and Publish propagate.
+  const sendPatch = useCallback(
+    async (articleId: string, patch: UpdateArticleRequest): Promise<void> => {
+      const response = await updateArticle(articleId, patch);
+      if (!response.ok) throw new Error("save_failed");
+    },
+    [],
+  );
+
   const flushPatch = useCallback(async (): Promise<void> => {
     const articleId = idRef.current;
     if (!articleId) return;
-    if (inFlightRef.current) {
-      // Another flush is mid-flight; mark pending so it re-fires on completion.
-      pendingPatchRef.current = true;
+    if (autosavePendingRef.current) {
+      // An autosave is already on the chain; it reads the latest fields when
+      // it runs. Mark dirty so it re-fires once after settling instead of
+      // stacking a second PATCH.
+      autosaveDirtyRef.current = true;
       return;
     }
-    inFlightRef.current = true;
-    pendingPatchRef.current = false;
-    const patch = buildUpdatePatch(fieldsRef.current);
+    autosavePendingRef.current = true;
+    autosaveDirtyRef.current = false;
     let succeeded = false;
     try {
-      const response = await updateArticle(articleId, patch);
-      if (!response.ok) throw new Error("save_failed");
+      // Build the patch inside the task so a queued autosave sends the latest
+      // fields rather than a snapshot taken when it was enqueued.
+      await runExclusive(() =>
+        sendPatch(articleId, buildUpdatePatch(fieldsRef.current)),
+      );
       succeeded = true;
-    } catch {
-      // fall through; recovery is below so inFlightRef is always cleared.
-    } finally {
-      inFlightRef.current = false;
-    }
-    if (succeeded) {
       setSaveError(null);
       retryAttemptRef.current = 0;
-      // Coalesce edits made during the flush.
-      if (pendingPatchRef.current) {
-        pendingPatchRef.current = false;
-        void flushPatchRef.current();
+    } catch {
+      // Autosave swallows the failure and re-arms a backoff retry; saveError
+      // surfaces it. A fresh user edit resets the attempt via scheduleAutosave.
+      setSaveError("save_failed");
+      const attempt = retryAttemptRef.current;
+      if (attempt < RETRY_DELAYS_MS.length) {
+        retryAttemptRef.current = attempt + 1;
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => {
+          timerRef.current = null;
+          void flushPatchRef.current();
+        }, RETRY_DELAYS_MS[attempt]);
       }
-      return;
+    } finally {
+      autosavePendingRef.current = false;
     }
-    setSaveError("save_failed");
-    pendingPatchRef.current = true;
-    const attempt = retryAttemptRef.current;
-    if (attempt >= RETRY_DELAYS_MS.length) return;
-    retryAttemptRef.current = attempt + 1;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
+    // Edits arrived while this autosave was in flight: run one coalesced
+    // follow-up. On failure the backoff retry already covers them.
+    if (succeeded && autosaveDirtyRef.current) {
+      autosaveDirtyRef.current = false;
       void flushPatchRef.current();
-    }, RETRY_DELAYS_MS[attempt]);
-  }, []);
+    }
+  }, [runExclusive, sendPatch]);
   flushPatchRef.current = flushPatch;
 
   const scheduleAutosave = useCallback(() => {
     if (!idRef.current) return;
-    pendingPatchRef.current = true;
     // A fresh user edit isn't a retry; start the backoff over.
     retryAttemptRef.current = 0;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -364,6 +396,7 @@ export function useArticleDraft({
     if (fieldsRef.current.title.trim().length === 0) {
       throw new Error("title_required");
     }
+    // This explicit save supersedes any pending debounce or backoff retry.
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
@@ -372,8 +405,14 @@ export function useArticleDraft({
       await mintDraft();
       return;
     }
-    await flushPatch();
-  }, [mintDraft, flushPatch]);
+    const articleId = idRef.current;
+    // Same serialized PATCH as autosave, but failures propagate to the button.
+    await runExclusive(() =>
+      sendPatch(articleId, buildUpdatePatch(fieldsRef.current)),
+    );
+    setSaveError(null);
+    retryAttemptRef.current = 0;
+  }, [mintDraft, runExclusive, sendPatch]);
 
   const publish = useCallback(
     async (opts: PublishOptions): Promise<{ id: string }> => {
@@ -393,14 +432,21 @@ export function useArticleDraft({
         statusRef.current === "published" && articleId !== null;
 
       if (articleId) {
-        const patch = buildUpdatePatch(snap, {
-          visibility: opts.visibility,
-          category_id: opts.categoryId || null,
-          clear_category: !opts.categoryId,
-          is_draft: isAlreadyPublished ? null : false,
-        });
-        const response = await updateArticle(articleId, patch);
-        if (!response.ok) throw new Error("save_failed");
+        // Serialize behind any in-flight autosave so the publish PATCH lands
+        // last and its overrides win.
+        await runExclusive(() =>
+          sendPatch(
+            articleId,
+            buildUpdatePatch(fieldsRef.current, {
+              visibility: opts.visibility,
+              category_id: opts.categoryId || null,
+              clear_category: !opts.categoryId,
+              is_draft: isAlreadyPublished ? null : false,
+            }),
+          ),
+        );
+        setSaveError(null);
+        retryAttemptRef.current = 0;
         if (!isAlreadyPublished) {
           statusRef.current = "published";
           setStatus("published");
@@ -408,26 +454,31 @@ export function useArticleDraft({
         return { id: articleId };
       }
 
-      // No draft exists yet: create the published article in one shot.
-      const payload = buildCreatePayload(
-        {
-          ...snap,
-          visibility: opts.visibility,
-          categoryId: opts.categoryId,
-        },
-        false,
-      );
-      const response = await createArticle(payload);
-      if (!response.ok) throw new Error("save_failed");
-      const data: ArticleResponse = await response.json();
-      idRef.current = data.id;
-      setId(data.id);
+      // No draft exists yet: create the published article in one shot, still
+      // on the chain. idRef is set inside the task, before the chain releases,
+      // so any queued write targets the new id.
+      const created = await runExclusive(async () => {
+        const payload = buildCreatePayload(
+          {
+            ...fieldsRef.current,
+            visibility: opts.visibility,
+            categoryId: opts.categoryId,
+          },
+          false,
+        );
+        const response = await createArticle(payload);
+        if (!response.ok) throw new Error("save_failed");
+        const data: ArticleResponse = await response.json();
+        idRef.current = data.id;
+        return data;
+      });
+      setId(created.id);
       statusRef.current = "published";
       setStatus("published");
       clearShadow(userId);
-      return { id: data.id };
+      return { id: created.id };
     },
-    [userId],
+    [userId, runExclusive, sendPatch],
   );
 
   const uploadInlineImage = useCallback(
@@ -473,10 +524,11 @@ export function useArticleDraft({
   useEffect(() => {
     return () => {
       if (timerRef.current) {
+        // A debounce or backoff was still armed: an unflushed edit or a
+        // pending retry. Fire one last autosave so a quick navigation after
+        // typing doesn't drop the final edit.
         clearTimeout(timerRef.current);
         timerRef.current = null;
-      }
-      if (pendingPatchRef.current) {
         void flushPatchRef.current();
       }
     };

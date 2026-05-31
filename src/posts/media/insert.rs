@@ -29,8 +29,8 @@ use crate::settings::SettingsService;
 use axum::extract::Multipart;
 use chrono::Utc;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter,
-    QueryOrder, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait,
+    QueryFilter, QueryOrder, RuntimeErr, Set, TransactionTrait,
 };
 use std::collections::HashSet;
 use uuid::Uuid;
@@ -256,12 +256,26 @@ pub async fn append_media(
         Ok(rows) => Ok(rows),
         Err(e) => {
             rollback_uploads(s3, &uploaded).await;
-            Err(AppError::InternalError(format!(
-                "Failed to append media: {}",
-                e
-            )))
+            Err(map_append_conflict(e))
         }
     }
+}
+
+/// A concurrent append (same author, two tabs, or a double-clicked Upload)
+/// can compute the same next ordinal and trip the `(post_id, ordinal)`
+/// unique constraint. Surface that as a 409 so the client can retry rather
+/// than see a 500; other DbErr variants stay InternalError.
+fn map_append_conflict(e: DbErr) -> AppError {
+    if let DbErr::Exec(RuntimeErr::SqlxError(sqlx_err)) = &e {
+        if let Some(db_err) = sqlx_err.as_database_error() {
+            if db_err.code().as_deref() == Some("23505") {
+                return AppError::Conflict(
+                    "Another upload is in progress for this post; please retry".to_string(),
+                );
+            }
+        }
+    }
+    AppError::InternalError(format!("Failed to append media: {}", e))
 }
 
 /// Delete one media item from a post or album. The S3 object is removed
@@ -327,10 +341,10 @@ pub async fn edit_media_caption(
 /// must appear exactly once so a partial reorder can't leave the set in
 /// an inconsistent state.
 ///
-/// Implementation note: the swap runs under a transaction,
-/// using a +1_000_000 offset so per-row updates don't transiently collide
-/// on a (post_id, ordinal) uniqueness constraint if one is added later.
-/// No such constraint exists today; this is defense-in-depth.
+/// Implementation note: the swap runs under a transaction, using a
+/// +1_000_000 offset so per-row updates don't transiently collide on the
+/// `(post_id, ordinal)` unique constraint while the new ordinals are being
+/// written.
 pub async fn reorder_media(
     db: &DatabaseConnection,
     user: &UserAuth,

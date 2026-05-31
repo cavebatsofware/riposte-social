@@ -473,9 +473,10 @@ impl UserAuthBackend {
         Ok(None)
     }
 
-    /// Complete password reset using a valid token. The token is kept until
-    /// its original expiry so the cooldown enforced by
-    /// `create_password_reset_token` continues to apply for the next request.
+    /// Complete password reset using a valid token. On success the plaintext
+    /// token is cleared, but `password_reset_token_expires_at` is left intact
+    /// so the cooldown enforced by `create_password_reset_token` keeps
+    /// applying to the next request.
     ///
     /// Atomic consume: the candidate row is located via
     /// `validate_reset_token` (decrypt-and-match scan), then re-checked
