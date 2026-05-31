@@ -96,7 +96,7 @@ async fn test_create_article_requires_title(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = false)]
 async fn test_create_article_ignores_cover_media_id(pool: sqlx::PgPool) {
-    // The create payload no longer accepts `cover_media_id` (set the
+    // The create payload does not accept `cover_media_id` (set the
     // cover via PATCH after uploading). Clients that still send the
     // field get the standard serde "unknown field ignored" behavior,
     // and the resulting article has no cover.

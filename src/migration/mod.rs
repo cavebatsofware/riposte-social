@@ -75,6 +75,7 @@ mod m20260520_000001_seed_max_image_dimension;
 mod m20260520_000002_add_encrypted_to_settings;
 mod m20260522_000001_create_article_details;
 mod m20260522_000002_extend_bm25_with_slug;
+mod m20260524_000001_add_post_media_ordinal_unique;
 
 pub struct Migrator;
 
@@ -141,6 +142,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260520_000002_add_encrypted_to_settings::Migration),
             Box::new(m20260522_000001_create_article_details::Migration),
             Box::new(m20260522_000002_extend_bm25_with_slug::Migration),
+            Box::new(m20260524_000001_add_post_media_ordinal_unique::Migration),
         ]
     }
 }

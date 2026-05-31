@@ -37,50 +37,6 @@ pub async fn find_category<C: ConnectionTrait>(
     Category::find_by_id(id).one(conn).await
 }
 
-pub async fn find_category_by_name<C: ConnectionTrait>(
-    conn: &C,
-    name: &str,
-) -> Result<Option<category::Model>, DbErr> {
-    Category::find()
-        .filter(category::Column::Name.eq(name))
-        .one(conn)
-        .await
-}
-
-pub async fn find_category_by_slug<C: ConnectionTrait>(
-    conn: &C,
-    slug: &str,
-) -> Result<Option<category::Model>, DbErr> {
-    Category::find()
-        .filter(category::Column::Slug.eq(slug))
-        .one(conn)
-        .await
-}
-
-pub async fn find_category_by_name_excluding<C: ConnectionTrait>(
-    conn: &C,
-    name: &str,
-    exclude_id: Uuid,
-) -> Result<Option<category::Model>, DbErr> {
-    Category::find()
-        .filter(category::Column::Name.eq(name))
-        .filter(category::Column::Id.ne(exclude_id))
-        .one(conn)
-        .await
-}
-
-pub async fn find_category_by_slug_excluding<C: ConnectionTrait>(
-    conn: &C,
-    slug: &str,
-    exclude_id: Uuid,
-) -> Result<Option<category::Model>, DbErr> {
-    Category::find()
-        .filter(category::Column::Slug.eq(slug))
-        .filter(category::Column::Id.ne(exclude_id))
-        .one(conn)
-        .await
-}
-
 pub async fn insert_category<C: ConnectionTrait>(
     conn: &C,
     active: category::ActiveModel,

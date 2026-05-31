@@ -16,6 +16,7 @@
     "deleteConfirm": "Supprimer cet article ? Cette action est irréversible.",
     "deleteFailed": "Échec de la suppression de l'article.",
     "backToArticles": "← Retour aux articles",
+    "backToMyDrafts": "← Retour à mes brouillons",
     "draftPill": "Brouillon",
     "draftPillAria": "Brouillon, visible uniquement par vous"
   },

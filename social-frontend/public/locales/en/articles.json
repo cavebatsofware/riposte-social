@@ -16,6 +16,7 @@
     "deleteConfirm": "Delete this article? This cannot be undone.",
     "deleteFailed": "Failed to delete article.",
     "backToArticles": "← Back to articles",
+    "backToMyDrafts": "← Back to my drafts",
     "draftPill": "Draft",
     "draftPillAria": "Draft, only visible to you"
   },
