@@ -16,6 +16,7 @@
     "deleteConfirm": "确定要删除此文章吗?此操作无法撤销。",
     "deleteFailed": "无法删除文章。",
     "backToArticles": "← 返回文章列表",
+    "backToMyDrafts": "← 返回我的草稿",
     "draftPill": "草稿",
     "draftPillAria": "草稿,仅你可见"
   },

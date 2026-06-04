@@ -4,15 +4,24 @@ import { useTranslation } from "react-i18next";
 /// Feed/list preview card for an article. Wider and more horizontal than
 /// PostCard so the cover image (when present) can carry visual weight.
 /// The cover image, the title, and the explicit "Open article" affordance
-/// each link to `/articles/:id`; the card chrome itself isn't a click
-/// target (so inner links like the author handle stay activatable).
+/// each link to `/articles/:id` for published articles, or directly to
+/// `/compose-article?id=:id` for drafts so the author lands in the editor
+/// instead of the read view. Drafts are owner-only, so this branch never
+/// activates for non-authors. The card chrome itself isn't a click target
+/// (so inner links like the author handle stay activatable).
 ///
 /// Accepts either the embedded `article` preview on a feed `PostResponse`
 /// (the feed mixes posts and articles) or a standalone `ArticleSummary`
 /// from `/api/articles`. Both shapes carry the same render-relevant
 /// fields; this card normalizes them.
-export default function ArticleCard({ post, summary }) {
+export default function ArticleCard({ post, summary, backLink }) {
   const { t } = useTranslation("articles");
+
+  // Forwarded to react-router Link state so the destination (Article or
+  // ComposeArticle) can render a "back" link that returns the user
+  // exactly where they came from. Null when the caller has no opinion;
+  // the destination falls back to its own default.
+  const linkState = backLink ? { back: backLink } : undefined;
 
   // Normalize the two input shapes to a single render shape. The feed
   // path passes the full PostResponse (with `article` embedded); the
@@ -50,7 +59,9 @@ export default function ArticleCard({ post, summary }) {
         isDraft: false,
       };
 
-  const link = `/articles/${data.id}`;
+  const link = data.isDraft
+    ? `/compose-article?id=${data.id}`
+    : `/articles/${data.id}`;
   const formattedDate = data.publishedAt
     ? new Date(data.publishedAt).toLocaleDateString(undefined, {
         year: "numeric",
@@ -62,7 +73,12 @@ export default function ArticleCard({ post, summary }) {
   return (
     <article className="article-card" aria-labelledby={`article-${data.id}-title`}>
       {data.coverUrl && (
-        <Link to={link} className="article-card-cover-link" tabIndex={-1}>
+        <Link
+          to={link}
+          state={linkState}
+          className="article-card-cover-link"
+          tabIndex={-1}
+        >
           <img
             src={data.coverUrl}
             alt=""
@@ -74,14 +90,16 @@ export default function ArticleCard({ post, summary }) {
       <div className="article-card-body">
         <div className="article-card-header">
           <h2 id={`article-${data.id}-title`} className="article-card-title">
-            <Link to={link}>{data.title}</Link>
+            <Link to={link} state={linkState}>
+              {data.title}
+            </Link>
             {data.isDraft && (
               <span className="article-card-draft-pill" aria-label={t("view.draftPillAria")}>
                 {t("view.draftPill")}
               </span>
             )}
           </h2>
-          <Link to={link} className="article-card-open">
+          <Link to={link} state={linkState} className="article-card-open">
             {t("card.openArticle")}
           </Link>
         </div>

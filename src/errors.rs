@@ -56,6 +56,12 @@ pub enum AppError {
     #[error("Validation error: {0}")]
     ValidationError(String),
 
+    /// 409 for a well-formed request that conflicts with the current state,
+    /// such as a concurrent write that trips a unique constraint and can
+    /// succeed on retry.
+    #[error("Conflict: {0}")]
+    Conflict(String),
+
     #[error("Internal error: {0}")]
     InternalError(String),
 }
@@ -98,6 +104,10 @@ impl IntoResponse for AppError {
             AppError::ValidationError(msg) => {
                 tracing::debug!("Validation error: {}", msg);
                 (StatusCode::BAD_REQUEST, msg)
+            }
+            AppError::Conflict(msg) => {
+                tracing::debug!("Conflict: {}", msg);
+                (StatusCode::CONFLICT, msg)
             }
             AppError::InternalError(ref e) => {
                 tracing::error!("Internal error: {}", e);
