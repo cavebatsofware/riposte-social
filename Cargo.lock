@@ -4384,6 +4384,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "wiremock",
+ "zeroize",
  "zip",
 ]
 

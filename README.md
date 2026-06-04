@@ -148,7 +148,40 @@ Copy `.env.example` to `.env` and configure. See `.env.example` for all options 
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SITE_DOMAIN` | Your domain (used for admin email validation) |
 | `SITE_URL` | Full site URL (used in emails and links) |
-| `SECURE_VALUES_KEY` | AES-256 key for encrypted-at-rest values: TOTP secrets, single-use tokens, encrypted `settings` rows (generate with `openssl rand -hex 32`). Wiped from the process environment after startup. |
+| `SECURE_VALUES_KEY` | AES-256 key for encrypted-at-rest values: TOTP secrets, single-use tokens, encrypted `settings` rows (generate with `openssl rand -hex 32`). Resolved through the secret file-path chain (see Secret delivery). |
+
+### Secret delivery
+
+`SECURE_VALUES_KEY`, the database password (`POSTGRES_PASSWORD`), and
+`OIDC_CLIENT_SECRET` resolve through a file-path chain so they never have
+to live in the process environment. For each secret `<NAME>`, the server
+checks, in order:
+
+1. `<NAME>_FILE` env var, read as a file path (explicit override).
+2. `$CREDENTIALS_DIRECTORY/<name>` (systemd `LoadCredentialEncrypted`).
+3. `/run/secrets/<name>` (Docker `secrets:` default).
+4. `<NAME>` env var (fallback for local dev and CI).
+
+`<name>` is the lowercased env name (e.g. `secure_values_key`). A single
+trailing newline in the file is trimmed, so `openssl rand -hex 32 > keyfile`
+works as written. Per-topology mounts:
+
+- **Docker Compose**: define a `secrets:` block and mount it; the file
+  appears at `/run/secrets/<name>`.
+- **systemd**: `LoadCredentialEncrypted=<name>:/path/to/secret`; the unit
+  sees it under `$CREDENTIALS_DIRECTORY/<name>`.
+- **Any platform**: point `<NAME>_FILE` at a mounted file.
+
+`DATABASE_URL` is used verbatim when set (keep it for local dev and CI).
+When unset, the URL is assembled from `DATABASE_HOST`, `DATABASE_PORT`,
+`POSTGRES_USER`, `POSTGRES_DB`, and the resolved `POSTGRES_PASSWORD`; set
+`DATABASE_SSLMODE` if the assembled URL needs a TLS mode (a verbatim
+`DATABASE_URL` carries its own `sslmode`).
+
+AWS credentials come from the AWS SDK's own provider chain, not app env
+vars: a shared-credentials file (`AWS_SHARED_CREDENTIALS_FILE` pointed at a
+mounted secret, or `~/.aws/credentials`) or instance / container role
+credentials.
 
 ### AWS (required for admin accounts)
 

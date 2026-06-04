@@ -88,7 +88,9 @@ impl OidcConfig {
             enabled,
             issuer_url: env::var("OIDC_ISSUER_URL").unwrap_or_default(),
             client_id: env::var("OIDC_CLIENT_ID").unwrap_or_default(),
-            client_secret: env::var("OIDC_CLIENT_SECRET").unwrap_or_default(),
+            client_secret: crate::secret::load("OIDC_CLIENT_SECRET")
+                .map(|s| s.to_string())
+                .unwrap_or_default(),
             redirect_uri: env::var("OIDC_REDIRECT_URI").unwrap_or_default(),
             scopes: env::var("OIDC_SCOPES")
                 .unwrap_or_else(|_| "openid profile email".to_string())

@@ -69,6 +69,8 @@ totp-rs = { version = "5.7.1", features = ["qr", "gen_secret"] }
 # Security hardening
 aes-gcm = { version = "0.10.3" }
 base64 = { version = "0.22.1" }
+# Zero sensitive buffers (secret-file reads, decoded key bytes) on drop
+zeroize = "1.8"
 # Prometheus metrics
 prometheus = "0.14"
 # OIDC for Keycloak SSO

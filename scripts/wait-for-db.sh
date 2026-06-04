@@ -10,6 +10,13 @@ db="${POSTGRES_DB:-riposte_social}"
 max_attempts="${DB_WAIT_MAX_ATTEMPTS:-30}"
 attempt=1
 
+# Mirror the app's POSTGRES_PASSWORD_FILE convention so the same Docker /
+# systemd secret feeds this wait check when the password is delivered as a
+# file rather than an env var.
+if [ -z "${POSTGRES_PASSWORD:-}" ] && [ -n "${POSTGRES_PASSWORD_FILE:-}" ]; then
+    POSTGRES_PASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")"
+fi
+
 echo "⏳ Waiting for PostgreSQL at $host:$port..."
 
 until PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$host" -p "$port" -U "$user" -d "$db" -c '\q' 2>/dev/null; do

@@ -14,8 +14,10 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use sea_orm::*;
+use std::env;
 use std::time::Duration;
 use tracing::log::LevelFilter;
+use url::Url;
 
 pub async fn establish_connection() -> Result<DatabaseConnection, DbErr> {
     establish_connection_with_retry(5, Duration::from_secs(5)).await
@@ -26,7 +28,7 @@ pub async fn establish_connection_with_retry(
     max_retries: u32,
     retry_delay: Duration,
 ) -> Result<DatabaseConnection, DbErr> {
-    let database_url = get_database_url();
+    let database_url = database_url();
 
     let mut opt = ConnectOptions::new(database_url.clone());
     opt.max_connections(20)
@@ -90,12 +92,49 @@ pub async fn establish_connection_with_retry(
     }))
 }
 
-fn get_database_url() -> String {
-    dotenvy::var("DATABASE_URL").unwrap_or_else(|_| {
+/// Resolve the Postgres connection string.
+///
+/// A literal `DATABASE_URL` (set by local dev, CI, and docker-compose) is
+/// used verbatim, preserving any operator-supplied query params such as
+/// `sslmode`. When it is absent, the URL is assembled from the non-secret
+/// connection parts plus the password resolved through the
+/// [`crate::secret`] file chain (the `POSTGRES_PASSWORD_FILE` convention),
+/// so one Docker/systemd secret feeds both the postgres container and the
+/// app. `url::Url` percent-encodes the username and password.
+pub fn database_url() -> String {
+    if let Ok(url) = env::var("DATABASE_URL") {
+        if !url.is_empty() {
+            return url;
+        }
+    }
+
+    let host = env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string());
+    let port = env::var("DATABASE_PORT").unwrap_or_else(|_| "5432".to_string());
+    let user = env::var("POSTGRES_USER").unwrap_or_else(|_| "riposte_social_user".to_string());
+    let db = env::var("POSTGRES_DB").unwrap_or_else(|_| "riposte_social".to_string());
+    let password = crate::secret::load("POSTGRES_PASSWORD").unwrap_or_else(|| {
         panic!(
-            "DATABASE_URL environment variable must be set and should not use insecure defaults."
-        );
-    })
+            "Neither DATABASE_URL nor a POSTGRES_PASSWORD secret is set. \
+            Provide DATABASE_URL, or POSTGRES_PASSWORD via POSTGRES_PASSWORD_FILE, \
+            $CREDENTIALS_DIRECTORY/postgres_password, /run/secrets/postgres_password, \
+            or the POSTGRES_PASSWORD environment variable."
+        )
+    });
+
+    let mut url = Url::parse(&format!("postgresql://{host}:{port}/{db}"))
+        .expect("failed to build database URL from connection parts");
+    url.set_username(&user)
+        .expect("database host has no authority component for the username");
+    url.set_password(Some(password.as_str()))
+        .expect("database host has no authority component for the password");
+
+    if let Ok(sslmode) = env::var("DATABASE_SSLMODE") {
+        if !sslmode.is_empty() {
+            url.query_pairs_mut().append_pair("sslmode", &sslmode);
+        }
+    }
+
+    url.to_string()
 }
 
 /// Close database connection gracefully

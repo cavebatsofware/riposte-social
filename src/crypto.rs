@@ -16,10 +16,11 @@
 //! AES-256-GCM encryption for sensitive data at rest.
 //!
 //! Covers TOTP secrets, single-use tokens (email verification, password
-//! reset), and encrypted `settings` rows. One symmetric key is loaded from
-//! the `SECURE_VALUES_KEY` environment variable at startup and cached in
-//! a `LazyLock`. After the runtime forces the lock, the env var is wiped
-//! so later code and crash-time `/proc/self/environ` dumps can't read it.
+//! reset), and encrypted `settings` rows. One symmetric key is resolved
+//! from `SECURE_VALUES_KEY` through the [`crate::secret`] file-path chain
+//! at startup and cached in a `LazyLock`. The hex source and decoded bytes
+//! are held in `Zeroizing` and wiped after the key is built; the key stays
+//! resident in `ENCRYPTION_KEY` for the process lifetime.
 
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -27,20 +28,20 @@ use aes_gcm::{
 };
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
-use std::env;
 use std::sync::LazyLock;
+use zeroize::Zeroizing;
 
-const ENV_VAR: &str = "SECURE_VALUES_KEY";
+const SECRET_NAME: &str = "SECURE_VALUES_KEY";
 
 static ENCRYPTION_KEY: LazyLock<Option<Key<Aes256Gcm>>> = LazyLock::new(load_encryption_key);
 
 fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
-    let key_hex = env::var(ENV_VAR).ok()?;
+    let key_hex = crate::secret::load(SECRET_NAME)?;
 
-    let key_bytes = match hex::decode(&key_hex) {
+    let key_bytes = match hex::decode(key_hex.as_bytes()).map(Zeroizing::new) {
         Ok(bytes) => bytes,
         Err(e) => {
-            tracing::error!("Failed to decode {} as hex: {}", ENV_VAR, e);
+            tracing::error!("Failed to decode {} as hex: {}", SECRET_NAME, e);
             return None;
         }
     };
@@ -48,55 +49,30 @@ fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
     if key_bytes.len() != 32 {
         tracing::error!(
             "{} must be 32 bytes (64 hex characters), got {} bytes",
-            ENV_VAR,
+            SECRET_NAME,
             key_bytes.len()
         );
         return None;
     }
 
-    let key: [u8; 32] = key_bytes.try_into().ok()?;
+    let key: [u8; 32] = key_bytes.as_slice().try_into().ok()?;
     Some(Key::<Aes256Gcm>::from(key))
 }
 
 /// Force the encryption-key `LazyLock` to initialize and panic if the key
-/// is missing or malformed. Call at startup before any tokio task is
-/// spawned, then call `wipe_encryption_key_from_env` to remove the var
-/// from the process environment.
+/// is missing or malformed. Call at startup so a misconfigured key fails
+/// fast rather than on the first encrypt/decrypt.
 pub fn validate_encryption_key() {
     let _ = ENCRYPTION_KEY.as_ref().expect(
-        "SECURE_VALUES_KEY environment variable is not set or invalid. \
+        "SECURE_VALUES_KEY is not set or invalid. \
         It must be a 64-character hex string (32 bytes).",
     );
-}
-
-/// Remove the encryption key from the process environment after the
-/// `LazyLock` has cached it. This raises the bar against accidental
-/// disclosure: a later `env`-dumping log line, a crash dump that
-/// includes `/proc/self/environ`, or a sub-process that inherits the
-/// parent environment will no longer expose the key. It does not
-/// defend against in-process memory disclosure: the key is still
-/// resident in `ENCRYPTION_KEY` for the rest of the process.
-pub fn wipe_encryption_key_from_env() {
-    // SAFETY: `env::remove_var` is unsafe because reads and writes of
-    // the C `environ` block from other threads are not synchronized
-    // against it. This helper is a synchronous, non-yielding call
-    // invoked from the startup path in `main.rs` before
-    // `AppState::new()` runs: no axum workers, sqlx pool, or
-    // tokio::spawn task exists yet, so no other thread is currently
-    // in a `getenv`/`setenv` call. Tokio's multi-thread runtime has
-    // already spawned idle worker threads but they are parked, not
-    // executing user code. Preserving this property requires that the
-    // call site stay before `AppState::new()`; moving it after AppState
-    // creation would break the contract.
-    unsafe {
-        env::remove_var(ENV_VAR);
-    }
 }
 
 fn get_encryption_key() -> Result<&'static Key<Aes256Gcm>> {
     ENCRYPTION_KEY.as_ref().ok_or_else(|| {
         anyhow::anyhow!(
-            "SECURE_VALUES_KEY environment variable is not set or invalid. \
+            "SECURE_VALUES_KEY is not set or invalid. \
             It must be a 64-character hex string (32 bytes)."
         )
     })
@@ -187,34 +163,10 @@ pub fn decrypt_value(stored_value: &str) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Mutex;
-
-    /// Serializes env mutation across this module's tests. Cargo runs
-    /// `#[test]` functions on multiple threads in the same process by
-    /// default, so two `set_var` calls would otherwise race on the C
-    /// `environ` block and corrupt the array. Other threads in the
-    /// test binary (the harness, panic-time backtrace machinery) are
-    /// not coordinated by this mutex; we mitigate by keeping env
-    /// mutation rare and confined to this module.
-    static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     fn generate_encryption_key() -> String {
         let key = Aes256Gcm::generate_key(OsRng);
         hex::encode(key.as_slice())
-    }
-
-    fn setup_test_key() -> String {
-        let test_key_hex = generate_encryption_key();
-        let _guard = ENV_LOCK.lock().expect("env mutex poisoned");
-        // SAFETY: `_guard` holds `ENV_LOCK` for the duration of the
-        // mutation, so no other test in this binary is concurrently
-        // in `set_var`/`remove_var`. No library code in the unit-test
-        // binary reads env from another thread between the lock acq
-        // and release.
-        unsafe {
-            env::set_var("SECURE_VALUES_KEY", &test_key_hex);
-        }
-        test_key_hex
     }
 
     #[test]
@@ -225,8 +177,10 @@ mod tests {
 
     #[test]
     fn test_encrypt_decrypt_roundtrip() {
-        // This test constructs its own cipher and never touches the
-        // `ENCRYPTION_KEY` LazyLock, so no env mutation is needed.
+        // Constructs its own cipher and never touches the `ENCRYPTION_KEY`
+        // LazyLock, so no key wiring is needed. The malformed-input paths
+        // through the public API (which depend on a loaded key) are covered
+        // in `tests/crypto_key_file_tests.rs`.
         let test_key_hex = generate_encryption_key();
 
         let key_bytes = hex::decode(&test_key_hex).unwrap();
@@ -250,17 +204,5 @@ mod tests {
         let decrypted = cipher.decrypt(nonce, ct).unwrap();
 
         assert_eq!(String::from_utf8(decrypted).unwrap(), secret);
-    }
-
-    #[test]
-    fn test_decrypt_malformed_data_fails() {
-        setup_test_key();
-
-        let result = decrypt_totp_secret("not-valid-base64!!!");
-        assert!(result.is_err());
-
-        let short_data = BASE64.encode([1, 2, 3, 4, 5]);
-        let result = decrypt_totp_secret(&short_data);
-        assert!(result.is_err());
     }
 }

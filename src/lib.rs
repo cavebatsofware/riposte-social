@@ -39,6 +39,7 @@ pub mod migration;
 pub mod posts;
 pub mod profile;
 pub mod s3;
+pub mod secret;
 pub mod settings;
 pub mod subscriptions;
 pub mod visibility;
