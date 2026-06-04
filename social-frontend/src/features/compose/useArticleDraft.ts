@@ -371,26 +371,36 @@ export function useArticleDraft({
     return !idRef.current && fieldsRef.current.title.trim().length === 0;
   }, []);
 
-  const mintDraft = useCallback(async (): Promise<string> => {
-    if (idRef.current) return idRef.current;
-    const snap = fieldsRef.current;
-    if (snap.title.trim().length === 0) throw new Error("title_required");
-
-    const response = await createArticle(buildCreatePayload(snap, true));
-    if (!response.ok) throw new Error("save_failed");
-    const data: ArticleResponse = await response.json();
-    idRef.current = data.id;
-    setId(data.id);
-    statusRef.current = "draft";
-    setStatus("draft");
-    clearShadow(userId);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("id", data.id);
-      window.history.replaceState({}, "", url.toString());
+  // The single createArticle path. Every caller that needs an id (Save draft,
+  // Publish, inline/cover uploads) routes through here so two creates can't
+  // race into two articles. Running on the write chain with an in-chain id
+  // re-check collapses concurrent callers onto one create: the first sets
+  // idRef, the rest return it without creating.
+  const mintDraft = useCallback((): Promise<string> => {
+    if (idRef.current) return Promise.resolve(idRef.current);
+    if (fieldsRef.current.title.trim().length === 0) {
+      return Promise.reject(new Error("title_required"));
     }
-    return data.id;
-  }, [userId]);
+    return runExclusive(async () => {
+      if (idRef.current) return idRef.current;
+      const response = await createArticle(
+        buildCreatePayload(fieldsRef.current, true),
+      );
+      if (!response.ok) throw new Error("save_failed");
+      const data: ArticleResponse = await response.json();
+      idRef.current = data.id;
+      setId(data.id);
+      statusRef.current = "draft";
+      setStatus("draft");
+      clearShadow(userId);
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("id", data.id);
+        window.history.replaceState({}, "", url.toString());
+      }
+      return data.id;
+    });
+  }, [runExclusive, userId]);
 
   const saveDraft = useCallback(async () => {
     if (fieldsRef.current.title.trim().length === 0) {
@@ -424,61 +434,37 @@ export function useArticleDraft({
         timerRef.current = null;
       }
 
-      const articleId = idRef.current;
       // For an already-published article, "publish" is just a final flush;
       // status stays "published" and we don't touch is_draft. For a draft
       // being published, flip is_draft to false.
       const isAlreadyPublished =
-        statusRef.current === "published" && articleId !== null;
+        statusRef.current === "published" && idRef.current !== null;
 
-      if (articleId) {
-        // Serialize behind any in-flight autosave so the publish PATCH lands
-        // last and its overrides win.
-        await runExclusive(() =>
-          sendPatch(
-            articleId,
-            buildUpdatePatch(fieldsRef.current, {
-              visibility: opts.visibility,
-              category_id: opts.categoryId || null,
-              clear_category: !opts.categoryId,
-              is_draft: isAlreadyPublished ? null : false,
-            }),
-          ),
-        );
-        setSaveError(null);
-        retryAttemptRef.current = 0;
-        if (!isAlreadyPublished) {
-          statusRef.current = "published";
-          setStatus("published");
-        }
-        return { id: articleId };
-      }
-
-      // No draft exists yet: create the published article in one shot, still
-      // on the chain. idRef is set inside the task, before the chain releases,
-      // so any queued write targets the new id.
-      const created = await runExclusive(async () => {
-        const payload = buildCreatePayload(
-          {
-            ...fieldsRef.current,
+      // Ensure a draft exists first, through the single deduped create path,
+      // so a concurrent inline/cover upload that also mints can't create a
+      // second article. Then PATCH it to published on the same chain so the
+      // publish overrides land last and win.
+      const articleId = await mintDraft();
+      await runExclusive(() =>
+        sendPatch(
+          articleId,
+          buildUpdatePatch(fieldsRef.current, {
             visibility: opts.visibility,
-            categoryId: opts.categoryId,
-          },
-          false,
-        );
-        const response = await createArticle(payload);
-        if (!response.ok) throw new Error("save_failed");
-        const data: ArticleResponse = await response.json();
-        idRef.current = data.id;
-        return data;
-      });
-      setId(created.id);
-      statusRef.current = "published";
-      setStatus("published");
-      clearShadow(userId);
-      return { id: created.id };
+            category_id: opts.categoryId || null,
+            clear_category: !opts.categoryId,
+            is_draft: isAlreadyPublished ? null : false,
+          }),
+        ),
+      );
+      setSaveError(null);
+      retryAttemptRef.current = 0;
+      if (!isAlreadyPublished) {
+        statusRef.current = "published";
+        setStatus("published");
+      }
+      return { id: articleId };
     },
-    [userId, runExclusive, sendPatch],
+    [mintDraft, runExclusive, sendPatch],
   );
 
   const uploadInlineImage = useCallback(
