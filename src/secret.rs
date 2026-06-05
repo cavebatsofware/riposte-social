@@ -90,13 +90,16 @@ fn read_file(path: &std::path::Path, name: &str) -> Option<Zeroizing<String>> {
         }
     }
 
-    match String::from_utf8(bytes.to_vec()).map(Zeroizing::new) {
-        Ok(value) => Some(value),
-        Err(_) => {
-            tracing::error!("{name} from {} is not valid UTF-8", path.display());
-            None
-        }
+    // Validate UTF-8 by borrowing, then move the buffer into the String so
+    // the plaintext is never cloned into a second, non-zeroized allocation.
+    if std::str::from_utf8(&bytes).is_err() {
+        tracing::error!("{name} from {} is not valid UTF-8", path.display());
+        return None;
     }
+    let owned = std::mem::take(&mut *bytes);
+    Some(Zeroizing::new(
+        String::from_utf8(owned).expect("validated as UTF-8 above"),
+    ))
 }
 
 #[cfg(test)]
