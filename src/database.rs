@@ -92,6 +92,19 @@ pub async fn establish_connection_with_retry(
     }))
 }
 
+/// A non-secret connection part required to assemble the URL when
+/// `DATABASE_URL` is unset. Panics naming the variable rather than
+/// defaulting, so a missing part fails fast instead of silently
+/// connecting to an unintended database.
+fn required_part(name: &str) -> String {
+    env::var(name).unwrap_or_else(|_| {
+        panic!(
+            "{name} must be set when DATABASE_URL is not provided \
+            (DATABASE_HOST, DATABASE_PORT, POSTGRES_USER, POSTGRES_DB)."
+        )
+    })
+}
+
 /// Resolve the Postgres connection string.
 ///
 /// A literal `DATABASE_URL` (set by local dev, CI, and docker-compose) is
@@ -100,7 +113,9 @@ pub async fn establish_connection_with_retry(
 /// connection parts plus the password resolved through the
 /// [`crate::secret`] file chain (the `POSTGRES_PASSWORD_FILE` convention),
 /// so one Docker/systemd secret feeds both the postgres container and the
-/// app. `url::Url` percent-encodes the username and password.
+/// app. Each part is required (no implicit localhost defaults that could
+/// silently target the wrong database); `url::Url` percent-encodes the
+/// username and password.
 pub fn database_url() -> String {
     if let Ok(url) = env::var("DATABASE_URL") {
         if !url.is_empty() {
@@ -108,10 +123,10 @@ pub fn database_url() -> String {
         }
     }
 
-    let host = env::var("DATABASE_HOST").unwrap_or_else(|_| "localhost".to_string());
-    let port = env::var("DATABASE_PORT").unwrap_or_else(|_| "5432".to_string());
-    let user = env::var("POSTGRES_USER").unwrap_or_else(|_| "riposte_social_user".to_string());
-    let db = env::var("POSTGRES_DB").unwrap_or_else(|_| "riposte_social".to_string());
+    let host = required_part("DATABASE_HOST");
+    let port = required_part("DATABASE_PORT");
+    let user = required_part("POSTGRES_USER");
+    let db = required_part("POSTGRES_DB");
     let password = crate::secret::load("POSTGRES_PASSWORD").unwrap_or_else(|| {
         panic!(
             "Neither DATABASE_URL nor a POSTGRES_PASSWORD secret is set. \

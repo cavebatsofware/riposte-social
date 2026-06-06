@@ -18,9 +18,7 @@
 //! Covers TOTP secrets, single-use tokens (email verification, password
 //! reset), and encrypted `settings` rows. One symmetric key is resolved
 //! from `SECURE_VALUES_KEY` through the [`crate::secret`] file-path chain
-//! at startup and cached in a `LazyLock`. The hex source and decoded bytes
-//! are held in `Zeroizing` and wiped after the key is built; the key stays
-//! resident in `ENCRYPTION_KEY` for the process lifetime.
+//! at startup and cached in a `LazyLock` for the process lifetime.
 
 use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
@@ -29,7 +27,6 @@ use aes_gcm::{
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::sync::LazyLock;
-use zeroize::{Zeroize, Zeroizing};
 
 const SECRET_NAME: &str = "SECURE_VALUES_KEY";
 
@@ -38,7 +35,7 @@ static ENCRYPTION_KEY: LazyLock<Option<Key<Aes256Gcm>>> = LazyLock::new(load_enc
 fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
     let key_hex = crate::secret::load(SECRET_NAME)?;
 
-    let key_bytes = match hex::decode(key_hex.as_bytes()).map(Zeroizing::new) {
+    let key_bytes = match hex::decode(key_hex.as_bytes()) {
         Ok(bytes) => bytes,
         Err(e) => {
             tracing::error!("Failed to decode {} as hex: {}", SECRET_NAME, e);
@@ -46,20 +43,19 @@ fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
         }
     };
 
-    if key_bytes.len() != 32 {
-        tracing::error!(
-            "{} must be 32 bytes (64 hex characters), got {} bytes",
-            SECRET_NAME,
-            key_bytes.len()
-        );
-        return None;
-    }
+    let key: [u8; 32] = match key_bytes.try_into() {
+        Ok(key) => key,
+        Err(bytes) => {
+            tracing::error!(
+                "{} must be 32 bytes (64 hex characters), got {} bytes",
+                SECRET_NAME,
+                bytes.len()
+            );
+            return None;
+        }
+    };
 
-    let mut key = [0u8; 32];
-    key.copy_from_slice(&key_bytes);
-    let resolved = Key::<Aes256Gcm>::from(key);
-    key.zeroize();
-    Some(resolved)
+    Some(Key::<Aes256Gcm>::from(key))
 }
 
 /// Force the encryption-key `LazyLock` to initialize and panic if the key

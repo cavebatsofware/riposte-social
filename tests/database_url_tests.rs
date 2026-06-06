@@ -29,6 +29,10 @@ static ENV_LOCK: Mutex<()> = Mutex::new(());
 fn clear() {
     unsafe {
         std::env::remove_var("DATABASE_URL");
+        std::env::remove_var("DATABASE_HOST");
+        std::env::remove_var("DATABASE_PORT");
+        std::env::remove_var("POSTGRES_USER");
+        std::env::remove_var("POSTGRES_DB");
         std::env::remove_var("POSTGRES_PASSWORD");
         std::env::remove_var("POSTGRES_PASSWORD_FILE");
         std::env::remove_var("DATABASE_SSLMODE");
