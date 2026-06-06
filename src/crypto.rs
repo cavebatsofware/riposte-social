@@ -29,7 +29,7 @@ use aes_gcm::{
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use std::sync::LazyLock;
-use zeroize::Zeroizing;
+use zeroize::{Zeroize, Zeroizing};
 
 const SECRET_NAME: &str = "SECURE_VALUES_KEY";
 
@@ -55,8 +55,11 @@ fn load_encryption_key() -> Option<Key<Aes256Gcm>> {
         return None;
     }
 
-    let key: [u8; 32] = key_bytes.as_slice().try_into().ok()?;
-    Some(Key::<Aes256Gcm>::from(key))
+    let mut key = [0u8; 32];
+    key.copy_from_slice(&key_bytes);
+    let resolved = Key::<Aes256Gcm>::from(key);
+    key.zeroize();
+    Some(resolved)
 }
 
 /// Force the encryption-key `LazyLock` to initialize and panic if the key

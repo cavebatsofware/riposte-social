@@ -15,6 +15,9 @@ attempt=1
 # file rather than an env var.
 if [ -z "${POSTGRES_PASSWORD:-}" ] && [ -n "${POSTGRES_PASSWORD_FILE:-}" ]; then
     POSTGRES_PASSWORD="$(cat "$POSTGRES_PASSWORD_FILE")"
+    # Command substitution drops trailing newlines but leaves a CRLF '\r';
+    # strip one to match the app resolver's '\r\n' trimming in src/secret.rs.
+    POSTGRES_PASSWORD="${POSTGRES_PASSWORD%$'\r'}"
 fi
 
 echo "⏳ Waiting for PostgreSQL at $host:$port..."
