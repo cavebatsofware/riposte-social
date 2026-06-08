@@ -76,6 +76,22 @@ mod m20260520_000002_add_encrypted_to_settings;
 mod m20260522_000001_create_article_details;
 mod m20260522_000002_extend_bm25_with_slug;
 mod m20260524_000001_add_post_media_ordinal_unique;
+#[cfg(feature = "business")]
+mod m20260606_000001_create_orders;
+#[cfg(feature = "business")]
+mod m20260606_000002_seed_business_settings;
+#[cfg(feature = "business")]
+mod m20260606_000003_seed_business_secrets;
+#[cfg(feature = "business")]
+mod m20260606_000004_seed_shop_url;
+#[cfg(feature = "business")]
+mod m20260606_000005_seed_order_statuses;
+#[cfg(feature = "business")]
+mod m20260608_000001_create_phone_verification;
+#[cfg(feature = "business")]
+mod m20260608_000002_add_phone_verification_to_orders;
+#[cfg(feature = "business")]
+mod m20260608_000003_seed_twilio_settings;
 
 pub struct Migrator;
 
@@ -143,6 +159,22 @@ impl MigratorTrait for Migrator {
             Box::new(m20260522_000001_create_article_details::Migration),
             Box::new(m20260522_000002_extend_bm25_with_slug::Migration),
             Box::new(m20260524_000001_add_post_media_ordinal_unique::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260606_000001_create_orders::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260606_000002_seed_business_settings::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260606_000003_seed_business_secrets::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260606_000004_seed_shop_url::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260606_000005_seed_order_statuses::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260608_000001_create_phone_verification::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260608_000002_add_phone_verification_to_orders::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260608_000003_seed_twilio_settings::Migration),
         ]
     }
 }

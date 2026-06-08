@@ -387,6 +387,10 @@ async fn site_config(
                 .map_err(read_err)?,
         ),
     );
+    // Public storefront link, exposed to everyone only when configured.
+    if let Some(shop_url) = state.settings.get_shop_url().await.map_err(read_err)? {
+        payload.insert("shop_url".to_string(), serde_json::Value::String(shop_url));
+    }
     if is_poster_or_admin {
         payload.insert(
             "poster_posting_enabled".to_string(),

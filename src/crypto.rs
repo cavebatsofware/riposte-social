@@ -77,6 +77,23 @@ fn get_encryption_key() -> Result<&'static Key<Aes256Gcm>> {
     })
 }
 
+/// Deterministic, non-reversible token for a phone number, used as the dedupe
+/// key for the verification cache. HMAC-SHA256 keyed by `SECURE_VALUES_KEY` (the
+/// same secret as the encryption key, with a domain-separation label) so it
+/// cannot be brute-forced from the DB the way a bare hash of a low-entropy phone
+/// number could. The same `e164` always maps to the same token.
+pub fn hmac_phone(e164: &str) -> Result<String> {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
+    let key = get_encryption_key()?;
+    let mut mac = <Hmac<Sha256> as Mac>::new_from_slice(key.as_slice())
+        .map_err(|e| anyhow::anyhow!("HMAC init failed: {}", e))?;
+    mac.update(b"phone-verify:");
+    mac.update(e164.as_bytes());
+    Ok(hex::encode(mac.finalize().into_bytes()))
+}
+
 fn encrypt_bytes(plaintext: &[u8]) -> Result<String> {
     let key = get_encryption_key()?;
     let cipher = Aes256Gcm::new(key);

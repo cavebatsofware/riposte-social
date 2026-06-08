@@ -26,6 +26,8 @@ use tower_http::{
     compression::CompressionLayer, services::ServeDir, set_header::SetResponseHeaderLayer,
     trace::TraceLayer,
 };
+#[cfg(feature = "business")]
+use tower_http::services::ServeFile;
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
@@ -304,48 +306,21 @@ async fn main() -> anyhow::Result<()> {
         // Router handles client-side routing.
         .fallback(serve_social_spa);
 
-    // Configure IP extraction strategy. Production builds always use
-    // the reverse-proxy strategy: a release binary cannot honor a
-    // DEV_MODE=true env var to fall back to socket-address extraction,
-    // which would otherwise let an operator with env access neuter
-    // the IP-based rate limiter and access logging by masking every
-    // request behind the proxy IP.
-    //
-    // Under the `e2e_testing` feature the override is restored so the
-    // test container (which doesn't run behind a proxy) can still use
-    // socket-address extraction.
-    let ip_strategy = ip_extraction_strategy();
-    let security_config = SecurityContextConfig::new().with_ip_extraction(ip_strategy);
-
-    let app = app.layer(
-        ServiceBuilder::new()
-            // Outermost: negotiate gzip / brotli on every response. Honors
-            // the client's `Accept-Encoding`, skips responses that already
-            // carry a `Content-Encoding` (so `precompressed_gzip` static
-            // assets pass through untouched), and never compresses small
-            // bodies. Inner middleware sees uncompressed responses, which
-            // keeps TraceLayer's size accounting honest.
-            .layer(CompressionLayer::new())
-            .layer(from_fn_with_state(
-                security_config,
-                security_context_middleware_with_config,
-            ))
-            .layer(from_fn_with_state(
-                state.rate_limiter.clone(),
-                rate_limit_middleware,
-            ))
-            .layer(from_fn_with_state(state.clone(), access_log_middleware))
-            .layer(TraceLayer::new_for_http()),
-    );
+    // The shared base middleware stack (compression, security context, rate
+    // limiting, access logging, tracing) is applied per-server by
+    // `apply_base_layers` below, so the social and shop apps get identical
+    // outer protection.
 
     let cache_cleanup_limiter = state.rate_limiter.clone();
     let auth_cache_cleanup_limiter = state.auth_rate_limiter.clone();
+    let phone_lookup_cleanup_limiter = state.phone_lookup_rate_limiter.clone();
     let cache_cleanup_task = tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300));
         loop {
             interval.tick().await;
             cache_cleanup_limiter.cleanup_cache();
             auth_cache_cleanup_limiter.cleanup_cache();
+            phone_lookup_cleanup_limiter.cleanup_cache();
         }
     });
 
@@ -382,42 +357,63 @@ async fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Determine the bind address
-    let port = env::var("PORT")
-        .unwrap_or_else(|_| "3000".to_string())
-        .parse::<u16>()
-        .unwrap_or(3000);
-
-    // Default to loopback so local `cargo run` doesn't accidentally expose
-    // the server on the LAN. Containers must set BIND_HOST=0.0.0.0 so the
-    // container's published port and other containers on the same Docker
-    // network can reach the app.
+    // Determine the bind host + which server(s) to run. APP_ROLE selects the
+    // surface so the same image deploys as the social site, the shop, or both:
+    //   social -> social router on PORT
+    //   shop   -> shop router (storefront + order API) on PORT
+    //   both   -> social on PORT, shop on SHOP_PORT (local/dev convenience)
+    // A dedicated single-role host uses the standard PORT; only `both` needs
+    // the second SHOP_PORT. Default to loopback so local `cargo run` doesn't
+    // expose the server on the LAN; containers set BIND_HOST=0.0.0.0.
     let bind_host = env::var("BIND_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-    let addr = format!("{}:{}", bind_host, port);
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|v| v.parse::<u16>().ok())
+        .unwrap_or(3000);
+    let role = env::var("APP_ROLE").unwrap_or_else(|_| "social".to_string());
+    let primary_addr = format!("{}:{}", bind_host, port);
 
-    // Production environments will likely want to set RUST_LOG=warn
-    // unless they want to see very verbose logs
-    tracing::info!("Server starting on {}", addr);
-    tracing::info!("Access at: http://localhost:{}/access/", port);
+    tracing::info!("Starting role '{}' (bind host {})", role, bind_host);
     tracing::info!("RUST_LOG environment variable: {:?}", env::var("RUST_LOG"));
 
-    // Start the server with connection info support
-    let listener = tokio::net::TcpListener::bind(&addr)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to bind to {}: {}", addr, e))?;
-
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .with_graceful_shutdown(async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("Failed to install CTRL+C handler");
-        tracing::info!("Shutdown signal received, stopping server...");
-    })
-    .await
-    .map_err(|e| anyhow::anyhow!("Server error: {}", e))?;
+    match role.as_str() {
+        "social" => {
+            let social_app = apply_base_layers(app, &state);
+            serve_router(social_app, primary_addr, "social").await?;
+        }
+        #[cfg(feature = "business")]
+        "shop" => {
+            let shop_app =
+                apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
+            serve_router(shop_app, primary_addr, "shop").await?;
+        }
+        #[cfg(feature = "business")]
+        "both" => {
+            let shop_port = env::var("SHOP_PORT")
+                .ok()
+                .and_then(|v| v.parse::<u16>().ok())
+                .unwrap_or(3001);
+            let shop_addr = format!("{}:{}", bind_host, shop_port);
+            let social_app = apply_base_layers(app, &state);
+            let shop_app =
+                apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
+            // Both servers run as tasks on the shared multi-threaded runtime.
+            let social = tokio::spawn(serve_router(social_app, primary_addr, "social"));
+            let shop = tokio::spawn(serve_router(shop_app, shop_addr, "shop"));
+            let _ = tokio::join!(social, shop);
+        }
+        other => {
+            return Err(anyhow::anyhow!(
+                "Unsupported APP_ROLE '{}'. Use 'social'{}.",
+                other,
+                if cfg!(feature = "business") {
+                    ", 'shop', or 'both'"
+                } else {
+                    " (build with the `business` feature for 'shop'/'both')"
+                }
+            ));
+        }
+    }
 
     // Clean up background tasks
     tracing::info!("Shutting down background tasks...");
@@ -425,6 +421,66 @@ async fn main() -> anyhow::Result<()> {
     metrics_task.abort();
     db_cleanup_task.abort();
 
+    Ok(())
+}
+
+/// Apply the shared base middleware stack to a router: compression, security
+/// context (IP extraction), rate limiting, access logging, and tracing. Used by
+/// both the social and shop servers so they get identical outer protection.
+fn apply_base_layers(router: axum::Router, state: &AppState) -> axum::Router {
+    let security_config =
+        SecurityContextConfig::new().with_ip_extraction(ip_extraction_strategy());
+    router.layer(
+        ServiceBuilder::new()
+            // Outermost: negotiate gzip / brotli on every response. Honors the
+            // client's `Accept-Encoding`, skips responses that already carry a
+            // `Content-Encoding` (so `precompressed_gzip` static assets pass
+            // through untouched), and never compresses small bodies.
+            .layer(CompressionLayer::new())
+            .layer(from_fn_with_state(
+                security_config,
+                security_context_middleware_with_config,
+            ))
+            .layer(from_fn_with_state(
+                state.rate_limiter.clone(),
+                rate_limit_middleware,
+            ))
+            .layer(from_fn_with_state(state.clone(), access_log_middleware))
+            .layer(TraceLayer::new_for_http()),
+    )
+}
+
+/// Build the shop server app (business module): the order API plus the
+/// storefront static export served at the root, with unmatched paths falling
+/// back to index.html. A separate axum app from the social server so the two
+/// can run on different hosts (shop.example.com / social.example.com).
+#[cfg(feature = "business")]
+fn build_shop_app(state: &AppState, email_service: Arc<email::EmailService>) -> axum::Router {
+    app::build_shop_router(state, email_service)
+        .route("/health", get(health_check))
+        .fallback_service(
+            ServeDir::new("./shop-assets")
+                .not_found_service(ServeFile::new("./shop-assets/index.html")),
+        )
+}
+
+/// Serve a router on `addr` with graceful shutdown. `label` is a static string
+/// (so the future is `'static` and can be spawned) used only for logging.
+async fn serve_router(app: axum::Router, addr: String, label: &'static str) -> anyhow::Result<()> {
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to bind {} server to {}: {}", label, addr, e))?;
+    tracing::info!("{} server listening on {}", label, addr);
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .with_graceful_shutdown(async move {
+        let _ = tokio::signal::ctrl_c().await;
+        tracing::info!("Shutdown signal received, stopping {} server...", label);
+    })
+    .await
+    .map_err(|e| anyhow::anyhow!("{} server error: {}", label, e))?;
     Ok(())
 }
 

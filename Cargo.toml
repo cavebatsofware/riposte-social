@@ -10,6 +10,11 @@ license = "GPL-3.0-only"
 [features]
 default = []
 e2e_testing = []
+# Commerce module: the order-intake endpoint (/api/orders) and the storefront
+# shop server. A build without this feature compiles none of it. Build with
+# `--features business`. (Customer/owner SMS + RCS is a future messaging feature
+# and is intentionally not wired here.)
+business = []
 
 [dependencies]
 basic-axum-rate-limit = "0.3.0"
@@ -69,6 +74,8 @@ totp-rs = { version = "5.7.1", features = ["qr", "gen_secret"] }
 # Security hardening
 aes-gcm = { version = "0.10.3" }
 base64 = { version = "0.22.1" }
+hmac = "0.12.1"
+sha2 = "0.10.9"
 # Prometheus metrics
 prometheus = "0.14"
 # OIDC for Keycloak SSO

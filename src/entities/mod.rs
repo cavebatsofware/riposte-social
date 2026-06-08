@@ -23,6 +23,10 @@ pub mod comment_reaction;
 pub mod follow;
 pub mod import_job;
 pub mod invite_code;
+#[cfg(feature = "business")]
+pub mod order;
+#[cfg(feature = "business")]
+pub mod phone_verification;
 pub mod post;
 pub mod post_media;
 pub mod post_media_comment;
@@ -42,6 +46,10 @@ pub use comment_reaction::Entity as CommentReaction;
 pub use follow::Entity as Follow;
 pub use import_job::Entity as ImportJob;
 pub use invite_code::Entity as InviteCode;
+#[cfg(feature = "business")]
+pub use order::Entity as Order;
+#[cfg(feature = "business")]
+pub use phone_verification::Entity as PhoneVerification;
 pub use post::Entity as Post;
 pub use post_media::Entity as PostMedia;
 pub use post_media_comment::Entity as PostMediaComment;

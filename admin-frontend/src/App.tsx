@@ -10,6 +10,7 @@ import ForcePasswordChange from "./features/auth/ForcePasswordChange";
 import Dashboard from "./features/dashboard/Dashboard";
 import AccessCodes from "./features/access-codes/AccessCodes";
 import AccessLogs from "./features/access-logs/AccessLogs";
+import Orders from "./features/orders/Orders";
 import Users from "./features/users/Users";
 import Imports from "./features/imports/Imports";
 import InviteCodes from "./features/invites/InviteCodes";
@@ -101,6 +102,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AccessLogs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <Orders />
               </ProtectedRoute>
             }
           />

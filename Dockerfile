@@ -68,6 +68,10 @@ COPY --from=frontend-builder --chown=appuser:appuser \
      /app/admin-assets ./admin-assets
 COPY --from=frontend-builder --chown=appuser:appuser \
      /app/social-assets ./social-assets
+# Business storefront static export. Staged into ./shop-assets by the build
+# tooling (see `make build-business`); empty (just .gitkeep) for non-business
+# images. Served under /shop only by a binary built with --features business.
+COPY --chown=appuser:appuser shop-assets ./shop-assets
 COPY --chown=appuser:appuser --chmod=0755 entrypoint.sh ./entrypoint.sh
 
 USER appuser

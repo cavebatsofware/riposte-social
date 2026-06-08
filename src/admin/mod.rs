@@ -18,6 +18,8 @@ pub mod access_logs;
 pub mod auth;
 pub mod handlers;
 pub mod moderation;
+#[cfg(feature = "business")]
+pub mod orders;
 pub mod pagination;
 pub mod password;
 pub mod settings;
