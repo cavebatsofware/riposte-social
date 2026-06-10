@@ -22,12 +22,12 @@ use axum::{
 use std::{env, sync::Arc};
 use time::Duration as TimeDuration;
 use tower::ServiceBuilder;
+#[cfg(feature = "business")]
+use tower_http::services::ServeFile;
 use tower_http::{
     compression::CompressionLayer, services::ServeDir, set_header::SetResponseHeaderLayer,
     trace::TraceLayer,
 };
-#[cfg(feature = "business")]
-use tower_http::services::ServeFile;
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
@@ -383,8 +383,7 @@ async fn main() -> anyhow::Result<()> {
         }
         #[cfg(feature = "business")]
         "shop" => {
-            let shop_app =
-                apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
+            let shop_app = apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
             serve_router(shop_app, primary_addr, "shop").await?;
         }
         #[cfg(feature = "business")]
@@ -395,8 +394,7 @@ async fn main() -> anyhow::Result<()> {
                 .unwrap_or(3001);
             let shop_addr = format!("{}:{}", bind_host, shop_port);
             let social_app = apply_base_layers(app, &state);
-            let shop_app =
-                apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
+            let shop_app = apply_base_layers(build_shop_app(&state, email_service.clone()), &state);
             // Both servers run as tasks on the shared multi-threaded runtime.
             let social = tokio::spawn(serve_router(social_app, primary_addr, "social"));
             let shop = tokio::spawn(serve_router(shop_app, shop_addr, "shop"));
@@ -428,8 +426,7 @@ async fn main() -> anyhow::Result<()> {
 /// context (IP extraction), rate limiting, access logging, and tracing. Used by
 /// both the social and shop servers so they get identical outer protection.
 fn apply_base_layers(router: axum::Router, state: &AppState) -> axum::Router {
-    let security_config =
-        SecurityContextConfig::new().with_ip_extraction(ip_extraction_strategy());
+    let security_config = SecurityContextConfig::new().with_ip_extraction(ip_extraction_strategy());
     router.layer(
         ServiceBuilder::new()
             // Outermost: negotiate gzip / brotli on every response. Honors the
@@ -509,8 +506,26 @@ fn ip_extraction_strategy() -> IpExtractionStrategy {
             return IpExtractionStrategy::SocketAddr;
         }
     }
-    tracing::info!("Using X-Forwarded-For header for IP extraction");
-    IpExtractionStrategy::default()
+    // Behind a proxy that sets a trusted client-IP header, configure it here.
+    // CLIENT_IP_HEADER names the header; CLIENT_IP_PROXY_DEPTH is the exact
+    // number of IPs the header must contain (rejected otherwise, anti-spoof).
+    // Behind a Cloudflare Tunnel set CLIENT_IP_HEADER=CF-Connecting-IP (depth 1):
+    // Cloudflare sets it to the single real client IP and overwrites any
+    // client-supplied value, so it is not spoofable like X-Forwarded-For.
+    // Defaults to X-Forwarded-For at depth 1 (the prior behavior).
+    let header_name = env::var("CLIENT_IP_HEADER")
+        .ok()
+        .filter(|h| !h.is_empty())
+        .unwrap_or_else(|| "X-Forwarded-For".to_string());
+    let proxy_depth = env::var("CLIENT_IP_PROXY_DEPTH")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    tracing::info!("IP extraction: header={header_name}, proxy_depth={proxy_depth}");
+    IpExtractionStrategy::ForwardedHeader {
+        header_name,
+        proxy_depth,
+    }
 }
 
 /// Bootstrap the first administrator. Inserts an inert admin row plus a

@@ -99,9 +99,8 @@ pub async fn verify_phone(
     auth_token: &str,
     e164: &str,
 ) -> Result<PhoneCheck> {
-    let url = format!(
-        "https://lookups.twilio.com/v2/PhoneNumbers/{e164}?Fields=line_type_intelligence"
-    );
+    let url =
+        format!("https://lookups.twilio.com/v2/PhoneNumbers/{e164}?Fields=line_type_intelligence");
     let resp = http
         .get(&url)
         .basic_auth(account_sid, Some(auth_token))
@@ -113,7 +112,10 @@ pub async fn verify_phone(
         anyhow::bail!("Twilio lookup HTTP {}: {}", status, body);
     }
     let v: serde_json::Value = serde_json::from_str(&body)?;
-    let valid = v.get("valid").and_then(serde_json::Value::as_bool).unwrap_or(false);
+    let valid = v
+        .get("valid")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
     let line_type = v
         .get("line_type_intelligence")
         .and_then(|lt| lt.get("type"))

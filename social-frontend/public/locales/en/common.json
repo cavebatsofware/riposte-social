@@ -20,6 +20,7 @@
   },
   "nav": {
     "feed": "Feed",
+    "store": "Store",
     "compose": "Compose",
     "composeMenuAria": "Open compose menu",
     "newPost": "New post",

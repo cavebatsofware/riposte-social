@@ -2,7 +2,6 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
-import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { fetchAlbums } from "../features/albums/api";
 import { fetchCategories } from "../features/categories/api";
 import { fetchProfilesDirectory } from "../features/profile/api";
@@ -42,8 +41,6 @@ export default function BrowseRail() {
   // view than what any rail link represents.
   const onFeedRoute = location.pathname === "/" && !activeQuery;
   const { t } = useTranslation("browse");
-  const { config } = useSiteConfig();
-  const shopUrl = config?.shop_url;
 
   // Persist open-state on every change.
   useEffect(() => {
@@ -304,16 +301,6 @@ export default function BrowseRail() {
           </Link>
         ))}
       </Group>
-      {shopUrl ? (
-        <a
-          className="browse-rail-link browse-rail-store"
-          href={shopUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {t("rail.store")}
-        </a>
-      ) : null}
     </nav>
   );
 }

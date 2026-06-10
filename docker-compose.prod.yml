@@ -1,0 +1,87 @@
+# Production stack for a single host (e.g. a Hetzner VPS), fronted by a
+# Cloudflare Tunnel. cloudflared runs as a host systemd service (NOT in this
+# stack) so the tunnel, our always-on ingress, stays up independently of any
+# compose maintenance/recreation (see deploy/README.md). The app publishes only
+# to loopback (127.0.0.1) for the host daemon to reach; Postgres is
+# internal-only. No port is bound to a public interface.
+#
+# Bring-up and secret creation are documented in deploy/README.md.
+#
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Non-secret runtime config comes from deploy/.env.prod (copy
+# deploy/.env.prod.example). Sensitive values come from Docker secrets in
+# deploy/secrets/ (resolved by the app via src/secret.rs: /run/secrets/<name>).
+
+services:
+  postgres:
+    image: paradedb/paradedb:0.24.0-pg18
+    container_name: riposte-social-prod-db
+    restart: unless-stopped
+    env_file: ./deploy/.env.prod
+    environment:
+      # One secret feeds both the database and the app (see database.rs).
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    secrets:
+      - postgres_password
+    volumes:
+      # PG18+ keeps its version subdir under /var/lib/postgresql.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      # $$ escapes to a literal $, so the container shell expands the vars
+      # that env_file injected (POSTGRES_USER / POSTGRES_DB).
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - riposte-net
+
+  app:
+    # Override RIPOSTE_IMAGE / IMAGE_TAG (shell or a root .env) to deploy any
+    # build or registry. Defaults to the canonical published image.
+    image: ${RIPOSTE_IMAGE:-ghcr.io/cavebatsofware/riposte-social}:${IMAGE_TAG:-latest}
+    container_name: riposte-social-prod-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./deploy/.env.prod
+    environment:
+      # SES + S3 read the AWS default credential chain; point it at the
+      # mounted secret so no AWS keys live in env or the image.
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      # Run migrations before the server starts (entrypoint.sh). The app does
+      # NOT auto-migrate on boot; this is the only trigger. Idempotent.
+      MIGRATE_DB: "true"
+    secrets:
+      - secure_values_key
+      - postgres_password
+      - aws_credentials
+    ports:
+      # Loopback only: reachable by the host cloudflared service, never public.
+      # Social app on 3000, storefront on 3001 (APP_ROLE=both).
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
+    networks:
+      - riposte-net
+    # The app auto-runs migrations on boot (AppState::new). Brand favicons
+    # and storefront are baked into the image at build time (shop-assets).
+
+secrets:
+  secure_values_key:
+    file: ./deploy/secrets/secure_values_key
+  postgres_password:
+    file: ./deploy/secrets/postgres_password
+  aws_credentials:
+    file: ./deploy/secrets/aws_credentials
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  riposte-net:
+    driver: bridge

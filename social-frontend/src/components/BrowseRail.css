@@ -60,6 +60,9 @@
   outline-offset: -2px;
 }
 
+/* Base style shared by every rail link (categories, albums, people, the
+   "Show all" overflow rows, and the "All posts" clear row). Modifiers like
+   .browse-rail-overflow / .browse-rail-clear build on top of this. */
 .browse-rail-link {
   display: flex;
   align-items: center;

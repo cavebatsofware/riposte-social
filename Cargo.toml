@@ -67,8 +67,10 @@ aws-sdk-s3 = { version = "1.129.0", default-features = false, features = [
 ] }
 # Time for session expiry
 time = "0.3.47"
-# DOCX handling (ZIP archive manipulation)
-zip = "8.5.1"
+# DOCX handling (ZIP archive manipulation). aes-crypto disabled: we only
+# read/write plain zips (DOCX, Facebook exports), never AES-encrypted entries,
+# so dropping it removes the yanked `aes` 0.9.0 crate from the tree.
+zip = { version = "8.5.1", default-features = false, features = ["deflate"] }
 # TOTP for MFA
 totp-rs = { version = "5.7.1", features = ["qr", "gen_secret"] }
 # Security hardening
@@ -122,4 +124,14 @@ aws-sdk-s3 = { version = "1.129.0", default-features = false, features = [
     "test-util",
 ] }
 rsa = { version = "0.9.10", features = ["pem"] }
+
+[patch.crates-io]
+# Carries SeaQL/sea-query PR #1074 (open upstream), backported to 0.32.7 (the
+# line sea-orm 1.1.20 requires; the PR branch itself targets the 1.0.0-rc master
+# and is version-incompatible here). Fixes the Postgres tokenizer treating `[`
+# as a quote start, which corrupted `$N` placeholder numbering in statements
+# mixing array subscripts like `(ARRAY_AGG(...))[1]` with bound params
+# (src/albums/queries.rs). Cargo.lock pins the exact commit. Remove once #1074
+# ships in a 0.32.x release that sea-orm depends on. See CLAUDE.md.
+sea-query = { git = "https://github.com/cavebatsofware/sea-query.git", branch = "fix-bracket-tokenizer-0.32.7" }
 

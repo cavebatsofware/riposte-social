@@ -35,6 +35,11 @@ coverage/
 *.pdf
 .env
 
+# Operator deployment config lives in a separate private repo (../riposte-deploy),
+# symlinked into ./deploy here. Never tracked in the product.
+/deploy
+.github/tokens
+
 
 # Database
 backups/

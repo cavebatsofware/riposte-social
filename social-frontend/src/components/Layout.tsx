@@ -98,7 +98,7 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
       <header className="layout-header">
         <div className="layout-header-inner">
           <Link to="/" className="layout-logo" aria-label={t("homeAria")}>
-            {t("siteName")}
+            {site?.site_name ?? t("siteName")}
           </Link>
           <nav className="layout-nav" aria-label={t("primaryNav")}>
             {navLinks.map((l) => {
@@ -114,6 +114,16 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
                 </Link>
               );
             })}
+            {site?.shop_url ? (
+              <a
+                className="layout-nav-link"
+                href={site.shop_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("nav.store")}
+              </a>
+            ) : null}
             {composeLinks.length > 0 && <ComposeMenu links={composeLinks} />}
           </nav>
           <div className="layout-header-actions">

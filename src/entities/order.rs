@@ -16,7 +16,7 @@
 //! Generic customer order intake for the business module. The row carries a
 //! customer identity, human-readable `title`/`summary` for notifications and
 //! admin display, optional `estimate_total` and `deposit` fields, a `total`,
-//! a `kind` tag naming the source form, and an opaque `details` JSON string 
+//! a `kind` tag naming the source form, and an opaque `details` JSON string
 //! holding form-specific fields. The schema is intentionally independent of
 //! any particular front-end: new intake forms vary only `kind` and the
 //! contents of `details`.

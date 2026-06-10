@@ -499,7 +499,12 @@ This order was submitted on {}
             .content(email_content)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send order notification email: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to send order notification email: {}",
+                    crate::s3::format_aws_error(&e)
+                )
+            })?;
 
         tracing::info!("Order notification email sent for {}", title);
 
@@ -599,7 +604,12 @@ This order was submitted on {}
             .content(email_content)
             .send()
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send order confirmation email: {}", e))?;
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to send order confirmation email: {}",
+                    crate::s3::format_aws_error(&e)
+                )
+            })?;
 
         tracing::info!("Order confirmation email sent to customer");
 

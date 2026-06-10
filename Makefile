@@ -1,9 +1,18 @@
 # riposte-social Deployment Makefile
 # Follows the deployment instructions from README.md
 
-# Load environment variables from .env file if it exists
-ifneq (,$(wildcard .env))
-include .env
+# Load environment. Production deploy targets build from deploy/.env.prod so the
+# image's build-time config (e.g. SITE_DOMAIN baked into the SPAs) comes from
+# prod config, not the dev .env. Everything else reads .env.
+PROD_TARGETS := deploy-ghcr deploy deploy-ocir
+ifneq (,$(filter $(PROD_TARGETS),$(MAKECMDGOALS)))
+ENV_FILE := deploy/.env.prod
+else
+ENV_FILE := .env
+endif
+
+ifneq (,$(wildcard $(ENV_FILE)))
+include $(ENV_FILE)
 export
 endif
 
@@ -19,6 +28,14 @@ OCIR_REGISTRY ?= $(OCIR_REGISTRY_URL)
 OCIR_REPOSITORY ?= $(OCIR_REPO_NAME)
 OCIR_REGION ?= $(if $(OCIR_REGION_NAME),$(OCIR_REGION_NAME),us-ashburn-1)
 OCIR_IMAGE = $(if $(OCIR_REGISTRY),$(OCIR_REGISTRY)/$(OCIR_REPOSITORY):latest,)
+
+# GitHub Container Registry (GHCR) Configuration. Manual deploy path: build
+# locally, push here, server pulls (see deploy/README.md). GHCR_TOKEN is a
+# GitHub token with write:packages (PAT or `gh auth token`).
+GHCR_REGISTRY ?= ghcr.io
+GHCR_OWNER ?= cavebatsofware
+GHCR_IMAGE_TAG ?= latest
+GHCR_IMAGE := $(GHCR_REGISTRY)/$(GHCR_OWNER)/$(DOCKER_IMAGE):$(GHCR_IMAGE_TAG)
 
 # Build mode is keyed off APP_ROLE (the same indicator used at runtime): a
 # `shop` or `both` role compiles, runs, migrates, and packages with the
@@ -187,6 +204,36 @@ deploy-ocir: build push-ocir
 	@echo ""
 	@echo "OCIR Deployment complete!"
 	@echo "Image pushed to: $(OCIR_IMAGE)"
+
+# Login to GitHub Container Registry. Needs GHCR_TOKEN (PAT / `gh auth token`
+# with write:packages).
+.PHONY: login-ghcr
+login-ghcr:
+	@if [ -z "$(GHCR_TOKEN)" ]; then echo "Error: GHCR_TOKEN not set (GitHub token with write:packages)"; exit 1; fi
+	@echo "Logging into GHCR..."
+	@echo "$(GHCR_TOKEN)" | docker login $(GHCR_REGISTRY) -u '$(GHCR_OWNER)' --password-stdin
+	@echo "GHCR login successful"
+
+# Tag and push to GHCR
+.PHONY: push-ghcr
+push-ghcr: login-ghcr
+	@echo "Tagging image for GHCR..."
+	docker tag $(DOCKER_IMAGE):latest $(GHCR_IMAGE)
+	@echo "Pushing to GHCR..."
+	docker push $(GHCR_IMAGE)
+	@echo "Push complete: $(GHCR_IMAGE)"
+
+# Complete GHCR deployment (build + push). For the production business image,
+# pass APP_ROLE=both + the storefront paths, and the storefront build-time vars:
+#   TURNSTILE_SITE_KEY=... SOCIAL_URL=... \
+#     make deploy-ghcr APP_ROLE=both \
+#       SHOP_SRC=../picnic-table-configurator SHOP_DIST=../picnic-table-configurator/out
+# Then on the server: docker compose -f docker-compose.prod.yml pull && up -d
+.PHONY: deploy-ghcr
+deploy-ghcr: build push-ghcr
+	@echo ""
+	@echo "GHCR deployment complete!"
+	@echo "Image pushed to: $(GHCR_IMAGE)"
 
 # Run locally for testing
 .PHONY: run

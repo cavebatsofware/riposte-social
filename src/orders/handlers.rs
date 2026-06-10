@@ -54,12 +54,7 @@ async fn submit_order(
     Json(payload): Json<OrderRequest>,
 ) -> AppResult<impl IntoResponse> {
     // Live gate (on top of the compile-time `business` feature).
-    if !state
-        .settings
-        .get_business_enabled()
-        .await
-        .unwrap_or(false)
-    {
+    if !state.settings.get_business_enabled().await.unwrap_or(false) {
         return Ok(reply(
             StatusCode::NOT_FOUND,
             false,
@@ -119,10 +114,7 @@ async fn submit_order(
         }
     };
 
-    let ip_addr = security_context
-        .ip_address
-        .parse::<std::net::IpAddr>()
-        .ok();
+    let ip_addr = security_context.ip_address.parse::<std::net::IpAddr>().ok();
 
     // CAPTCHA: when a Turnstile secret is configured (encrypted setting),
     // require a valid token. No secret configured (e.g. local dev) skips it.
@@ -165,7 +157,8 @@ async fn submit_order(
                     "Please enter a valid phone number.",
                 ));
             };
-            let hmac = crypto::hmac_phone(&e164).map_err(|e| AppError::InternalError(e.to_string()))?;
+            let hmac =
+                crypto::hmac_phone(&e164).map_err(|e| AppError::InternalError(e.to_string()))?;
 
             let check: Option<phone::PhoneCheck> =
                 match phone::cached_fresh(&state.db, &hmac).await.ok().flatten() {
@@ -219,7 +212,8 @@ async fn submit_order(
 
     // Encrypt PII at rest (AES-256-GCM via SECURE_VALUES_KEY). A failure here
     // means the key is missing/invalid: a server misconfiguration, so 500.
-    let enc = |v: &str| crypto::encrypt_value(v).map_err(|e| AppError::InternalError(e.to_string()));
+    let enc =
+        |v: &str| crypto::encrypt_value(v).map_err(|e| AppError::InternalError(e.to_string()));
     let name_ct = enc(payload.customer_name.trim())?;
     let phone_ct = enc(payload.customer_phone.trim())?;
     let email_ct = enc(customer_email)?;
@@ -310,7 +304,10 @@ async fn verify_turnstile(
     token: &str,
     ip: Option<std::net::IpAddr>,
 ) -> bool {
-    let mut form = vec![("secret", secret.to_string()), ("response", token.to_string())];
+    let mut form = vec![
+        ("secret", secret.to_string()),
+        ("response", token.to_string()),
+    ];
     if let Some(ip) = ip {
         form.push(("remoteip", ip.to_string()));
     }

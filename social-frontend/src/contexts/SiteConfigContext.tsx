@@ -67,6 +67,40 @@ export function SiteConfigProvider({ children }) {
     };
   }, [user?.id, user?.role]);
 
+  // Reflect the deployment's brand name in the browser tab. The SPA's
+  // static index.html ships the platform's neutral default <title>, but
+  // config is the source of truth once it loads (operator sets `site_name`
+  // without a rebuild).
+  useEffect(() => {
+    if (config?.site_name) {
+      document.title = config.site_name;
+    }
+  }, [config?.site_name]);
+
+  // Source brand favicons from the configured storefront. The platform ships
+  // no operator branding of its own beyond a neutral default favicon; when a
+  // store is configured, point the icons at the store's root so the social app
+  // matches the operator's brand. The store may be a different origin (e.g.
+  // shop.* vs www.*); cross-origin icon links load fine. The expected store
+  // asset paths are the contract in docs/storefront-branding.md.
+  useEffect(() => {
+    const shopUrl = config?.shop_url;
+    if (!shopUrl) return;
+    const base = shopUrl.replace(/\/+$/, "");
+    const setIcon = (rel: string, type: string | null, href: string) => {
+      let el = document.head.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+      if (!el) {
+        el = document.createElement("link");
+        el.rel = rel;
+        document.head.appendChild(el);
+      }
+      if (type) el.type = type;
+      el.href = href;
+    };
+    setIcon("icon", "image/svg+xml", `${base}/favicon.svg`);
+    setIcon("apple-touch-icon", null, `${base}/apple-touch-icon.png`);
+  }, [config?.shop_url]);
+
   return (
     <SiteConfigContext.Provider value={{ config, loading, error }}>
       {children}

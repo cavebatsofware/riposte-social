@@ -326,7 +326,9 @@ impl SettingsService {
 
     /// Twilio Account SID (not secret). `None`/empty when unset.
     pub async fn get_twilio_account_sid(&self) -> Result<Option<String>> {
-        let v = self.get("twilio_account_sid", Some("business"), None).await?;
+        let v = self
+            .get("twilio_account_sid", Some("business"), None)
+            .await?;
         Ok(v.filter(|s| !s.is_empty()))
     }
 
