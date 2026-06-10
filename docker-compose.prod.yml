@@ -67,8 +67,8 @@ services:
       - "127.0.0.1:3001:3001"
     networks:
       - riposte-net
-    # The app auto-runs migrations on boot (AppState::new). Brand favicons
-    # and storefront are baked into the image at build time (shop-assets).
+    # Brand favicons and storefront are baked into the image at build time
+    # (shop-assets). Migrations run only via MIGRATE_DB above, not on boot.
 
 secrets:
   secure_values_key:

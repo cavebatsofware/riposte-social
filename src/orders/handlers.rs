@@ -48,6 +48,10 @@ fn non_empty(opt: Option<&str>) -> Option<&str> {
     opt.map(str::trim).filter(|s| !s.is_empty())
 }
 
+/// Cap on the serialized `details` object. It is freeform once it's an object,
+/// so this keeps a form from pushing an oversized blob into storage.
+const MAX_DETAILS_BYTES: usize = 8 * 1024;
+
 async fn submit_order(
     State(state): State<OrderState>,
     Extension(security_context): Extension<SecurityContext>,
@@ -63,9 +67,12 @@ async fn submit_order(
         ));
     }
 
-    // Validate. `details` may be anything except, deliberately, not required to
-    // be an object so different forms can shape it freely; reject only a string
-    // bomb on the human-readable fields.
+    // `details` must be a JSON object (the admin UI renders it with
+    // Object.entries, which breaks on a string/array/scalar) and stays under a
+    // size cap since it is otherwise freeform.
+    let details_json = payload.details.to_string();
+
+    // Validate the human-readable fields: reject empties and string bombs.
     if payload.kind.trim().is_empty()
         || payload.kind.len() > 64
         || payload.title.trim().is_empty()
@@ -76,6 +83,8 @@ async fn submit_order(
         || payload.customer_name.len() > 200
         || payload.customer_phone.trim().is_empty()
         || payload.customer_phone.len() > 50
+        || !payload.details.is_object()
+        || details_json.len() > MAX_DETAILS_BYTES
     {
         return Ok(reply(
             StatusCode::BAD_REQUEST,
@@ -85,13 +94,15 @@ async fn submit_order(
         ));
     }
 
-    // Phone must look like a real number (national to E.164 is 10-15 digits).
+    // Phone must look plausibly real. Keep this range in sync with
+    // normalize_e164, which accepts 8-15 digits (8-15 assumed to already carry a
+    // country code); a narrower gate would reject inputs the normalizer accepts.
     let phone_digits = payload
         .customer_phone
         .chars()
         .filter(char::is_ascii_digit)
         .count();
-    if !(10..=15).contains(&phone_digits) {
+    if !(8..=15).contains(&phone_digits) {
         return Ok(reply(
             StatusCode::BAD_REQUEST,
             false,
@@ -102,17 +113,15 @@ async fn submit_order(
 
     // Email is required: the customer receives their order + BOM, deposit
     // record, and build-status updates there.
-    let customer_email = match non_empty(payload.customer_email.as_deref()) {
-        Some(email) if crate::subscriptions::is_valid_email(email) => email,
-        _ => {
-            return Ok(reply(
-                StatusCode::BAD_REQUEST,
-                false,
-                String::new(),
-                "Please enter a valid email address.",
-            ));
-        }
-    };
+    let customer_email = payload.customer_email.trim();
+    if customer_email.is_empty() || !crate::subscriptions::is_valid_email(customer_email) {
+        return Ok(reply(
+            StatusCode::BAD_REQUEST,
+            false,
+            String::new(),
+            "Please enter a valid email address.",
+        ));
+    }
 
     let ip_addr = security_context.ip_address.parse::<std::net::IpAddr>().ok();
 
@@ -230,6 +239,17 @@ async fn submit_order(
     let phone_ct = enc(payload.customer_phone.trim())?;
     let email_ct = enc(customer_email)?;
 
+    // Start in the first configured workflow status (falling back to "placed"
+    // if the list can't be read) so a new order always lands on a status the
+    // admin dropdown knows about.
+    let status = state
+        .settings
+        .get_order_statuses()
+        .await
+        .ok()
+        .and_then(|s| s.into_iter().next())
+        .unwrap_or_else(|| "placed".to_string());
+
     let id = Uuid::new_v4();
     let now = chrono::Utc::now();
     let model = order::ActiveModel {
@@ -243,8 +263,8 @@ async fn submit_order(
         estimate_total: Set(payload.estimate_total),
         total: Set(None),
         deposit: Set(None),
-        details: Set(payload.details.to_string()),
-        status: Set("placed".to_string()),
+        details: Set(details_json),
+        status: Set(status),
         phone_verified: Set(phone_verified),
         phone_line_type: Set(phone_line_type),
         created_at: Set(now.into()),

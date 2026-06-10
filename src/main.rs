@@ -523,9 +523,12 @@ fn ip_extraction_strategy() -> IpExtractionStrategy {
         .ok()
         .filter(|h| !h.is_empty())
         .unwrap_or_else(|| "X-Forwarded-For".to_string());
+    // Depth is part of the anti-spoof guarantee: 0 (or junk) would disable the
+    // exact-count check, so reject anything below 1 and fall back to 1.
     let proxy_depth = env::var("CLIENT_IP_PROXY_DEPTH")
         .ok()
         .and_then(|s| s.parse().ok())
+        .filter(|&d| d >= 1)
         .unwrap_or(1);
     tracing::info!("IP extraction: header={header_name}, proxy_depth={proxy_depth}");
     IpExtractionStrategy::ForwardedHeader {

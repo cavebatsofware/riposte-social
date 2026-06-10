@@ -15,14 +15,18 @@ function Layout({ children }) {
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [shopUrl, setShopUrl] = useState(null);
+  const [commerceEnabled, setCommerceEnabled] = useState(false);
 
-  // Public storefront link, shown only when shop_url is configured.
+  // Storefront link (shown only when shop_url is set) and whether this build
+  // carries the commerce surface (gates the Commerce nav section).
   useEffect(() => {
     let cancelled = false;
     fetchApi("/api/site/config")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled && d?.shop_url) setShopUrl(d.shop_url);
+        if (cancelled || !d) return;
+        if (d.shop_url) setShopUrl(d.shop_url);
+        setCommerceEnabled(!!d.commerce_enabled);
       })
       .catch(() => {});
     return () => {
@@ -104,13 +108,17 @@ function Layout({ children }) {
               label="Imports"
             />
 
-            <SidebarSection label="Commerce" />
-            <SidebarLink
-              path="/orders"
-              isActive={isActive}
-              onClick={go}
-              label="Orders"
-            />
+            {commerceEnabled && (
+              <>
+                <SidebarSection label="Commerce" />
+                <SidebarLink
+                  path="/orders"
+                  isActive={isActive}
+                  onClick={go}
+                  label="Orders"
+                />
+              </>
+            )}
 
             <SidebarSection label="System" />
             {showAccessCodes && (

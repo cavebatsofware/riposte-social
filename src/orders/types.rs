@@ -26,15 +26,20 @@ pub struct OrderRequest {
     pub summary: String,
     pub customer_name: String,
     pub customer_phone: String,
-    #[serde(default)]
-    pub customer_email: Option<String>,
+    pub customer_email: String,
     #[serde(default)]
     pub estimate_total: Option<f64>,
-    #[serde(default)]
+    #[serde(default = "default_details")]
     pub details: serde_json::Value,
     /// Cloudflare Turnstile token; verified server-side when a secret is set.
     #[serde(default)]
     pub turnstile_token: Option<String>,
+}
+
+/// An absent `details` is an empty object, so the contract (and the admin UI's
+/// Object.entries rendering) always sees an object.
+fn default_details() -> serde_json::Value {
+    serde_json::Value::Object(serde_json::Map::new())
 }
 
 #[derive(Serialize)]
