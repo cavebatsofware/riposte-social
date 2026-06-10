@@ -1,9 +1,18 @@
 # riposte-social Deployment Makefile
 # Follows the deployment instructions from README.md
 
-# Load environment variables from .env file if it exists
-ifneq (,$(wildcard .env))
-include .env
+# Load environment. Production deploy targets build from deploy/.env.prod so the
+# image's build-time config (e.g. SITE_DOMAIN baked into the SPAs) comes from
+# prod config, not the dev .env. Everything else reads .env.
+PROD_TARGETS := deploy-ghcr deploy deploy-ocir
+ifneq (,$(filter $(PROD_TARGETS),$(MAKECMDGOALS)))
+ENV_FILE := deploy/.env.prod
+else
+ENV_FILE := .env
+endif
+
+ifneq (,$(wildcard $(ENV_FILE)))
+include $(ENV_FILE)
 export
 endif
 
@@ -19,6 +28,30 @@ OCIR_REGISTRY ?= $(OCIR_REGISTRY_URL)
 OCIR_REPOSITORY ?= $(OCIR_REPO_NAME)
 OCIR_REGION ?= $(if $(OCIR_REGION_NAME),$(OCIR_REGION_NAME),us-ashburn-1)
 OCIR_IMAGE = $(if $(OCIR_REGISTRY),$(OCIR_REGISTRY)/$(OCIR_REPOSITORY):latest,)
+
+# GitHub Container Registry (GHCR) Configuration. Manual deploy path: build
+# locally, push here, server pulls (see deploy/README.md). GHCR_TOKEN is a
+# GitHub token with write:packages (PAT or `gh auth token`).
+GHCR_REGISTRY ?= ghcr.io
+GHCR_OWNER ?= cavebatsofware
+GHCR_IMAGE_TAG ?= latest
+GHCR_IMAGE := $(GHCR_REGISTRY)/$(GHCR_OWNER)/$(DOCKER_IMAGE):$(GHCR_IMAGE_TAG)
+
+# Build mode is keyed off APP_ROLE (the same indicator used at runtime): a
+# `shop` or `both` role compiles, runs, migrates, and packages with the
+# `business` feature and stages the storefront; `social` (or unset) is
+# social-only. Set APP_ROLE in .env so every job adapts with no extra flags.
+ifneq (,$(filter shop both,$(APP_ROLE)))
+SHOP_FEATURE := business
+else
+SHOP_FEATURE :=
+endif
+
+# Render a `--features a,b` flag from a space-separated list ($1); empty if none.
+empty :=
+space := $(empty) $(empty)
+comma := ,
+features_flag = $(if $(strip $(1)),--features $(subst $(space),$(comma),$(strip $(1))),)
 
 # Default target
 .PHONY: help
@@ -56,6 +89,8 @@ help:
 	@echo ""
 	@echo "🐳 Docker Commands:"
 	@echo "  make build          - Build Docker image locally"
+	@echo "  make shop-build     - Build + stage a storefront export (SHOP_SRC, SHOP_DIST)"
+	@echo "  make build-business - Build the business image (orders + /shop + SMS)"
 	@echo "  make run            - Run container locally (requires ACCESS_CODES env var)"
 	@echo "  make deploy         - Complete deployment: build + push to ECR"
 	@echo "  make push-ecr       - Push to ECR (after build)"
@@ -76,14 +111,46 @@ help:
 	@echo "  make db-migrate     # Run migrations"
 	@echo "  make dev            # Start development server"
 
-# Build the Docker image
+# Build the Docker image. When APP_ROLE is shop/both this is a business image:
+# it stages the storefront and compiles with the business feature. Otherwise
+# it's a social-only image. Driven entirely by APP_ROLE (.env), no extra flags.
 .PHONY: build
-build: frontend-build
-	@echo "🔨 Building Docker image..."
+build: frontend-build $(if $(SHOP_FEATURE),shop-build)
+	@echo "🔨 Building Docker image (role=$(if $(APP_ROLE),$(APP_ROLE),social))..."
 	docker build \
 		--build-arg SITE_DOMAIN=$(SITE_DOMAIN) \
+		$(if $(SHOP_FEATURE),--build-arg CARGO_FEATURES=$(SHOP_FEATURE)) \
 		-t $(DOCKER_IMAGE) .
 	@echo "✅ Build complete: $(DOCKER_IMAGE)"
+
+# Build a storefront's static assets with bun and stage them into ./shop-assets
+# so the Dockerfile can COPY them. Framework-neutral: any project whose build
+# emits static html/js/css works. SHOP_SRC is the project directory; SHOP_DIST
+# is the directory its build emits.
+#   make shop-build SHOP_SRC=../storefront SHOP_DIST=../storefront/out
+.PHONY: shop-build
+shop-build:
+ifndef SHOP_SRC
+	$(error SHOP_SRC is required. Example: make shop-build SHOP_SRC=../storefront SHOP_DIST=../storefront/out)
+endif
+ifndef SHOP_DIST
+	$(error SHOP_DIST is required. Example: make shop-build SHOP_SRC=../storefront SHOP_DIST=../storefront/out)
+endif
+	@test -d "$(SHOP_SRC)" || { echo "❌ storefront source not found: $(SHOP_SRC)"; exit 1; }
+	@echo "🔨 Building storefront in $(SHOP_SRC)..."
+	cd "$(SHOP_SRC)" && bun install && bun run build
+	@test -d "$(SHOP_DIST)" || { echo "❌ build output not found: $(SHOP_DIST)"; exit 1; }
+	@echo "📦 Staging $(SHOP_DIST) into ./shop-assets..."
+	@find shop-assets -mindepth 1 ! -name .gitkeep -delete
+	cp -r "$(SHOP_DIST)/." shop-assets/
+	@echo "✅ Storefront staged to shop-assets/"
+
+# Convenience: force a business image regardless of the ambient APP_ROLE.
+# Equivalent to `make build APP_ROLE=both`. Still needs SHOP_SRC / SHOP_DIST.
+#   make build-business SHOP_SRC=../storefront SHOP_DIST=../storefront/out
+.PHONY: build-business
+build-business:
+	@$(MAKE) build APP_ROLE=both
 
 # Login to ECR
 .PHONY: login-ecr
@@ -137,6 +204,36 @@ deploy-ocir: build push-ocir
 	@echo ""
 	@echo "OCIR Deployment complete!"
 	@echo "Image pushed to: $(OCIR_IMAGE)"
+
+# Login to GitHub Container Registry. Needs GHCR_TOKEN (PAT / `gh auth token`
+# with write:packages).
+.PHONY: login-ghcr
+login-ghcr:
+	@if [ -z "$(GHCR_TOKEN)" ]; then echo "Error: GHCR_TOKEN not set (GitHub token with write:packages)"; exit 1; fi
+	@echo "Logging into GHCR..."
+	@echo "$(GHCR_TOKEN)" | docker login $(GHCR_REGISTRY) -u '$(GHCR_OWNER)' --password-stdin
+	@echo "GHCR login successful"
+
+# Tag and push to GHCR
+.PHONY: push-ghcr
+push-ghcr: login-ghcr
+	@echo "Tagging image for GHCR..."
+	docker tag $(DOCKER_IMAGE):latest $(GHCR_IMAGE)
+	@echo "Pushing to GHCR..."
+	docker push $(GHCR_IMAGE)
+	@echo "Push complete: $(GHCR_IMAGE)"
+
+# Complete GHCR deployment (build + push). For the production business image,
+# pass APP_ROLE=both + the storefront paths, and the storefront build-time vars:
+#   TURNSTILE_SITE_KEY=... SOCIAL_URL=... \
+#     make deploy-ghcr APP_ROLE=both \
+#       SHOP_SRC=../picnic-table-configurator SHOP_DIST=../picnic-table-configurator/out
+# Then on the server: docker compose -f docker-compose.prod.yml pull && up -d
+.PHONY: deploy-ghcr
+deploy-ghcr: build push-ghcr
+	@echo ""
+	@echo "GHCR deployment complete!"
+	@echo "Image pushed to: $(GHCR_IMAGE)"
 
 # Run locally for testing
 .PHONY: run
@@ -221,7 +318,7 @@ db-shell:
 .PHONY: db-migrate
 db-migrate:
 	@echo "🔄 Running database migrations..."
-	MIGRATE_DB=true cargo run -- migrate
+	MIGRATE_DB=true cargo run $(call features_flag,$(SHOP_FEATURE)) -- migrate
 	@echo "✅ Migrations complete!"
 
 # Reset database (WARNING: deletes all data)
@@ -234,7 +331,7 @@ db-reset:
 		docker-compose down -v; \
 		docker-compose up -d postgres; \
 		sleep 5; \
-		MIGRATE_DB=true cargo run -- migrate; \
+		MIGRATE_DB=true cargo run $(call features_flag,$(SHOP_FEATURE)) -- migrate; \
 		echo "✅ Database reset complete!"; \
 	else \
 		echo "❌ Reset cancelled"; \
@@ -301,7 +398,7 @@ test: test-db-up
 	DATABASE_URL="postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:$${TEST_POSTGRES_PASSWORD:-test_password}@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}" \
 	TEST_DATABASE_URL="postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:$${TEST_POSTGRES_PASSWORD:-test_password}@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}" \
 	SECURE_VALUES_KEY="$${SECURE_VALUES_KEY:-0000000000000000000000000000000000000000000000000000000000000000}" \
-	cargo test
+	cargo test $(call features_flag,e2e_testing $(SHOP_FEATURE))
 
 # Bring up the containerized test stack: postgres-test + the
 # riposte-social app-test container that runs migrations and seeds a
@@ -425,13 +522,13 @@ social-watch:
 rust-watch:
 	@echo "🦀 Starting Rust in watch mode..."
 	@command -v cargo-watch >/dev/null 2>&1 || { echo "Installing cargo-watch..."; cargo install cargo-watch; }
-	@cargo watch -x 'run --release --features e2e_testing'
+	@cargo watch -x 'run --release $(call features_flag,e2e_testing $(SHOP_FEATURE))'
 
 # Run Rust server without watching
 .PHONY: rust-run
 rust-run:
 	@echo "🦀 Starting Rust server..."
-	@cargo run --release --features e2e_testing
+	@cargo run --release $(call features_flag,e2e_testing $(SHOP_FEATURE))
 
 # Development without watch (manual restart required for changes)
 .PHONY: dev-no-watch
@@ -451,7 +548,7 @@ dev-logs:
 .PHONY: clippy
 clippy:
 	@echo "📎 Running clippy..."
-	cargo clippy -- -D warnings
+	cargo clippy $(call features_flag,$(SHOP_FEATURE)) -- -D warnings
 
 # Full development setup
 .PHONY: setup

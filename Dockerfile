@@ -15,6 +15,13 @@ COPY tsconfig.json ./
 COPY admin-frontend ./admin-frontend
 COPY social-frontend ./social-frontend
 
+# SITE_DOMAIN is baked into both SPAs as VITE_SITE_DOMAIN at build time (e.g. the
+# admin register page's "@<domain>" email-tier check). The Makefile passes it via
+# --build-arg; declare the ARG and promote it to an env var so the build scripts'
+# process.env.SITE_DOMAIN sees it. Without this the SPAs ship an empty domain.
+ARG SITE_DOMAIN
+ENV SITE_DOMAIN=$SITE_DOMAIN
+
 # Build both frontends. `bun run build` chains build:admin and build:social
 # per package.json scripts and emits to admin-assets/ and social-assets/.
 RUN bun run build
@@ -46,7 +53,10 @@ RUN if [ -n "$CARGO_FEATURES" ]; then \
 # Runtime stage. debian:trixie-slim is the minimal Debian 13 base
 # (~75MB before our additions); we install ca-certificates for
 # outbound TLS and create a dedicated non-root user.
-FROM debian:trixie-slim
+# Pinned by digest so base-image updates are deliberate (bump when the CVE
+# audit calls for it); the tag stays for readability. Digest resolved
+# 2026-06-09 for debian:trixie-slim.
+FROM debian:trixie-slim@sha256:b6e2a152f22a40ff69d92cb397223c906017e1391a73c952b588e51af8883bf8
 
 WORKDIR /app
 
@@ -68,6 +78,11 @@ COPY --from=frontend-builder --chown=appuser:appuser \
      /app/admin-assets ./admin-assets
 COPY --from=frontend-builder --chown=appuser:appuser \
      /app/social-assets ./social-assets
+# Business storefront static export. Staged into ./shop-assets by the build
+# tooling (see `make build-business`); empty (just .gitkeep) for non-business
+# images. Served at the shop server's root (APP_ROLE=shop/both) by a binary
+# built with --features business; see build_shop_app in src/main.rs.
+COPY --chown=appuser:appuser shop-assets ./shop-assets
 COPY --chown=appuser:appuser --chmod=0755 entrypoint.sh ./entrypoint.sh
 
 USER appuser

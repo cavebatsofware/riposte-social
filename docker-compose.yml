@@ -6,7 +6,7 @@ services:
   # incompatible. Run `make db-reset` (or
   # `docker volume rm riposte-social_postgres_data`) once after pulling.
   postgres:
-    image: paradedb/paradedb:0.23.4-pg18
+    image: paradedb/paradedb:0.24.0-pg18
     container_name: riposte-social-db
     restart: unless-stopped
     environment:

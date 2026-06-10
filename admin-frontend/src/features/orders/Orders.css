@@ -1,0 +1,116 @@
+.orders-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.order-status-select {
+  font: inherit;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 6px;
+  background: var(--color-surface, #fff);
+  color: inherit;
+  cursor: pointer;
+}
+
+.orders-filter {
+  font-size: 0.9rem;
+  color: var(--color-muted, #666);
+}
+.orders-filter select {
+  font: inherit;
+  margin-left: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border, #ccc);
+  border-radius: 6px;
+  background: var(--color-surface, #fff);
+  color: inherit;
+}
+
+/* Order detail modal */
+.order-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+.order-modal {
+  width: min(92vw, 560px);
+  max-height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface, #fff);
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+.order-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-divider, #eee);
+}
+.order-modal-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.order-modal-close {
+  border: 0;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-muted, #666);
+}
+.order-modal-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+}
+.order-modal-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--color-divider, #f0f0f0);
+}
+.order-modal-label {
+  color: var(--color-muted, #666);
+}
+.order-modal-subhead {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted, #666);
+}
+.order-modal-summary {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--color-surface-2, #f7f7f7);
+  padding: 0.75rem;
+  border-radius: 6px;
+}
+.order-modal-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+.order-modal-details dt {
+  color: var(--color-muted, #666);
+}
+.order-modal-details dd {
+  margin: 0;
+}

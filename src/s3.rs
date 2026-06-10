@@ -23,7 +23,7 @@ use std::fmt::Display;
 /// see the underlying problem (DNS resolution, TLS handshake failure,
 /// service-side 4xx body, etc.) instead of the SDK's bland top-level
 /// message ("dispatch failure", "service error", ...).
-fn format_aws_error<E: Display + StdError + 'static>(e: &E) -> String {
+pub(crate) fn format_aws_error<E: Display + StdError + 'static>(e: &E) -> String {
     let mut msg = format!("{}", e);
     let mut source: Option<&dyn StdError> = e.source();
     while let Some(s) = source {

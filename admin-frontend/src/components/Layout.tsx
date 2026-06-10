@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { fetchApi } from "../utils/api";
 import "./Layout.css";
 
 /// Admin shell. Brand + account-menu in a slim top header; primary
@@ -13,6 +14,25 @@ function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [shopUrl, setShopUrl] = useState(null);
+  const [commerceEnabled, setCommerceEnabled] = useState(false);
+
+  // Storefront link (shown only when shop_url is set) and whether this build
+  // carries the commerce surface (gates the Commerce nav section).
+  useEffect(() => {
+    let cancelled = false;
+    fetchApi("/api/site/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled || !d) return;
+        if (d.shop_url) setShopUrl(d.shop_url);
+        setCommerceEnabled(!!d.commerce_enabled);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isActive = (path) => location.pathname === path;
 
@@ -88,6 +108,18 @@ function Layout({ children }) {
               label="Imports"
             />
 
+            {commerceEnabled && (
+              <>
+                <SidebarSection label="Commerce" />
+                <SidebarLink
+                  path="/orders"
+                  isActive={isActive}
+                  onClick={go}
+                  label="Orders"
+                />
+              </>
+            )}
+
             <SidebarSection label="System" />
             {showAccessCodes && (
               <SidebarLink
@@ -116,6 +148,17 @@ function Layout({ children }) {
             >
               View Site
             </a>
+            {shopUrl && (
+              <a
+                href={shopUrl}
+                className="sidebar-link"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setDrawerOpen(false)}
+              >
+                Store
+              </a>
+            )}
           </nav>
         </aside>
 

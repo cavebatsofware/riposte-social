@@ -377,6 +377,245 @@ This message was sent via the contact form on {}
         Ok(())
     }
 
+    /// Notify the business owner of a new order (business module). Renders
+    /// generically from the order's `title`/`summary`, the customer identity,
+    /// and an optional quoted estimate; it has no knowledge of any specific
+    /// product. Plaintext PII is passed in here only to compose the message and
+    /// is never logged. Recipient is the configured order email.
+    #[cfg(feature = "business")]
+    pub async fn send_order_notification(
+        &self,
+        title: &str,
+        summary: &str,
+        customer_name: &str,
+        customer_phone: &str,
+        customer_email: Option<&str>,
+        estimate_total: Option<f64>,
+    ) -> Result<()> {
+        let site_name = self.settings.get_site_name().await?;
+        let to_email = self.settings.get_order_email().await?;
+        let sender_email = self.settings.get_from_email().await?;
+
+        let estimate_str = match estimate_total {
+            Some(v) => format!("${:.2}", v),
+            None => "not provided".to_string(),
+        };
+        let email_row = customer_email
+            .map(|e| {
+                format!(
+                    r#"<tr><td style="padding:6px 0;color:#7b8794;">Email</td><td style="padding:6px 0;"><a href="mailto:{0}" style="color:#2c7be5;text-decoration:none;">{0}</a></td></tr>"#,
+                    html_escape(e)
+                )
+            })
+            .unwrap_or_default();
+        let email_text = customer_email
+            .map(|e| format!("Email: {}\n", e))
+            .unwrap_or_default();
+
+        let html_body = format!(
+            r#"<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>New order</title></head>
+<body style="margin:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#2c3e50;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e2e2;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#2c3e50;padding:20px 24px;">
+          <div style="color:#9fb3c8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">New order</div>
+          <div style="color:#ffffff;font-size:20px;font-weight:bold;margin-top:4px;">{title}</div>
+        </td></tr>
+        <tr><td style="padding:24px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">
+            <tr><td style="padding:6px 0;color:#7b8794;width:90px;">Customer</td><td style="padding:6px 0;font-weight:bold;">{name}</td></tr>
+            <tr><td style="padding:6px 0;color:#7b8794;">Phone</td><td style="padding:6px 0;"><a href="tel:{phone}" style="color:#2c7be5;text-decoration:none;">{phone}</a></td></tr>
+            {email_row}
+            <tr><td style="padding:6px 0;color:#7b8794;">Estimate</td><td style="padding:6px 0;font-weight:bold;">{estimate}</td></tr>
+          </table>
+          <div style="margin-top:20px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#7b8794;">Order details</div>
+          <pre style="margin:8px 0 0;padding:14px;background:#f7f9fb;border:1px solid #e2e8f0;border-radius:6px;font-family:Consolas,'SFMono-Regular',monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#33404d;">{summary}</pre>
+        </td></tr>
+        <tr><td style="padding:16px 24px;border-top:1px solid #eeeeee;color:#9aa5b1;font-size:12px;">Submitted via {site}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"#,
+            title = html_escape(title),
+            name = html_escape(customer_name),
+            phone = html_escape(customer_phone),
+            email_row = email_row,
+            estimate = html_escape(&estimate_str),
+            summary = html_escape(summary),
+            site = html_escape(&site_name),
+        );
+
+        let text_body = format!(
+            r#"
+New Order: {}
+
+Name: {}
+Phone: {}
+{}Estimate: {}
+
+Order:
+{}
+
+---
+This order was submitted on {}
+"#,
+            title, customer_name, customer_phone, email_text, estimate_str, summary, site_name
+        );
+
+        let destination = Destination::builder().to_addresses(to_email).build();
+
+        let email_subject = format!("New order: {}", title);
+        let subject_content = Content::builder()
+            .data(email_subject)
+            .charset("UTF-8")
+            .build()?;
+        let html_content = Content::builder()
+            .data(html_body)
+            .charset("UTF-8")
+            .build()?;
+        let text_content = Content::builder()
+            .data(text_body)
+            .charset("UTF-8")
+            .build()?;
+
+        let body = Body::builder()
+            .html(html_content)
+            .text(text_content)
+            .build();
+        let message = Message::builder()
+            .subject(subject_content)
+            .body(body)
+            .build();
+        let email_content = EmailContent::builder().simple(message).build();
+
+        self.client
+            .send_email()
+            .from_email_address(&sender_email)
+            .destination(destination)
+            .content(email_content)
+            .send()
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to send order notification email: {}",
+                    crate::s3::format_aws_error(&e)
+                )
+            })?;
+
+        tracing::info!("Order notification email sent for {}", title);
+
+        Ok(())
+    }
+
+    /// Confirmation sent to the customer after they place an order (business
+    /// module). Reuses the order `title`/`summary` (which includes the bill of
+    /// materials) so the customer keeps a record; a call to confirm the deposit
+    /// follows. Plaintext PII is used only to compose the message, never logged.
+    #[cfg(feature = "business")]
+    pub async fn send_order_confirmation(
+        &self,
+        to_email: &str,
+        customer_name: &str,
+        title: &str,
+        summary: &str,
+        estimate_total: Option<f64>,
+    ) -> Result<()> {
+        let site_name = self.settings.get_site_name().await?;
+        let sender_email = self.settings.get_from_email().await?;
+
+        let estimate_str = match estimate_total {
+            Some(v) => format!("${:.2}", v),
+            None => "to be confirmed".to_string(),
+        };
+
+        let html_body = format!(
+            r#"<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Order received</title></head>
+<body style="margin:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#2c3e50;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border:1px solid #e2e2e2;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#2c3e50;padding:20px 24px;">
+          <div style="color:#9fb3c8;font-size:12px;text-transform:uppercase;letter-spacing:.08em;">Order received</div>
+          <div style="color:#ffffff;font-size:20px;font-weight:bold;margin-top:4px;">{title}</div>
+        </td></tr>
+        <tr><td style="padding:24px;font-size:14px;line-height:1.6;">
+          <p style="margin:0 0 12px;">Hi {name},</p>
+          <p style="margin:0 0 12px;">Thanks for your order. I will personally call you to confirm the details and walk through the deposit before anything is charged. Nothing has been charged yet.</p>
+          <p style="margin:0 0 4px;"><strong>Estimate:</strong> {estimate}</p>
+          <div style="margin-top:20px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#7b8794;">Your order</div>
+          <pre style="margin:8px 0 0;padding:14px;background:#f7f9fb;border:1px solid #e2e8f0;border-radius:6px;font-family:Consolas,'SFMono-Regular',monospace;font-size:13px;line-height:1.5;white-space:pre-wrap;color:#33404d;">{summary}</pre>
+          <p style="margin:16px 0 0;color:#7b8794;font-size:13px;">Please keep this email for your records.</p>
+        </td></tr>
+        <tr><td style="padding:16px 24px;border-top:1px solid #eeeeee;color:#9aa5b1;font-size:12px;">{site}</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"#,
+            title = html_escape(title),
+            name = html_escape(customer_name),
+            estimate = html_escape(&estimate_str),
+            summary = html_escape(summary),
+            site = html_escape(&site_name),
+        );
+
+        let text_body = format!(
+            "Hi {name},\n\nThanks for your order. I will personally call you to confirm the details and walk through the deposit before anything is charged. Nothing has been charged yet.\n\n{title}\nEstimate: {estimate}\n\nYour order:\n{summary}\n\nPlease keep this email for your records.\n\n{site}\n",
+            name = customer_name,
+            title = title,
+            estimate = estimate_str,
+            summary = summary,
+            site = site_name,
+        );
+
+        let destination = Destination::builder().to_addresses(to_email).build();
+        let subject_content = Content::builder()
+            .data(format!("We received your order: {}", title))
+            .charset("UTF-8")
+            .build()?;
+        let html_content = Content::builder()
+            .data(html_body)
+            .charset("UTF-8")
+            .build()?;
+        let text_content = Content::builder()
+            .data(text_body)
+            .charset("UTF-8")
+            .build()?;
+        let body = Body::builder()
+            .html(html_content)
+            .text(text_content)
+            .build();
+        let message = Message::builder()
+            .subject(subject_content)
+            .body(body)
+            .build();
+        let email_content = EmailContent::builder().simple(message).build();
+
+        self.client
+            .send_email()
+            .from_email_address(&sender_email)
+            .destination(destination)
+            .content(email_content)
+            .send()
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to send order confirmation email: {}",
+                    crate::s3::format_aws_error(&e)
+                )
+            })?;
+
+        tracing::info!("Order confirmation email sent to customer");
+
+        Ok(())
+    }
+
     pub async fn send_subscription_confirmation(
         &self,
         to_email: &str,

@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { useSiteConfig } from "../contexts/SiteConfigContext";
 import { useFocusTrap } from "../utils/useFocusTrap";
 import ComposeMenu from "./ComposeMenu";
 import LanguagePicker from "./LanguagePicker";
@@ -21,6 +22,7 @@ import "./MobileDrawer.css";
 export default function MobileDrawer({ open, onClose, navLinks, composeLinks = [], user, onSignOut }) {
   const { t } = useTranslation("common");
   const location = useLocation();
+  const { config: site } = useSiteConfig();
   const panelRef = useFocusTrap(open, { onEscape: onClose });
 
   // Lock body scroll while the drawer is open. Focus trap and Escape are
@@ -90,6 +92,17 @@ export default function MobileDrawer({ open, onClose, navLinks, composeLinks = [
               </Link>
             );
           })}
+          {site?.shop_url ? (
+            <a
+              className="mobile-drawer-nav-link"
+              href={site.shop_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onClose}
+            >
+              {t("nav.store")}
+            </a>
+          ) : null}
           {composeLinks.length > 0 && (
             <div className="mobile-drawer-section">
               <ComposeMenu variant="inline" links={composeLinks} />

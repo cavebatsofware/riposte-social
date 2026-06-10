@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { fetchApi } from "./utils/api";
 import Login from "./features/auth/Login";
 import Register from "./features/auth/Register";
 import VerifyEmail from "./features/auth/VerifyEmail";
@@ -10,6 +12,7 @@ import ForcePasswordChange from "./features/auth/ForcePasswordChange";
 import Dashboard from "./features/dashboard/Dashboard";
 import AccessCodes from "./features/access-codes/AccessCodes";
 import AccessLogs from "./features/access-logs/AccessLogs";
+import Orders from "./features/orders/Orders";
 import Users from "./features/users/Users";
 import Imports from "./features/imports/Imports";
 import InviteCodes from "./features/invites/InviteCodes";
@@ -62,6 +65,36 @@ function ProtectedRoute({ children, allowForcePasswordChange = false }) {
   return children;
 }
 
+// Gate the orders route on the backend `commerce_enabled` flag so a social-only
+// build (no `business` feature, so no /api/admin/orders routes) does not surface
+// a page that only errors.
+function CommerceRoute({ children }) {
+  const [status, setStatus] = useState("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchApi("/api/site/config")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled) setStatus(d?.commerce_enabled ? "on" : "off");
+      })
+      .catch(() => {
+        if (!cancelled) setStatus("off");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "loading") {
+    return <div className="loading">Loading...</div>;
+  }
+  if (status === "off") {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -101,6 +134,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <AccessLogs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <CommerceRoute>
+                  <Orders />
+                </CommerceRoute>
               </ProtectedRoute>
             }
           />

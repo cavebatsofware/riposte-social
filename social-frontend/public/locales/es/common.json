@@ -20,6 +20,7 @@
   },
   "nav": {
     "feed": "Feed",
+    "store": "Tienda",
     "compose": "Crear",
     "composeMenuAria": "Abrir menú de creación",
     "newPost": "Nueva publicación",

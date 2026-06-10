@@ -54,6 +54,14 @@ npm run check:i18n  # verify i18n keys are in sync
 **Babysitting until upstream updates land** (use as-is; don't modify):
 - `axum-login` (fork) https://github.com/cavebatsofware/axum-login
 - `tower-sessions-sqlx-store` (fork) https://github.com/cavebatsofware/tower-sessions-stores
+- `sea-query` (fork) https://github.com/cavebatsofware/sea-query: wired via
+  `[patch.crates-io]` in Cargo.toml, branch `fix-bracket-tokenizer-0.32.7` (the
+  0.32.x line sea-orm 1.1 needs). Carries SeaQL/sea-query PR #1074 (open
+  upstream): fixes the Postgres tokenizer treating `[` as a quote start, which
+  corrupts `$N` placeholders in statements mixing array subscripts like
+  `(ARRAY_AGG(...))[1]` with bound params (src/albums/queries.rs). Without it the
+  album stats query is wrong. Drop the patch once #1074 ships in a released
+  sea-query that sea-orm depends on.
 
 **GitHub project**: https://github.com/users/cavebatsofware/projects/2
 (`gh auth refresh -s project` for `gh project item-add`). Labels: `feature`, `accessibility`, `performance`, `infra`, `ux`.

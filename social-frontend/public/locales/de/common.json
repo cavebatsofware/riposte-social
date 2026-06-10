@@ -20,6 +20,7 @@
   },
   "nav": {
     "feed": "Feed",
+    "store": "Shop",
     "compose": "Verfassen",
     "composeMenuAria": "Verfassen-Menü öffnen",
     "newPost": "Neuer Beitrag",

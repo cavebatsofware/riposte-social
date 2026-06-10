@@ -35,6 +35,11 @@ coverage/
 *.pdf
 .env
 
+# Operator deployment config lives in a separate private repo (../riposte-deploy),
+# symlinked into ./deploy here. Never tracked in the product.
+/deploy
+.github/tokens
+
 
 # Database
 backups/
@@ -45,6 +50,11 @@ backups/
 docker-compose.override.yml
 
 admin-assets/
+
+# Business storefront static export (staged before the business image build);
+# keep the directory present for the Dockerfile COPY, ignore the built files.
+shop-assets/*
+!shop-assets/.gitkeep
 
 # Public frontend build artifacts
 public-assets/

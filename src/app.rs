@@ -60,6 +60,8 @@ pub struct AppState {
     pub db: DatabaseConnection,
     pub rate_limiter: RateLimiter<AppRateLimitCallbacks>,
     pub auth_rate_limiter: RateLimiter<AppRateLimitCallbacks>,
+    /// Strict, dedicated limiter for the paid phone-lookup action (business).
+    pub phone_lookup_rate_limiter: RateLimiter<AppRateLimitCallbacks>,
     pub callbacks: AppRateLimitCallbacks,
     pub settings: SettingsService,
     pub s3: S3Service,
@@ -224,6 +226,24 @@ impl AppState {
 
         let auth_rate_limiter = RateLimiter::new(auth_config, callbacks.clone());
 
+        // Strict, dedicated limiter for the paid phone-lookup action. Per-IP so
+        // one client cannot enumerate many numbers and run up provider charges.
+        let phone_lookup_rate_limit_per_minute = env::var("PHONE_LOOKUP_RATE_LIMIT_PER_MINUTE")
+            .unwrap_or_else(|_| "5".to_string())
+            .parse()
+            .unwrap_or(5);
+        let phone_lookup_block_duration_minutes = env::var("PHONE_LOOKUP_BLOCK_DURATION_MINUTES")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .unwrap_or(60);
+        let phone_lookup_config = RateLimitConfig::new(
+            phone_lookup_rate_limit_per_minute,
+            std::time::Duration::from_secs(phone_lookup_block_duration_minutes * 60),
+        )
+        .with_grace_period(0)
+        .with_error_penalty(5.0);
+        let phone_lookup_rate_limiter = RateLimiter::new(phone_lookup_config, callbacks.clone());
+
         let settings = SettingsService::new(db.clone());
         let s3 = S3Service::new().await?;
 
@@ -255,6 +275,7 @@ impl AppState {
             db,
             rate_limiter,
             auth_rate_limiter,
+            phone_lookup_rate_limiter,
             callbacks,
             settings,
             s3,
@@ -481,6 +502,21 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(require_authenticated))
         .layer(from_fn(csrf_middleware))
         .layer(auth_layer.clone());
+
+    // Order admin read routes (business module). Merged unconditionally below;
+    // an empty router in non-business builds keeps the merge chain cfg-free.
+    #[cfg(feature = "business")]
+    let orders_admin_routes = admin::orders::orders_admin_routes()
+        .with_state(admin::orders::OrdersAdminState {
+            db: state.db.clone(),
+            settings: state.settings.clone(),
+        })
+        .layer(from_fn(require_admin))
+        .layer(from_fn(require_authenticated))
+        .layer(from_fn(csrf_middleware))
+        .layer(auth_layer.clone());
+    #[cfg(not(feature = "business"))]
+    let orders_admin_routes = Router::new();
 
     // Admin user management routes
     let admin_user_state = admin::users::AdminUserState {
@@ -730,6 +766,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(oidc_routes)
         .merge(access_code_routes)
         .merge(access_log_routes)
+        .merge(orders_admin_routes)
         .merge(admin_user_routes)
         .merge(moderation_routes)
         .merge(imports_routes)
@@ -755,4 +792,24 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(contact_routes)
         .merge(subscribe_routes)
         .merge(access_serving_routes)
+}
+
+/// Build the shop server's API router (business module). This is a SEPARATE
+/// axum app from `build_router`'s social server: it is bound to its own port so
+/// the storefront and social site can run on different hosts while sharing this
+/// crate's infrastructure (DB, settings, email/SMS, rate limiter). It carries
+/// the order intake endpoint; the storefront static assets and base middleware
+/// are attached by the caller. Public + unauthenticated like the contact form,
+/// with no CSRF (an anonymous intake has no session to forge).
+#[cfg(feature = "business")]
+pub fn build_shop_router(state: &AppState, email_service: Arc<EmailService>) -> Router {
+    let order_state = crate::orders::OrderState {
+        email_service,
+        callbacks: state.callbacks.clone(),
+        settings: state.settings.clone(),
+        db: state.db.clone(),
+        http: reqwest::Client::new(),
+        phone_lookup_rate_limiter: state.phone_lookup_rate_limiter.clone(),
+    };
+    crate::orders::order_routes().with_state(order_state)
 }

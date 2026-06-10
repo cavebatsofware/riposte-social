@@ -81,7 +81,8 @@ pub async fn build_test_server_with(
 
     let config = RateLimitConfig::new(10000, Duration::from_secs(60));
     let rate_limiter = RateLimiter::new(config.clone(), callbacks.clone());
-    let auth_rate_limiter = RateLimiter::new(config, callbacks.clone());
+    let auth_rate_limiter = RateLimiter::new(config.clone(), callbacks.clone());
+    let phone_lookup_rate_limiter = RateLimiter::new(config, callbacks.clone());
 
     let settings = SettingsService::new(db.clone());
 
@@ -117,6 +118,7 @@ pub async fn build_test_server_with(
         db: db.clone(),
         rate_limiter,
         auth_rate_limiter,
+        phone_lookup_rate_limiter,
         callbacks,
         settings: settings.clone(),
         s3,

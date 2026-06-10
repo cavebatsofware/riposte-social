@@ -239,6 +239,106 @@ impl SettingsService {
             .await
     }
 
+    /// Whether the business module (order intake) is live (defaults to false).
+    /// On top of the compile-time `business` feature: a built-but-off site
+    /// returns 404 from the order endpoint.
+    pub async fn get_business_enabled(&self) -> Result<bool> {
+        self.get_bool("business_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Public URL of the storefront/shop (e.g. https://shop.example.com), shown
+    /// as a link from the social + admin frontends. `None`/empty when unset.
+    pub async fn get_shop_url(&self) -> Result<Option<String>> {
+        let v = self.get("shop_url", Some("business"), None).await?;
+        Ok(v.filter(|s| !s.is_empty()))
+    }
+
+    /// Configurable order-status workflow (admins edit the comma-separated list
+    /// in settings). Falls back to a sensible default when unset/empty.
+    pub async fn get_order_statuses(&self) -> Result<Vec<String>> {
+        const DEFAULT: &[&str] = &[
+            "placed",
+            "pending deposit",
+            "material prep",
+            "construction",
+            "finishing",
+            "complete",
+            "cancelled",
+        ];
+        let list: Vec<String> = self
+            .get("order_statuses", Some("business"), None)
+            .await?
+            .map(|raw| {
+                raw.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if list.is_empty() {
+            Ok(DEFAULT.iter().map(|s| s.to_string()).collect())
+        } else {
+            Ok(list)
+        }
+    }
+
+    /// Recipient for order notifications. Falls back to the contact email.
+    pub async fn get_order_email(&self) -> Result<String> {
+        if let Some(email) = self.get("order_email", Some("business"), None).await? {
+            return Ok(email);
+        }
+        self.get_contact_email().await
+    }
+
+    /// Whether order SMS notifications are sent (defaults to false). Reserved
+    /// for a future SMS/RCS messaging feature; not currently wired (orders
+    /// notify by email only).
+    pub async fn get_order_sms_enabled(&self) -> Result<bool> {
+        self.get_bool("order_sms_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Destination phone number for order SMS, stored encrypted (the `secret_`
+    /// prefix makes the admin settings API encrypt it). `None` when unset.
+    /// Reserved for a future SMS/RCS messaging feature; not currently wired.
+    pub async fn get_order_sms_to(&self) -> Result<Option<String>> {
+        self.get_encrypted("secret_order_sms_to", Some("business"), None)
+            .await
+    }
+
+    /// Cloudflare Turnstile secret for the order endpoint, stored encrypted
+    /// (the `secret_` prefix makes the admin settings API encrypt it). `None`
+    /// when unset (captcha verification skipped); the admin sets it in the
+    /// settings UI.
+    pub async fn get_turnstile_secret(&self) -> Result<Option<String>> {
+        self.get_encrypted("secret_turnstile", Some("business"), None)
+            .await
+    }
+
+    /// Whether order phone numbers are verified via Twilio Lookup (defaults to
+    /// false). On top of the compile-time `business` feature and the presence of
+    /// Twilio credentials.
+    pub async fn get_phone_verification_enabled(&self) -> Result<bool> {
+        self.get_bool("phone_verification_enabled", Some("features"), None)
+            .await
+    }
+
+    /// Twilio Account SID (not secret). `None`/empty when unset.
+    pub async fn get_twilio_account_sid(&self) -> Result<Option<String>> {
+        let v = self
+            .get("twilio_account_sid", Some("business"), None)
+            .await?;
+        Ok(v.filter(|s| !s.is_empty()))
+    }
+
+    /// Twilio Auth Token, stored encrypted (the `secret_` prefix makes the admin
+    /// settings API encrypt it). `None` when unset; the admin sets it in the UI.
+    pub async fn get_twilio_auth_token(&self) -> Result<Option<String>> {
+        self.get_encrypted("secret_twilio_auth_token", Some("business"), None)
+            .await
+    }
+
     /// Whether posters (not admins) can create new posts. Admins always
     /// bypass this gate. Used to mute the poster tier without revoking
     /// access entirely.

@@ -151,6 +151,15 @@ function Settings() {
       contact_email: "Contact Email",
       from_email: "From Email",
       max_image_dimension: "Max Image Dimension",
+      business_enabled: "Business Module",
+      shop_url: "Storefront URL",
+      order_statuses: "Order Statuses",
+      secret_turnstile: "Turnstile Secret Key",
+      phone_verification_enabled: "Phone Verification",
+      twilio_account_sid: "Twilio Account SID",
+      secret_twilio_auth_token: "Twilio Auth Token",
+      order_sms_enabled: "Order SMS Notifications",
+      secret_order_sms_to: "Order SMS Recipient",
     };
     return labels[key] || key;
   }
@@ -180,6 +189,20 @@ function Settings() {
       from_email: "Email address used as the sender for outgoing emails",
       max_image_dimension:
         "Largest width or height in pixels accepted for an uploaded image (post media and avatars). Inputs over the limit are rejected before decode to bound server memory. 8000 covers typical phone/DSLR photos at ~256 MiB worst case; raise for a photography-oriented site, lower (e.g. 2048) for tighter storage.",
+      business_enabled:
+        "Master switch for the commerce module: order intake, the storefront, and order management. Requires a build with the business feature.",
+      shop_url: "Public URL of the storefront, shown as a link from the social site.",
+      order_statuses:
+        "Comma-separated order workflow statuses, used for the status dropdown on orders.",
+      secret_turnstile:
+        "Cloudflare Turnstile secret key for verifying the order form captcha. Leave unset to skip captcha.",
+      phone_verification_enabled:
+        "Verify customer phone numbers via Twilio Lookup when an order is placed. Requires the Twilio Account SID and Auth Token below.",
+      twilio_account_sid: "Twilio Account SID used for phone-number verification (Lookup).",
+      secret_twilio_auth_token:
+        "Twilio Auth Token used for phone-number verification. Stored encrypted.",
+      order_sms_enabled: "Reserved for a future SMS notification feature; not yet active.",
+      secret_order_sms_to: "Reserved destination number for the future SMS feature.",
     };
     return descriptions[key] || "";
   }

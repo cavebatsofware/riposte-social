@@ -5,7 +5,7 @@ services:
   # `postgres_test_data` volume is incompatible. Run `make test-app-reset`
   # (which drops the volume via `-v`) once after pulling.
   postgres-test:
-    image: paradedb/paradedb:0.23.4-pg18
+    image: paradedb/paradedb:0.24.0-pg18
     container_name: riposte-social-test-db
     environment:
       POSTGRES_DB: ${TEST_POSTGRES_DB:-riposte_social_test}
