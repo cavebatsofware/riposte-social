@@ -41,7 +41,7 @@ impl MigrationTrait for Migration {
                     .col(double_null(Orders::Total))
                     .col(double_null(Orders::Deposit))
                     .col(text(Orders::Details))
-                    .col(string(Orders::Status).default("new"))
+                    .col(string(Orders::Status).default("placed"))
                     .col(
                         timestamp_with_time_zone(Orders::CreatedAt)
                             .default(Expr::current_timestamp()),

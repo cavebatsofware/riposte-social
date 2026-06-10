@@ -118,17 +118,29 @@ async fn submit_order(
 
     // CAPTCHA: when a Turnstile secret is configured (encrypted setting),
     // require a valid token. No secret configured (e.g. local dev) skips it.
-    if let Ok(Some(secret)) = state.settings.get_turnstile_secret().await {
-        let ok = match non_empty(payload.turnstile_token.as_deref()) {
-            Some(token) => verify_turnstile(&state.http, &secret, token, ip_addr).await,
-            None => false,
-        };
-        if !ok {
-            return Ok(reply(
-                StatusCode::BAD_REQUEST,
-                false,
-                String::new(),
-                "Captcha verification failed. Please try again.",
+    // A read/decryption failure (e.g. SECURE_VALUES_KEY rotated) is a server
+    // misconfiguration, not "disabled": fail closed so a broken secret can't
+    // silently drop CAPTCHA enforcement.
+    match state.settings.get_turnstile_secret().await {
+        Ok(Some(secret)) => {
+            let ok = match non_empty(payload.turnstile_token.as_deref()) {
+                Some(token) => verify_turnstile(&state.http, &secret, token, ip_addr).await,
+                None => false,
+            };
+            if !ok {
+                return Ok(reply(
+                    StatusCode::BAD_REQUEST,
+                    false,
+                    String::new(),
+                    "Captcha verification failed. Please try again.",
+                ));
+            }
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::error!("Failed to read Turnstile secret: {e:#}");
+            return Err(AppError::InternalError(
+                "captcha configuration error".to_string(),
             ));
         }
     }

@@ -16,7 +16,7 @@ function formatDate(dateString) {
 
 function formatMoney(value) {
   if (value === null || value === undefined) return "-";
-  return "$" + Number(value).toFixed(0);
+  return "$" + Number(value).toFixed(2);
 }
 
 function Orders() {

@@ -398,7 +398,13 @@ async fn main() -> anyhow::Result<()> {
             // Both servers run as tasks on the shared multi-threaded runtime.
             let social = tokio::spawn(serve_router(social_app, primary_addr, "social"));
             let shop = tokio::spawn(serve_router(shop_app, shop_addr, "shop"));
-            let _ = tokio::join!(social, shop);
+            // Whichever stops first (bind failure, runtime error, or graceful
+            // shutdown) ends the process; propagate its error rather than let
+            // `join!` swallow a dead surface and still return Ok.
+            tokio::select! {
+                res = social => res??,
+                res = shop => res??,
+            }
         }
         other => {
             return Err(anyhow::anyhow!(

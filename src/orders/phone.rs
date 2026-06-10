@@ -18,8 +18,8 @@
 use crate::entities::{phone_verification, PhoneVerification};
 use anyhow::Result;
 use sea_orm::{
-    prelude::DateTimeWithTimeZone, ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait,
-    QueryFilter, Set,
+    prelude::DateTimeWithTimeZone, sea_query::OnConflict, ColumnTrait, DatabaseConnection,
+    EntityTrait, QueryFilter, Set,
 };
 use uuid::Uuid;
 
@@ -60,33 +60,32 @@ pub async fn cached_fresh(
     Ok(row)
 }
 
-/// Upsert the verification result for this HMAC (by unique `phone_hmac`).
+/// Upsert the verification result for this HMAC. A single INSERT ... ON CONFLICT
+/// keeps concurrent submissions of the same number from racing into a duplicate
+/// insert on the unique `phone_hmac`.
 pub async fn cache_result(db: &DatabaseConnection, hmac: &str, check: &PhoneCheck) -> Result<()> {
     let now = chrono::Utc::now();
-    if let Some(existing) = PhoneVerification::find()
-        .filter(phone_verification::Column::PhoneHmac.eq(hmac))
-        .one(db)
-        .await?
-    {
-        let mut active: phone_verification::ActiveModel = existing.into();
-        active.valid = Set(check.valid);
-        active.line_type = Set(check.line_type.clone());
-        active.verified_at = Set(now.into());
-        active.updated_at = Set(now.into());
-        active.update(db).await?;
-    } else {
-        phone_verification::ActiveModel {
-            id: Set(Uuid::new_v4()),
-            phone_hmac: Set(hmac.to_string()),
-            valid: Set(check.valid),
-            line_type: Set(check.line_type.clone()),
-            verified_at: Set(now.into()),
-            created_at: Set(now.into()),
-            updated_at: Set(now.into()),
-        }
-        .insert(db)
-        .await?;
-    }
+    PhoneVerification::insert(phone_verification::ActiveModel {
+        id: Set(Uuid::new_v4()),
+        phone_hmac: Set(hmac.to_string()),
+        valid: Set(check.valid),
+        line_type: Set(check.line_type.clone()),
+        verified_at: Set(now.into()),
+        created_at: Set(now.into()),
+        updated_at: Set(now.into()),
+    })
+    .on_conflict(
+        OnConflict::column(phone_verification::Column::PhoneHmac)
+            .update_columns([
+                phone_verification::Column::Valid,
+                phone_verification::Column::LineType,
+                phone_verification::Column::VerifiedAt,
+                phone_verification::Column::UpdatedAt,
+            ])
+            .to_owned(),
+    )
+    .exec(db)
+    .await?;
     Ok(())
 }
 
