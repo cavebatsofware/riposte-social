@@ -262,6 +262,39 @@ async fn test_set_on_encrypted_row_returns_error(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_get_encrypted_returns_none_for_empty_placeholder(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    // The seed migration leaves secret_sendgrid_api_key as an encrypted row
+    // with an empty stored value; the getter must report "not set" rather
+    // than fail decryption.
+    let key = service.get_sendgrid_api_key().await.unwrap();
+    assert_eq!(key, None);
+
+    service
+        .set_encrypted("secret_sendgrid_api_key", "sg-key", Some("email"), None)
+        .await
+        .unwrap();
+    let key = service.get_sendgrid_api_key().await.unwrap();
+    assert_eq!(key.as_deref(), Some("sg-key"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_get_email_provider_seeded_default_and_update(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    assert_eq!(service.get_email_provider().await.unwrap(), "ses");
+
+    service
+        .set("email_provider", "sendgrid", Some("email"), None)
+        .await
+        .unwrap();
+    assert_eq!(service.get_email_provider().await.unwrap(), "sendgrid");
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_admin_get_settings_masks_encrypted_value(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let email = test_email("st-mask");
