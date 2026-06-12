@@ -13,7 +13,7 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-//! Mock S3 client scaffolding for tests. Symmetrical to `ses_mock.rs`.
+//! Mock S3 client scaffolding for tests. Symmetrical to `email_mock.rs`.
 
 use std::sync::{Arc, Mutex};
 

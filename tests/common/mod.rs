@@ -15,9 +15,9 @@
  */
 #![allow(dead_code, unused_imports)]
 
+pub mod email_mock;
 pub mod oidc_mock;
 pub mod s3_mock;
-pub mod ses_mock;
 
 pub use riposte_social::tests::{test_db_from_pool, test_email};
 
@@ -131,15 +131,15 @@ pub async fn build_test_server_with(
     let email_service = match services.email {
         Some(email) => email,
         None => {
-            // Default to a mocked SES client that swallows every send_email
-            // call. The previous behavior  `EmailService::new()`  built a
-            // *real* SES client out of the test process's AWS env, so any
-            // test path that ended up calling `send_*` would fire actual
-            // emails. Tests that want to assert on email content pass an
+            // Default to a spy transport that swallows every send. The
+            // original behavior  `EmailService::new()`  built a *real* SES
+            // client out of the test process's AWS env, so any test path
+            // that ended up calling `send_*` would fire actual emails.
+            // Tests that want to assert on email content pass an
             // `Arc<EmailService>` explicitly via `services.email`; everyone
             // else gets this no-op default.
-            let spy = ses_mock::EmailSpy::new();
-            ses_mock::build_test_email_service_any(&spy, &db)
+            let spy = email_mock::EmailSpy::new();
+            email_mock::build_test_email_service_any(&spy, &db)
         }
     };
 

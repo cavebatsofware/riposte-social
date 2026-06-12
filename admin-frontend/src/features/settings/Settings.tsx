@@ -160,6 +160,8 @@ function Settings() {
       secret_twilio_auth_token: "Twilio Auth Token",
       order_sms_enabled: "Order SMS Notifications",
       secret_order_sms_to: "Order SMS Recipient",
+      email_provider: "Email Provider",
+      secret_sendgrid_api_key: "SendGrid API Key",
     };
     return labels[key] || key;
   }
@@ -203,6 +205,10 @@ function Settings() {
         "Twilio Auth Token used for phone-number verification. Stored encrypted.",
       order_sms_enabled: "Reserved for a future SMS notification feature; not yet active.",
       secret_order_sms_to: "Reserved destination number for the future SMS feature.",
+      email_provider:
+        'Outgoing email provider: "ses" (Amazon SES) or "sendgrid". Changes apply immediately, no restart needed.',
+      secret_sendgrid_api_key:
+        "SendGrid API key used when the email provider is sendgrid. Stored encrypted.",
     };
     return descriptions[key] || "";
   }

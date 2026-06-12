@@ -104,6 +104,9 @@ impl SettingsService {
             Some(row) if !row.encrypted => {
                 Err(EncryptionMismatch::GetOnPlaintextRow { key: row.key }.into())
             }
+            // Seed migrations create encrypted placeholders with an empty
+            // stored value; nothing is set yet, so there is nothing to decrypt.
+            Some(row) if row.value.is_empty() => Ok(None),
             Some(row) => Ok(Some(crypto::decrypt_value(&row.value)?)),
             None => Ok(None),
         }
@@ -337,6 +340,22 @@ impl SettingsService {
     pub async fn get_twilio_auth_token(&self) -> Result<Option<String>> {
         self.get_encrypted("secret_twilio_auth_token", Some("business"), None)
             .await
+    }
+
+    /// Outgoing email provider: "ses" (default) or "sendgrid".
+    pub async fn get_email_provider(&self) -> Result<String> {
+        let v = self.get("email_provider", Some("email"), None).await?;
+        Ok(v.filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "ses".to_string()))
+    }
+
+    /// SendGrid API key, stored encrypted (the `secret_` prefix makes the
+    /// admin settings API encrypt it). `None` when unset.
+    pub async fn get_sendgrid_api_key(&self) -> Result<Option<String>> {
+        let v = self
+            .get_encrypted("secret_sendgrid_api_key", Some("email"), None)
+            .await?;
+        Ok(v.filter(|s| !s.is_empty()))
     }
 
     /// Whether posters (not admins) can create new posts. Admins always

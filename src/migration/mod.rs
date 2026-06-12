@@ -92,6 +92,7 @@ mod m20260608_000001_create_phone_verification;
 mod m20260608_000002_add_phone_verification_to_orders;
 #[cfg(feature = "business")]
 mod m20260608_000003_seed_twilio_settings;
+mod m20260610_000001_seed_email_provider_settings;
 
 pub struct Migrator;
 
@@ -175,6 +176,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260608_000002_add_phone_verification_to_orders::Migration),
             #[cfg(feature = "business")]
             Box::new(m20260608_000003_seed_twilio_settings::Migration),
+            Box::new(m20260610_000001_seed_email_provider_settings::Migration),
         ]
     }
 }

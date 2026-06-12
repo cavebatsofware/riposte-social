@@ -13,28 +13,97 @@
  *  You should have received a copy of the GNU General Public License
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
-use anyhow::Result;
-use aws_sdk_sesv2::{
-    types::{Body, Content, Destination, EmailContent, Message},
-    Client as SesClient,
-};
+use anyhow::{Context, Result};
 use std::env;
+use std::sync::Arc;
 
 use crate::settings::SettingsService;
 
+mod sendgrid;
+mod ses;
+
+pub use sendgrid::{SendGridTransport, DEFAULT_BASE_URL as SENDGRID_DEFAULT_BASE_URL};
+pub use ses::SesTransport;
+
+/// A fully composed outbound email, ready for any transport.
+pub struct EmailMessage {
+    pub from: String,
+    pub to: String,
+    pub subject: String,
+    pub html_body: String,
+    pub text_body: String,
+}
+
+#[async_trait::async_trait]
+pub trait EmailTransport: Send + Sync {
+    async fn send(&self, msg: &EmailMessage) -> Result<()>;
+}
+
+/// Picks the transport per send from the `email_provider` setting ("ses" or
+/// "sendgrid"), so an admin can switch providers or rotate the SendGrid key
+/// without a restart.
+pub struct SelectingTransport {
+    ses: SesTransport,
+    http: reqwest::Client,
+    sendgrid_base_url: String,
+    settings: SettingsService,
+}
+
+impl SelectingTransport {
+    pub fn new(
+        ses: SesTransport,
+        http: reqwest::Client,
+        sendgrid_base_url: String,
+        settings: SettingsService,
+    ) -> Self {
+        Self {
+            ses,
+            http,
+            sendgrid_base_url,
+            settings,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl EmailTransport for SelectingTransport {
+    async fn send(&self, msg: &EmailMessage) -> Result<()> {
+        match self.settings.get_email_provider().await?.as_str() {
+            "ses" => self.ses.send(msg).await,
+            "sendgrid" => {
+                let api_key = self.settings.get_sendgrid_api_key().await?.ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "email_provider is sendgrid but secret_sendgrid_api_key is not set"
+                    )
+                })?;
+                SendGridTransport::new(self.http.clone(), api_key, self.sendgrid_base_url.clone())
+                    .send(msg)
+                    .await
+            }
+            other => {
+                anyhow::bail!("unknown email_provider {other:?}, expected \"ses\" or \"sendgrid\"")
+            }
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct EmailService {
-    client: SesClient,
+    transport: Arc<dyn EmailTransport>,
     settings: SettingsService,
     site_url: String,
 }
 
 impl EmailService {
-    /// Construct an `EmailService` from a pre-built SES client. Used by
-    /// `new()` for production and by tests that inject a mocked client.
-    pub fn with_client(client: SesClient, settings: SettingsService, site_url: String) -> Self {
+    /// Construct an `EmailService` from a pre-built transport. Used by
+    /// `new()` for production and by tests that inject a spy transport.
+    pub fn with_transport(
+        transport: Arc<dyn EmailTransport>,
+        settings: SettingsService,
+        site_url: String,
+    ) -> Self {
         Self {
-            client,
+            transport,
             settings,
             site_url,
         }
@@ -49,12 +118,18 @@ impl EmailService {
         }
 
         let config = config_loader.load().await;
-        let client = SesClient::new(&config);
+        let ses = SesTransport::new(aws_sdk_sesv2::Client::new(&config));
 
         let site_url = env::var("SITE_URL")
             .map_err(|_| anyhow::anyhow!("SITE_URL environment variable must be set"))?;
 
-        Ok(Self::with_client(client, settings, site_url))
+        let transport = Arc::new(SelectingTransport::new(
+            ses,
+            reqwest::Client::new(),
+            SENDGRID_DEFAULT_BASE_URL.to_string(),
+            settings.clone(),
+        ));
+        Ok(Self::with_transport(transport, settings, site_url))
     }
 
     /// Send an invite email when an admin pre-provisions a user via
@@ -129,34 +204,17 @@ If you weren't expecting this invitation, you can safely ignore this email.
             site_name, inviter_email, site_name, role_label, invite_url
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: from_email,
+            to: to_email.to_string(),
+            subject,
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send invite email: {}", e))?;
+            .context("Failed to send invite email")?;
 
         tracing::info!("Invite email sent to {} (role={})", to_email, role);
         Ok(())
@@ -227,40 +285,17 @@ If you didn't request this verification email, you can safely ignore it.
             site_name, verification_url
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
-
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: from_email,
+            to: to_email.to_string(),
+            subject: subject.to_string(),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send verification email: {}", e))?;
+            .context("Failed to send verification email")?;
 
         tracing::info!("Verification email sent to {}", to_email);
 
@@ -333,44 +368,17 @@ This message was sent via the contact form on {}
             from_name, from_email, subject, message, site_name
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let email_subject = format!("Contact Form: {}", subject);
-        let subject_content = Content::builder()
-            .data(email_subject)
-            .charset("UTF-8")
-            .build()?;
-
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&sender_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: sender_email,
+            to: to_email,
+            subject: format!("Contact Form: {}", subject),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send contact form email: {}", e))?;
+            .context("Failed to send contact form email")?;
 
         tracing::info!("Contact form email sent from {}", from_email);
 
@@ -466,45 +474,17 @@ This order was submitted on {}
             title, customer_name, customer_phone, email_text, estimate_str, summary, site_name
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let email_subject = format!("New order: {}", title);
-        let subject_content = Content::builder()
-            .data(email_subject)
-            .charset("UTF-8")
-            .build()?;
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&sender_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: sender_email,
+            to: to_email,
+            subject: format!("New order: {}", title),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to send order notification email: {}",
-                    crate::s3::format_aws_error(&e)
-                )
-            })?;
+            .context("Failed to send order notification email")?;
 
         tracing::info!("Order notification email sent for {}", title);
 
@@ -574,42 +554,17 @@ This order was submitted on {}
             site = site_name,
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-        let subject_content = Content::builder()
-            .data(format!("We received your order: {}", title))
-            .charset("UTF-8")
-            .build()?;
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&sender_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: sender_email,
+            to: to_email.to_string(),
+            subject: format!("We received your order: {}", title),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to send order confirmation email: {}",
-                    crate::s3::format_aws_error(&e)
-                )
-            })?;
+            .context("Failed to send order confirmation email")?;
 
         tracing::info!("Order confirmation email sent to customer");
 
@@ -681,42 +636,17 @@ If you didn't subscribe to this blog, you can safely ignore this email.
             site_name, verification_url
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
-
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: from_email,
+            to: to_email.to_string(),
+            subject: subject.to_string(),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| {
-                anyhow::anyhow!("Failed to send subscription confirmation email: {}", e)
-            })?;
+            .context("Failed to send subscription confirmation email")?;
 
         tracing::info!("Subscription confirmation email sent to {}", to_email);
 
@@ -781,40 +711,17 @@ This is an automated security notification.
             change_source
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
-
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: from_email,
+            to: to_email.to_string(),
+            subject: subject.to_string(),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send password change notification: {}", e))?;
+            .context("Failed to send password change notification")?;
 
         tracing::info!("Password change notification sent to {}", to_email);
 
@@ -880,40 +787,17 @@ If you didn't request a password reset, you can safely ignore this email. Your p
             reset_url
         );
 
-        let destination = Destination::builder().to_addresses(to_email).build();
-
-        let subject_content = Content::builder().data(subject).charset("UTF-8").build()?;
-
-        let html_content = Content::builder()
-            .data(html_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let text_content = Content::builder()
-            .data(text_body)
-            .charset("UTF-8")
-            .build()?;
-
-        let body = Body::builder()
-            .html(html_content)
-            .text(text_content)
-            .build();
-
-        let message = Message::builder()
-            .subject(subject_content)
-            .body(body)
-            .build();
-
-        let email_content = EmailContent::builder().simple(message).build();
-
-        self.client
-            .send_email()
-            .from_email_address(&from_email)
-            .destination(destination)
-            .content(email_content)
-            .send()
+        let msg = EmailMessage {
+            from: from_email,
+            to: to_email.to_string(),
+            subject: subject.to_string(),
+            html_body,
+            text_body,
+        };
+        self.transport
+            .send(&msg)
             .await
-            .map_err(|e| anyhow::anyhow!("Failed to send password reset email: {}", e))?;
+            .context("Failed to send password reset email")?;
 
         tracing::info!("Password reset email sent to {}", to_email);
 

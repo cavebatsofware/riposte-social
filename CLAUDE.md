@@ -16,15 +16,16 @@ See CONTRIBUTING.md for branching, commits, and CI. PR template: .github/PULL_RE
 make dev            # db-up + frontend build + cargo-watch
 make test           # cargo test against test DB
 cargo clippy        # lint; CI runs -D warnings
-npm run lint        # ESLint social-frontend
-npm run check:i18n  # verify i18n keys are in sync
+bun run lint        # ESLint social-frontend
+bun run check:i18n  # verify i18n keys are in sync
 ```
 
 - Dev DB: `docker exec riposte-social-db psql -U riposte_social_user -d riposte_social`
 - Test DB: `docker exec riposte-social-test-db psql -U riposte_social_test_user -d riposte_social_test`
 - Do not mix the two; they are separate containers on separate ports
 - `make dev` runs with `--features e2e_testing`; bare `cargo run` breaks socket-address extraction and non-Secure cookies
-- Edits to `social-frontend/public/locales/*` need `npm run build:social`; the backend serves from `social-assets/locales/`, not source
+- Edits to `social-frontend/public/locales/*` need `bun run build:social`; the backend serves from `social-assets/locales/`, not source
+- Use `bun run <script>`, never npm; bun is the package manager for all frontend tooling
 
 ## Code conventions
 
