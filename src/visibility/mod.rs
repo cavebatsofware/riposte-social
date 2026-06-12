@@ -195,6 +195,24 @@ impl ViewerCtx {
         })
     }
 
+    /// Build the context for an anonymous viewer without a session.
+    /// Used by always-unauthenticated surfaces (sitemap generation) so
+    /// they share the exact predicate the public API serves: public
+    /// tier, and an accessible set containing only public categories.
+    pub async fn anonymous<C>(db: &C) -> Result<Self>
+    where
+        C: ConnectionTrait,
+    {
+        let accessible_category_ids =
+            resolve_accessible_categories(db, FeedTier::Anonymous, None, None).await?;
+        Ok(Self {
+            tier: FeedTier::Anonymous,
+            viewer_id: None,
+            role: None,
+            accessible_category_ids,
+        })
+    }
+
     /// Synchronous build with no category subquery. Use only when the
     /// caller has confirmed it doesn't need category-driven access (e.g.
     /// a single-row read that already has both the row and its category

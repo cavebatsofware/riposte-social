@@ -224,8 +224,10 @@ push-ghcr: login-ghcr
 	@echo "Push complete: $(GHCR_IMAGE)"
 
 # Complete GHCR deployment (build + push). For the production business image,
-# pass APP_ROLE=both + the storefront paths, and the storefront build-time vars:
-#   TURNSTILE_SITE_KEY=... SOCIAL_URL=... \
+# pass APP_ROLE=both + the storefront paths, and the storefront build-time vars
+# (SHOP_URL is the storefront's public origin; it's baked into the export's
+# metadataBase, robots.txt, and sitemap.xml):
+#   TURNSTILE_SITE_KEY=... SOCIAL_URL=... SHOP_URL=... \
 #     make deploy-ghcr APP_ROLE=both \
 #       SHOP_SRC=../picnic-table-configurator SHOP_DIST=../picnic-table-configurator/out
 # Then on the server: docker compose -f docker-compose.prod.yml pull && up -d
