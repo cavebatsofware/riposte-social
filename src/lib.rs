@@ -43,6 +43,7 @@ pub mod profile;
 pub mod s3;
 pub mod secret;
 pub mod settings;
+pub mod sitemap;
 pub mod subscriptions;
 pub mod visibility;
 

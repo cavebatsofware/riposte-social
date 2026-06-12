@@ -34,6 +34,7 @@ use crate::posts;
 use crate::profile;
 use crate::s3::S3Service;
 use crate::settings::SettingsService;
+use crate::sitemap;
 use crate::{contact, subscriptions};
 use anyhow::Result;
 use axum::extract::{Path, State};
@@ -752,6 +753,13 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .layer(from_fn(csrf_middleware))
         .layer(session_layer.clone());
 
+    // Sitemaps: anonymous-only read surface, no session or CSRF. Lives
+    // here (not main.rs) because generation queries the database.
+    let sitemap_routes = sitemap::sitemap_routes().with_state(sitemap::SitemapState {
+        db: state.db.clone(),
+        settings: state.settings.clone(),
+    });
+
     // Public access-code serving routes (need AppState)
     let access_serving_routes = Router::new()
         .route("/access/{code}", get(serve_access))
@@ -791,6 +799,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(settings_routes)
         .merge(contact_routes)
         .merge(subscribe_routes)
+        .merge(sitemap_routes)
         .merge(access_serving_routes)
 }
 
