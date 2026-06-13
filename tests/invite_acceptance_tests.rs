@@ -235,7 +235,10 @@ async fn test_password_invite_used_invite_rolls_back_activation(pool: sqlx::PgPo
     let (invite, _plaintext) = issue_invite(&db, creator_id, Some(&admin_email)).await;
     insert_inert_row(&db, &admin_email, "administrator", Some(invite.id)).await;
 
-    riposte_social::invites::mark_used(&db, invite.id, creator_id)
+    let locked = riposte_social::invites::lock_unused_invite(&db, invite.id)
+        .await
+        .unwrap();
+    riposte_social::invites::mark_used(&db, locked, creator_id)
         .await
         .unwrap();
 
@@ -257,12 +260,12 @@ async fn test_password_invite_used_invite_rolls_back_activation(pool: sqlx::PgPo
     assert!(!row.email_verified);
 }
 
-/// mark_used disambiguates its 0-row update: a nonexistent invite is
-/// NotFound (as the pre-atomic version returned), not "already used".
+/// A nonexistent invite id is reported as NotFound, distinct from the
+/// already-used (validation) case.
 #[sqlx::test(migrations = false)]
-async fn test_mark_used_missing_invite_returns_not_found(pool: sqlx::PgPool) {
+async fn test_lock_unused_invite_missing_returns_not_found(pool: sqlx::PgPool) {
     let (_server, _backend, db) = build_test_server(pool).await;
-    let err = riposte_social::invites::mark_used(&db, Uuid::new_v4(), Uuid::new_v4())
+    let err = riposte_social::invites::lock_unused_invite(&db, Uuid::new_v4())
         .await
         .expect_err("missing invite must error");
     assert!(

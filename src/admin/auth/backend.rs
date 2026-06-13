@@ -814,8 +814,9 @@ impl UserAuthBackend {
         active.activated_at = Set(Some(Utc::now().into()));
 
         let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
         let updated = active.update(&txn).await?;
-        crate::invites::mark_used(&txn, invite.id, row_id).await?;
+        crate::invites::mark_used(&txn, locked_invite, row_id).await?;
         txn.commit().await?;
 
         tracing::info!(
@@ -878,8 +879,9 @@ impl UserAuthBackend {
         active.activated_at = Set(Some(Utc::now().into()));
 
         let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
         let updated = active.update(&txn).await?;
-        crate::invites::mark_used(&txn, invite.id, row_id).await?;
+        crate::invites::mark_used(&txn, locked_invite, row_id).await?;
         txn.commit().await?;
 
         tracing::info!(
@@ -947,8 +949,9 @@ impl UserAuthBackend {
             locale: Set(None),
         };
         let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
         let result = new_user.insert(&txn).await?;
-        crate::invites::mark_used(&txn, invite.id, new_user_id).await?;
+        crate::invites::mark_used(&txn, locked_invite, new_user_id).await?;
         txn.commit().await?;
 
         tracing::info!(
@@ -1024,8 +1027,9 @@ impl UserAuthBackend {
             locale: Set(None),
         };
         let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
         let result = new_user.insert(&txn).await?;
-        crate::invites::mark_used(&txn, invite.id, new_user_id).await?;
+        crate::invites::mark_used(&txn, locked_invite, new_user_id).await?;
         txn.commit().await?;
 
         tracing::info!("Created new OIDC commenter via invite: {}", new_user_id);

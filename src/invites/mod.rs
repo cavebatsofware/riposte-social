@@ -30,7 +30,7 @@ use rand::RngExt;
 use sea_orm::DatabaseConnection;
 
 pub use handlers::{admin_invite_routes, auth_invite_routes, public_invite_routes};
-pub use queries::{issue_invite_for_user, mark_used, validate_invite_code};
+pub use queries::{issue_invite_for_user, lock_unused_invite, mark_used, validate_invite_code};
 pub use types::InviteResponse;
 
 /// Cookie carrying a pending invite from the splash page through OIDC sign-in.
