@@ -17,6 +17,7 @@ use crate::entities::{invite_code, InviteCode};
 use crate::errors::{AppError, AppResult};
 use crate::invites::{hash_invite_code, DEFAULT_INVITE_LIFETIME_HOURS};
 use chrono::{Duration, Utc};
+use sea_orm::sea_query::Expr;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, Order,
     QueryFilter, QueryOrder, Set,
@@ -60,23 +61,28 @@ pub async fn validate_invite_code(
     Ok(Some(row))
 }
 
-/// Marks an invite as accepted by the given user. Idempotent in the sense that
-/// re-running for an already-used invite is a no-op (we don't overwrite the
-/// existing `used_by_user_id`); but the caller should always validate first.
-pub async fn mark_used(db: &DatabaseConnection, invite_id: Uuid, user_id: Uuid) -> AppResult<()> {
-    let row = InviteCode::find_by_id(invite_id)
-        .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Invite not found".to_string()))?;
+/// Marks an invite as accepted by the given user. The UPDATE only lands when
+/// `used_at` is still NULL, so two racing acceptances cannot both consume the
+/// same code: the loser's update affects 0 rows and errors. Callers run this
+/// inside their activation transaction so that error rolls the activation
+/// back.
+pub async fn mark_used<C>(db: &C, invite_id: Uuid, user_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let result = InviteCode::update_many()
+        .col_expr(invite_code::Column::UsedAt, Expr::value(Utc::now()))
+        .col_expr(invite_code::Column::UsedByUserId, Expr::value(user_id))
+        .filter(invite_code::Column::Id.eq(invite_id))
+        .filter(invite_code::Column::UsedAt.is_null())
+        .exec(db)
+        .await?;
 
-    if row.used_at.is_some() {
-        return Ok(());
+    if result.rows_affected == 0 {
+        return Err(AppError::ValidationError(
+            "Invite has already been used".to_string(),
+        ));
     }
-
-    let mut active: invite_code::ActiveModel = row.into();
-    active.used_at = Set(Some(Utc::now().into()));
-    active.used_by_user_id = Set(Some(user_id));
-    active.update(db).await?;
     Ok(())
 }
 

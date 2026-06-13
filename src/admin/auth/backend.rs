@@ -797,16 +797,11 @@ impl UserAuthBackend {
         // invite_code_id is already set on the row (admin stamped it at user
         // creation time). updated_at is auto-managed by ActiveModelBehavior.
         active.activated_at = Set(Some(Utc::now().into()));
-        let updated = active.update(&self.db).await?;
 
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by bound user {}: {}",
-                invite.id,
-                row_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let updated = active.update(&txn).await?;
+        crate::invites::mark_used(&txn, invite.id, row_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "OIDC bind for pre-provisioned user: {} role={}",
@@ -866,16 +861,11 @@ impl UserAuthBackend {
         active.last_login_at = Set(Some(Utc::now().into()));
         // invite_code_id is already set; updated_at is auto-managed.
         active.activated_at = Set(Some(Utc::now().into()));
-        let updated = active.update(&self.db).await?;
 
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by password-bound user {}: {}",
-                invite.id,
-                row_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let updated = active.update(&txn).await?;
+        crate::invites::mark_used(&txn, invite.id, row_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "Password-mode invite bind for pre-provisioned user: {} role={}",
@@ -939,16 +929,10 @@ impl UserAuthBackend {
             avatar_icon_data: Set(None),
             locale: Set(None),
         };
-        let result = new_user.insert(&self.db).await?;
-
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by new password commenter {}: {}",
-                invite.id,
-                new_user_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let result = new_user.insert(&txn).await?;
+        crate::invites::mark_used(&txn, invite.id, new_user_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "Created new password-mode commenter via invite: {}",
@@ -1020,16 +1004,10 @@ impl UserAuthBackend {
             avatar_icon_data: Set(None),
             locale: Set(None),
         };
-        let result = new_user.insert(&self.db).await?;
-
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by new commenter {}: {}",
-                invite.id,
-                new_user_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let result = new_user.insert(&txn).await?;
+        crate::invites::mark_used(&txn, invite.id, new_user_id).await?;
+        txn.commit().await?;
 
         tracing::info!("Created new OIDC commenter via invite: {}", new_user_id);
         Ok(result)
