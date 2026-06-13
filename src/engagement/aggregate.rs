@@ -122,7 +122,9 @@ pub async fn fetch_engagement_for_posts(
     // `idx_comments_post_thread` index (post_id, deleted_at, created_at, id)
     // instead of fetching every live comment on the page and trimming in
     // memory. Post IDs expand into rows with `unnest`; the cap is a const,
-    // so it is inlined safely.
+    // so it is inlined safely. The outer ORDER BY is explicit: a LATERAL
+    // join does not guarantee output row order, and the caller relies on
+    // each post's comments arriving newest-first.
     let backend = db.get_database_backend();
     let id_placeholders = (1..=post_ids.len())
         .map(|i| format!("${i}"))
@@ -136,7 +138,8 @@ pub async fn fetch_engagement_for_posts(
             WHERE post_id = p.post_id AND deleted_at IS NULL \
             ORDER BY created_at DESC, id DESC \
             LIMIT {TOP_COMMENTS_PER_POST} \
-         ) c"
+         ) c \
+         ORDER BY c.created_at DESC, c.id DESC"
     );
     let values: Vec<sea_orm::Value> = post_ids.iter().map(|id| (*id).into()).collect();
     let stmt = Statement::from_sql_and_values(backend, sql, values);

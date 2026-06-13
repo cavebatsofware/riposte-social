@@ -273,8 +273,8 @@ If you weren't expecting this invitation, you can safely ignore this email.
 </html>
 "#,
             html_escape(&site_name),
-            verification_url,
-            verification_url
+            html_escape(&verification_url),
+            html_escape(&verification_url)
         );
 
         let text_body = format!(
@@ -626,8 +626,8 @@ This order was submitted on {}
 </html>
 "#,
             html_escape(&site_name),
-            verification_url,
-            verification_url
+            html_escape(&verification_url),
+            html_escape(&verification_url)
         );
 
         let text_body = format!(
