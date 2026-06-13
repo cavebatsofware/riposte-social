@@ -545,6 +545,17 @@ async fn mfa_verify(
     }
 
     // Check if account is locked out
+    let is_locked = state
+        .auth_backend
+        .is_mfa_locked(user.id)
+        .await
+        .map_err(|e| AppError::AuthError(e.to_string()))?;
+
+    if is_locked {
+        return Err(AppError::AuthError(
+            "Account is temporarily locked due to too many failed attempts.".to_string(),
+        ));
+    }
 
     // Check if already verified in this session
     let already_verified = session
@@ -565,7 +576,6 @@ async fn mfa_verify(
         .map_err(|e| AppError::AuthError(e.to_string()))?
         .ok_or_else(|| AppError::AuthError("TOTP secret not configured".to_string()))?;
 
-    // Verify the code first (before checking lockout status)
     let is_valid = totp::verify_code(&totp_secret, &req.code, &user.email)
         .map_err(|e| AppError::AuthError(format!("Failed to verify code: {}", e)))?;
 

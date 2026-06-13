@@ -591,6 +591,53 @@ async fn test_deactivate_last_admin_rejected(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_deactivate_last_admin_with_active_commenters_rejected(pool: sqlx::PgPool) {
+    let db = test_db_from_pool(pool).await;
+    let backend = UserAuthBackend::new(db.clone());
+
+    let admin =
+        create_verified_admin(&backend, &test_email("test-lastadm-comm"), TEST_PASSWORD).await;
+    let (commenter, _token) = backend
+        .create_user(
+            &test_email("test-lastadm-comm2"),
+            TEST_PASSWORD,
+            user::ROLE_COMMENTER,
+            true,
+        )
+        .await
+        .unwrap();
+
+    // Other active users exist, but none of them is an administrator
+    let result = backend.deactivate_user(admin.id, commenter.id).await;
+    assert!(result.is_err());
+    assert!(result.unwrap_err().to_string().contains("last active"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_deactivate_commenter_with_single_admin_succeeds(pool: sqlx::PgPool) {
+    let db = test_db_from_pool(pool).await;
+    let backend = UserAuthBackend::new(db.clone());
+
+    let admin =
+        create_verified_admin(&backend, &test_email("test-deact-comm"), TEST_PASSWORD).await;
+    let (commenter, _token) = backend
+        .create_user(
+            &test_email("test-deact-comm2"),
+            TEST_PASSWORD,
+            user::ROLE_COMMENTER,
+            true,
+        )
+        .await
+        .unwrap();
+
+    let deactivated = backend
+        .deactivate_user(commenter.id, admin.id)
+        .await
+        .unwrap();
+    assert!(!deactivated.active);
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_deactivate_already_deactivated_rejected(pool: sqlx::PgPool) {
     let db = test_db_from_pool(pool).await;
     let backend = UserAuthBackend::new(db.clone());

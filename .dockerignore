@@ -1,0 +1,17 @@
+# Rust build artifacts; the builder stage compiles from src/ inside the container
+target
+
+# Git history
+.git
+
+# Host JS dependencies; bun install runs inside the frontend-builder stage
+node_modules
+**/node_modules
+
+# Local secrets must never enter the build context
+.env
+.env.*
+
+# Cypress run output
+cypress/videos
+cypress/screenshots

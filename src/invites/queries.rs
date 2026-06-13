@@ -19,7 +19,7 @@ use crate::invites::{hash_invite_code, DEFAULT_INVITE_LIFETIME_HOURS};
 use chrono::{Duration, Utc};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, Order,
-    QueryFilter, QueryOrder, Set,
+    QueryFilter, QueryOrder, QuerySelect, Set,
 };
 use uuid::Uuid;
 
@@ -60,20 +60,42 @@ pub async fn validate_invite_code(
     Ok(Some(row))
 }
 
-/// Marks an invite as accepted by the given user. Idempotent in the sense that
-/// re-running for an already-used invite is a no-op (we don't overwrite the
-/// existing `used_by_user_id`); but the caller should always validate first.
-pub async fn mark_used(db: &DatabaseConnection, invite_id: Uuid, user_id: Uuid) -> AppResult<()> {
-    let row = InviteCode::find_by_id(invite_id)
+/// Locks the invite `FOR UPDATE` and confirms it is unused, returning the
+/// locked row. Concurrent acceptances serialize on this lock; only the first
+/// past it sees an unused row. Call at the start of the acceptance
+/// transaction so the rest abort before doing any work. A no-match is an
+/// already-used invite (validation error) or a missing id (`NotFound`).
+pub async fn lock_unused_invite<C>(db: &C, invite_id: Uuid) -> AppResult<invite_code::Model>
+where
+    C: ConnectionTrait,
+{
+    let locked = InviteCode::find_by_id(invite_id)
+        .filter(invite_code::Column::UsedAt.is_null())
+        .lock_exclusive()
         .one(db)
-        .await?
-        .ok_or_else(|| AppError::NotFound("Invite not found".to_string()))?;
+        .await?;
 
-    if row.used_at.is_some() {
-        return Ok(());
+    match locked {
+        Some(row) => Ok(row),
+        None => {
+            let exists = InviteCode::find_by_id(invite_id).one(db).await?.is_some();
+            Err(if exists {
+                AppError::ValidationError("Invite has already been used".to_string())
+            } else {
+                AppError::NotFound("Invite not found".to_string())
+            })
+        }
     }
+}
 
-    let mut active: invite_code::ActiveModel = row.into();
+/// Stamps an invite already locked by [`lock_unused_invite`] as accepted by
+/// `user_id`. Call after the accepting user row exists (the `used_by_user_id`
+/// foreign key) and inside the same transaction.
+pub async fn mark_used<C>(db: &C, invite: invite_code::Model, user_id: Uuid) -> AppResult<()>
+where
+    C: ConnectionTrait,
+{
+    let mut active: invite_code::ActiveModel = invite.into();
     active.used_at = Set(Some(Utc::now().into()));
     active.used_by_user_id = Set(Some(user_id));
     active.update(db).await?;

@@ -316,3 +316,44 @@ async fn test_mfa_lockout_unlock_retry_cycle(pool: sqlx::PgPool) {
         retry_response.text()
     );
 }
+
+#[sqlx::test(migrations = false)]
+async fn test_mfa_lockout_rejects_correct_code(pool: sqlx::PgPool) {
+    let (server, backend, _db) = build_test_server(pool).await;
+    let email = test_email("mfa-locked-correct");
+    let admin = create_verified_admin(&backend, &email, TEST_PASSWORD).await;
+
+    backend
+        .update_totp(admin.id, Some(TEST_TOTP_SECRET.to_string()), true)
+        .await
+        .unwrap();
+
+    login_as(&server, &email, TEST_PASSWORD).await;
+
+    // Trigger lockout with 3 bad codes
+    for _ in 0..3 {
+        let csrf = get_csrf_token(&server).await;
+        server
+            .post("/api/auth/mfa/verify")
+            .add_header("x-csrf-token", &csrf)
+            .json(&serde_json::json!({ "code": "000000" }))
+            .await;
+    }
+
+    // A correct code must still be rejected while the lockout is active
+    let code = generate_totp_code(TEST_TOTP_SECRET, &email);
+    let csrf = get_csrf_token(&server).await;
+    let response = server
+        .post("/api/auth/mfa/verify")
+        .add_header("x-csrf-token", &csrf)
+        .json(&serde_json::json!({ "code": code }))
+        .await;
+
+    assert_ne!(
+        response.status_code(),
+        StatusCode::OK,
+        "Correct TOTP code must be rejected while the account is locked"
+    );
+    let json: serde_json::Value = response.json();
+    assert!(json["error"].as_str().unwrap().contains("locked"));
+}

@@ -18,7 +18,7 @@ use crate::admin::auth::credentials::{
     verify_password, DUMMY_HASH,
 };
 use crate::admin::auth::oidc::{ensure_activated, ensure_email_match, ensure_role_match};
-use crate::crypto::{decrypt_totp_secret, encrypt_token, encrypt_totp_secret};
+use crate::crypto::{decrypt_totp_secret, encrypt_token, encrypt_totp_secret, hash_token};
 use crate::entities::{user, User};
 use anyhow::Result;
 use axum_login::{AuthUser, AuthnBackend, UserId};
@@ -140,6 +140,7 @@ impl UserAuthBackend {
             password_hash: Set(password_hash),
             email_verified: Set(false),
             verification_token: Set(Some(encrypted_token)),
+            verification_token_hash: Set(Some(hash_token(&verification_token))),
             verification_token_expires_at: Set(Some(verification_expires.into())),
             created_at: Set(Utc::now().into()),
             updated_at: Set(Utc::now().into()),
@@ -152,6 +153,7 @@ impl UserAuthBackend {
             deactivated_at: Set(None),
             force_password_change: Set(false),
             password_reset_token: Set(None),
+            password_reset_token_hash: Set(None),
             password_reset_token_expires_at: Set(None),
             role: Set(role.to_string()),
             oidc_sub: Set(None),
@@ -315,16 +317,6 @@ impl UserAuthBackend {
             anyhow::bail!("Cannot deactivate your own account");
         }
 
-        // Check if this is the last active admin
-        let active_count = User::find()
-            .filter(user::Column::Active.eq(true))
-            .count(&self.db)
-            .await?;
-
-        if active_count <= 1 {
-            anyhow::bail!("Cannot deactivate the last active administrator");
-        }
-
         let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
@@ -332,6 +324,19 @@ impl UserAuthBackend {
 
         if !admin.active {
             anyhow::bail!("User is already deactivated");
+        }
+
+        // Deactivating the last active administrator would lock the site
+        if admin.is_administrator() {
+            let active_admin_count = User::find()
+                .filter(user::Column::Active.eq(true))
+                .filter(user::Column::Role.eq(user::ROLE_ADMINISTRATOR))
+                .count(&self.db)
+                .await?;
+
+            if active_admin_count <= 1 {
+                anyhow::bail!("Cannot deactivate the last active administrator");
+            }
         }
 
         let mut admin_active: user::ActiveModel = admin.into();
@@ -342,8 +347,10 @@ impl UserAuthBackend {
         admin_active.totp_enabled = Set(Some(false));
         admin_active.totp_enabled_at = Set(None);
         admin_active.verification_token = Set(None);
+        admin_active.verification_token_hash = Set(None);
         admin_active.verification_token_expires_at = Set(None);
         admin_active.password_reset_token = Set(None);
+        admin_active.password_reset_token_hash = Set(None);
         admin_active.password_reset_token_expires_at = Set(None);
         admin_active.mfa_failed_attempts = Set(Some(0));
         admin_active.mfa_locked_until = Set(None);
@@ -375,6 +382,7 @@ impl UserAuthBackend {
         admin_active.deactivated_at = Set(None);
         admin_active.email_verified = Set(false);
         admin_active.verification_token = Set(Some(encrypted_token));
+        admin_active.verification_token_hash = Set(Some(hash_token(&verification_token)));
         admin_active.verification_token_expires_at = Set(Some(verification_expires.into()));
         admin_active.updated_at = Set(Utc::now().into());
 
@@ -434,6 +442,7 @@ impl UserAuthBackend {
 
         let mut admin_active: user::ActiveModel = admin.into();
         admin_active.password_reset_token = Set(Some(encrypted_token));
+        admin_active.password_reset_token_hash = Set(Some(hash_token(&reset_token)));
         admin_active.password_reset_token_expires_at = Set(Some(token_expires.into()));
         admin_active.updated_at = Set(Utc::now().into());
         admin_active.update(&self.db).await?;
@@ -443,33 +452,37 @@ impl UserAuthBackend {
 
     /// Validate a password reset token
     /// Returns the user if token is valid and not expired
+    ///
+    /// Lookup is by the indexed BLAKE2 hash of the plaintext; the matched
+    /// row's ciphertext is then decrypted and compared as the authoritative
+    /// check.
     pub async fn validate_reset_token(&self, token: &str) -> Result<Option<user::Model>> {
         use crate::crypto::decrypt_token;
 
-        // Find all users with non-null reset tokens
-        let admins = User::find()
-            .filter(user::Column::PasswordResetToken.is_not_null())
-            .all(&self.db)
+        let admin = User::find()
+            .filter(user::Column::PasswordResetTokenHash.eq(hash_token(token)))
+            .one(&self.db)
             .await?;
 
-        for admin in admins {
-            if let Some(ref encrypted_token) = admin.password_reset_token {
-                // Try to decrypt and compare
-                if let Ok(decrypted) = decrypt_token(encrypted_token) {
-                    if decrypted == token {
-                        // Check expiry
-                        if let Some(expires_at) = admin.password_reset_token_expires_at {
-                            if Utc::now() < expires_at.with_timezone(&Utc) {
-                                return Ok(Some(admin));
-                            }
-                        }
-                        // Token found but expired
-                        return Ok(None);
-                    }
-                }
-            }
+        let Some(admin) = admin else {
+            return Ok(None);
+        };
+
+        let matches = admin
+            .password_reset_token
+            .as_deref()
+            .and_then(|encrypted| decrypt_token(encrypted).ok())
+            .is_some_and(|decrypted| decrypted == token);
+        if !matches {
+            return Ok(None);
         }
 
+        if let Some(expires_at) = admin.password_reset_token_expires_at {
+            if Utc::now() < expires_at.with_timezone(&Utc) {
+                return Ok(Some(admin));
+            }
+        }
+        // Token found but expired
         Ok(None)
     }
 
@@ -510,6 +523,7 @@ impl UserAuthBackend {
         active.password_hash = Set(password_hash);
         active.force_password_change = Set(false);
         active.password_reset_token = Set(None);
+        active.password_reset_token_hash = Set(None);
         active.updated_at = Set(now.into());
 
         let updated = active.update(&txn).await?;
@@ -552,6 +566,7 @@ impl UserAuthBackend {
 
         let mut admin_active: user::ActiveModel = admin.into();
         admin_active.verification_token = Set(Some(encrypted_token));
+        admin_active.verification_token_hash = Set(Some(hash_token(&verification_token)));
         admin_active.verification_token_expires_at = Set(Some(verification_expires.into()));
         admin_active.updated_at = Set(Utc::now().into());
 
@@ -559,18 +574,17 @@ impl UserAuthBackend {
         Ok((updated, verification_token))
     }
 
+    /// Lookup is by the indexed BLAKE2 hash of the plaintext; the matched
+    /// row's ciphertext is then decrypted and compared as the authoritative
+    /// check.
     pub async fn verify_email(&self, token: &str) -> Result<user::Model> {
         use crate::crypto::decrypt_token;
 
-        // Tokens are stored encrypted, so we must decrypt and compare
-        let admins = User::find()
-            .filter(user::Column::VerificationToken.is_not_null())
-            .all(&self.db)
-            .await?;
-
-        let admin = admins
-            .into_iter()
-            .find(|a| {
+        let admin = User::find()
+            .filter(user::Column::VerificationTokenHash.eq(hash_token(token)))
+            .one(&self.db)
+            .await?
+            .filter(|a| {
                 a.verification_token
                     .as_deref()
                     .and_then(|encrypted| decrypt_token(encrypted).ok())
@@ -591,6 +605,7 @@ impl UserAuthBackend {
         let mut admin_active: user::ActiveModel = admin.into();
         admin_active.email_verified = Set(true);
         admin_active.verification_token = Set(None);
+        admin_active.verification_token_hash = Set(None);
         admin_active.verification_token_expires_at = Set(None);
         admin_active.updated_at = Set(Utc::now().into());
 
@@ -797,16 +812,12 @@ impl UserAuthBackend {
         // invite_code_id is already set on the row (admin stamped it at user
         // creation time). updated_at is auto-managed by ActiveModelBehavior.
         active.activated_at = Set(Some(Utc::now().into()));
-        let updated = active.update(&self.db).await?;
 
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by bound user {}: {}",
-                invite.id,
-                row_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
+        let updated = active.update(&txn).await?;
+        crate::invites::mark_used(&txn, locked_invite, row_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "OIDC bind for pre-provisioned user: {} role={}",
@@ -866,16 +877,12 @@ impl UserAuthBackend {
         active.last_login_at = Set(Some(Utc::now().into()));
         // invite_code_id is already set; updated_at is auto-managed.
         active.activated_at = Set(Some(Utc::now().into()));
-        let updated = active.update(&self.db).await?;
 
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, row_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by password-bound user {}: {}",
-                invite.id,
-                row_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
+        let updated = active.update(&txn).await?;
+        crate::invites::mark_used(&txn, locked_invite, row_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "Password-mode invite bind for pre-provisioned user: {} role={}",
@@ -912,6 +919,7 @@ impl UserAuthBackend {
             password_hash: Set(password_hash),
             email_verified: Set(true),
             verification_token: Set(None),
+            verification_token_hash: Set(None),
             verification_token_expires_at: Set(None),
             created_at: Set(Utc::now().into()),
             updated_at: Set(Utc::now().into()),
@@ -924,6 +932,7 @@ impl UserAuthBackend {
             deactivated_at: Set(None),
             force_password_change: Set(false),
             password_reset_token: Set(None),
+            password_reset_token_hash: Set(None),
             password_reset_token_expires_at: Set(None),
             role: Set(user::ROLE_COMMENTER.to_string()),
             oidc_sub: Set(None),
@@ -939,16 +948,11 @@ impl UserAuthBackend {
             avatar_icon_data: Set(None),
             locale: Set(None),
         };
-        let result = new_user.insert(&self.db).await?;
-
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by new password commenter {}: {}",
-                invite.id,
-                new_user_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
+        let result = new_user.insert(&txn).await?;
+        crate::invites::mark_used(&txn, locked_invite, new_user_id).await?;
+        txn.commit().await?;
 
         tracing::info!(
             "Created new password-mode commenter via invite: {}",
@@ -993,6 +997,7 @@ impl UserAuthBackend {
             password_hash: Set(random_hash),
             email_verified: Set(claims.email_verified),
             verification_token: Set(None),
+            verification_token_hash: Set(None),
             verification_token_expires_at: Set(None),
             created_at: Set(Utc::now().into()),
             updated_at: Set(Utc::now().into()),
@@ -1005,6 +1010,7 @@ impl UserAuthBackend {
             deactivated_at: Set(None),
             force_password_change: Set(false),
             password_reset_token: Set(None),
+            password_reset_token_hash: Set(None),
             password_reset_token_expires_at: Set(None),
             role: Set(user::ROLE_COMMENTER.to_string()),
             oidc_sub: Set(Some(claims.sub.to_string())),
@@ -1020,16 +1026,11 @@ impl UserAuthBackend {
             avatar_icon_data: Set(None),
             locale: Set(None),
         };
-        let result = new_user.insert(&self.db).await?;
-
-        if let Err(e) = crate::invites::mark_used(&self.db, invite.id, new_user_id).await {
-            tracing::warn!(
-                "Failed to mark invite {} used by new commenter {}: {}",
-                invite.id,
-                new_user_id,
-                e
-            );
-        }
+        let txn = self.db.begin().await?;
+        let locked_invite = crate::invites::lock_unused_invite(&txn, invite.id).await?;
+        let result = new_user.insert(&txn).await?;
+        crate::invites::mark_used(&txn, locked_invite, new_user_id).await?;
+        txn.commit().await?;
 
         tracing::info!("Created new OIDC commenter via invite: {}", new_user_id);
         Ok(result)

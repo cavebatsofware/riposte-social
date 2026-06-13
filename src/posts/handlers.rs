@@ -207,9 +207,9 @@ async fn serve_media(
         return Err(AppError::NotFound("Media not found".to_string()));
     }
 
-    let (bytes, stored_type) = state
+    let (body, stored_type) = state
         .s3
-        .get_object_at(&media.s3_key)
+        .get_object_stream(&media.s3_key)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to load media: {}", e)))?;
 
@@ -241,7 +241,7 @@ async fn serve_media(
             (header::CONTENT_TYPE, content_type),
             (header::CACHE_CONTROL, cache_control.to_string()),
         ],
-        Body::from(bytes),
+        body,
     )
         .into_response())
 }

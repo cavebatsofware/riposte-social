@@ -39,7 +39,6 @@ use crate::profile::{
 };
 use crate::settings::SettingsService;
 use axum::{
-    body::Body,
     extract::{DefaultBodyLimit, Multipart, Path, Query, State},
     http::{header, StatusCode},
     response::{IntoResponse, Json, Response},
@@ -430,9 +429,9 @@ async fn serve_avatar(
         .avatar_s3_key
         .ok_or_else(|| AppError::NotFound("Avatar not found".to_string()))?;
 
-    let (bytes, _stored_type) = state
+    let (body, _stored_type) = state
         .s3
-        .get_object_at(&key)
+        .get_object_stream(&key)
         .await
         .map_err(|e| AppError::InternalError(format!("Failed to load avatar: {:#}", e)))?;
 
@@ -446,7 +445,7 @@ async fn serve_avatar(
             // isn't load-bearing.
             (header::CACHE_CONTROL, "public, max-age=300".to_string()),
         ],
-        Body::from(bytes),
+        body,
     )
         .into_response())
 }

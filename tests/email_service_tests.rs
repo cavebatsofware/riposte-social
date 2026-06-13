@@ -91,6 +91,45 @@ async fn build_server_with_ses_err(
     .await
 }
 
+// ==================== Invite email HTML escaping ====================
+
+#[sqlx::test(migrations = false)]
+async fn test_invite_email_escapes_html(pool: sqlx::PgPool) {
+    let db = riposte_social::tests::test_db_from_pool(pool).await;
+    seed_site_settings(&db).await;
+    let settings = SettingsService::new(db.clone());
+    settings
+        .set(
+            "site_name",
+            "Site <script>alert(1)</script>",
+            Some("site"),
+            None,
+        )
+        .await
+        .unwrap();
+
+    let spy = EmailSpy::new();
+    let email = build_test_email_service(&spy, &db);
+    email
+        .send_invite_email(
+            "invitee@example.com",
+            "CODE1234",
+            "commenter",
+            "evil<img src=x onerror=alert(1)>@example.com",
+        )
+        .await
+        .unwrap();
+
+    let sent = spy.captured().pop().expect("one email sent");
+    assert!(
+        !sent.html_body.contains("<script>") && !sent.html_body.contains("<img"),
+        "raw markup from site_name or inviter_email must not reach the HTML body: {}",
+        sent.html_body
+    );
+    assert!(sent.html_body.contains("&lt;script&gt;"));
+    assert!(sent.html_body.contains("&lt;img"));
+}
+
 // ==================== Subscribe / confirmation email ====================
 
 #[sqlx::test(migrations = false)]

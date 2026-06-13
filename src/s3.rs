@@ -201,6 +201,40 @@ impl S3Service {
         Ok((bytes, content_type))
     }
 
+    /// Like `get_object_at`, but relays the object as a streaming response
+    /// `Body` instead of buffering the whole object into a `Vec<u8>` in server
+    /// memory. Returns the body plus the stored content-type so the handler
+    /// can set the right `Content-Type` header. Use this for handlers that
+    /// just stream bytes to an HTTP response; `get_object_at` remains for
+    /// callers that need the bytes in process (e.g. re-upload during import).
+    pub async fn get_object_stream(&self, key: &str) -> Result<(axum::body::Body, Option<String>)> {
+        tracing::debug!(
+            "Streaming from S3: bucket={}, key={}",
+            self.bucket_name,
+            key
+        );
+
+        let response = self
+            .client
+            .get_object()
+            .bucket(&self.bucket_name)
+            .key(key)
+            .send()
+            .await
+            .map_err(|e| {
+                anyhow::anyhow!(
+                    "S3 GetObject failed (bucket={}, key={}): {}",
+                    self.bucket_name,
+                    key,
+                    format_aws_error(&e)
+                )
+            })?;
+
+        let content_type = response.content_type().map(|s| s.to_string());
+        let stream = tokio_util::io::ReaderStream::new(response.body.into_async_read());
+        Ok((axum::body::Body::from_stream(stream), content_type))
+    }
+
     /// Delete by full S3 key.
     pub async fn delete_object_at(&self, key: &str) -> Result<()> {
         tracing::info!("Deleting from S3: bucket={}, key={}", self.bucket_name, key);

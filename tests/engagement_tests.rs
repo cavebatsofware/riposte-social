@@ -733,6 +733,48 @@ async fn test_post_payload_top_comments_excludes_deleted(pool: sqlx::PgPool) {
     assert_eq!(top[0]["id"].as_str().unwrap(), c1.id.to_string());
 }
 
+#[sqlx::test(migrations = false)]
+async fn test_top_comments_capped_per_post_no_bleed(pool: sqlx::PgPool) {
+    let (_server, backend, db) = build_test_server(pool).await;
+    let admin = create_verified_admin(&backend, &test_email("tc-multi"), TEST_PASSWORD).await;
+    let p1 = insert_post(&db, admin.id, "p1", post::VISIBILITY_PUBLIC).await;
+    let p2 = insert_post(&db, admin.id, "p2", post::VISIBILITY_PUBLIC).await;
+
+    // Four comments per post. The per-post LATERAL cap must surface only the
+    // latest 3 of each post's own comments, with no cross-post bleed.
+    for i in 0..4 {
+        insert_comment(&db, p1.id, admin.id, &format!("p1-{i}")).await;
+    }
+    for i in 0..4 {
+        insert_comment(&db, p2.id, admin.id, &format!("p2-{i}")).await;
+    }
+
+    let map = riposte_social::engagement::aggregate::fetch_engagement_for_posts(
+        &db,
+        &[p1.id, p2.id],
+        None,
+    )
+    .await
+    .unwrap();
+
+    let p1_top = &map.get(&p1.id).expect("p1 engagement").top_comments;
+    let p2_top = &map.get(&p2.id).expect("p2 engagement").top_comments;
+
+    assert_eq!(p1_top.len(), 3, "p1 capped at 3");
+    assert_eq!(p2_top.len(), 3, "p2 capped at 3");
+    assert!(
+        p1_top.iter().all(|c| c.post_id == p1.id),
+        "no bleed into p1"
+    );
+    assert!(
+        p2_top.iter().all(|c| c.post_id == p2.id),
+        "no bleed into p2"
+    );
+    // Newest-first within each post.
+    assert_eq!(p1_top[0].body, "p1-3");
+    assert_eq!(p2_top[0].body, "p2-3");
+}
+
 // ==================== Comments: edit ====================
 
 #[sqlx::test(migrations = false)]

@@ -182,6 +182,98 @@ async fn test_password_invite_creates_commenter(pool: sqlx::PgPool) {
     assert_eq!(row.invite_code_id, Some(invite.id));
 }
 
+/// Two racing acceptances of the same invite, both already past validation
+/// (each holds the validated invite model, exactly the window the atomic
+/// mark_used closes). Exactly one may create a user.
+#[sqlx::test(migrations = false)]
+async fn test_password_invite_concurrent_double_acceptance(pool: sqlx::PgPool) {
+    let (_server, backend, db) = build_test_server(pool).await;
+    let creator_id =
+        insert_inert_row(&db, &test_email("race-creator"), "administrator", None).await;
+    let (invite, _plaintext) = issue_invite(&db, creator_id, None).await;
+
+    let email_a = test_email("race-a");
+    let email_b = test_email("race-b");
+    let (res_a, res_b) = tokio::join!(
+        backend.accept_invite_password_create_commenter(&invite, &email_a, STRONG_PASSWORD),
+        backend.accept_invite_password_create_commenter(&invite, &email_b, STRONG_PASSWORD),
+    );
+
+    assert!(
+        res_a.is_ok() != res_b.is_ok(),
+        "exactly one acceptance must win: a={:?} b={:?}",
+        res_a.as_ref().map(|u| u.id),
+        res_b.as_ref().map(|u| u.id)
+    );
+    let winner = res_a.or(res_b).unwrap();
+
+    let bound_users = User::find()
+        .filter(user::Column::InviteCodeId.eq(invite.id))
+        .all(&db)
+        .await
+        .unwrap();
+    assert_eq!(bound_users.len(), 1, "loser's row must be rolled back");
+    assert_eq!(bound_users[0].id, winner.id);
+
+    let used = riposte_social::entities::InviteCode::find_by_id(invite.id)
+        .one(&db)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(used.used_by_user_id, Some(winner.id));
+}
+
+/// When the invite turns out to be already used at activation time (validated
+/// earlier, consumed by someone else in between), the activation must roll
+/// back rather than land with a warning.
+#[sqlx::test(migrations = false)]
+async fn test_password_invite_used_invite_rolls_back_activation(pool: sqlx::PgPool) {
+    let (_server, backend, db) = build_test_server(pool).await;
+    let admin_email = test_email("rollback-admin");
+    let creator_id =
+        insert_inert_row(&db, &test_email("rollback-creator"), "administrator", None).await;
+    let (invite, _plaintext) = issue_invite(&db, creator_id, Some(&admin_email)).await;
+    insert_inert_row(&db, &admin_email, "administrator", Some(invite.id)).await;
+
+    let locked = riposte_social::invites::lock_unused_invite(&db, invite.id)
+        .await
+        .unwrap();
+    riposte_social::invites::mark_used(&db, locked, creator_id)
+        .await
+        .unwrap();
+
+    let result = backend
+        .accept_invite_password_bind(&invite, &admin_email, STRONG_PASSWORD)
+        .await;
+    assert!(result.is_err(), "acceptance of a used invite must fail");
+
+    let row = User::find()
+        .filter(user::Column::Email.eq(&admin_email))
+        .one(&db)
+        .await
+        .unwrap()
+        .expect("admin row");
+    assert!(
+        row.activated_at.is_none(),
+        "activation must be rolled back when the invite is already used"
+    );
+    assert!(!row.email_verified);
+}
+
+/// A nonexistent invite id is reported as NotFound, distinct from the
+/// already-used (validation) case.
+#[sqlx::test(migrations = false)]
+async fn test_lock_unused_invite_missing_returns_not_found(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let err = riposte_social::invites::lock_unused_invite(&db, Uuid::new_v4())
+        .await
+        .expect_err("missing invite must error");
+    assert!(
+        err.to_string().to_lowercase().contains("not found"),
+        "expected NotFound, got: {err}"
+    );
+}
+
 #[sqlx::test(migrations = false)]
 async fn test_password_invite_rejects_email_hint_mismatch(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;
