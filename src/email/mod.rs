@@ -186,7 +186,12 @@ impl EmailService {
 </body>
 </html>
 "#,
-            site_name, inviter_email, site_name, role_label, invite_url, invite_url
+            html_escape(&site_name),
+            html_escape(inviter_email),
+            html_escape(&site_name),
+            role_label,
+            html_escape(&invite_url),
+            html_escape(&invite_url)
         );
 
         let text_body = format!(
@@ -267,7 +272,9 @@ If you weren't expecting this invitation, you can safely ignore this email.
 </body>
 </html>
 "#,
-            site_name, verification_url, verification_url
+            html_escape(&site_name),
+            verification_url,
+            verification_url
         );
 
         let text_body = format!(
@@ -348,7 +355,7 @@ If you didn't request this verification email, you can safely ignore it.
             html_escape(from_email),
             html_escape(subject),
             html_escape(message),
-            site_name
+            html_escape(&site_name)
         );
 
         let text_body = format!(
@@ -618,7 +625,9 @@ This order was submitted on {}
 </body>
 </html>
 "#,
-            site_name, verification_url, verification_url
+            html_escape(&site_name),
+            verification_url,
+            verification_url
         );
 
         let text_body = format!(
