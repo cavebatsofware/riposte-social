@@ -315,16 +315,6 @@ impl UserAuthBackend {
             anyhow::bail!("Cannot deactivate your own account");
         }
 
-        // Check if this is the last active admin
-        let active_count = User::find()
-            .filter(user::Column::Active.eq(true))
-            .count(&self.db)
-            .await?;
-
-        if active_count <= 1 {
-            anyhow::bail!("Cannot deactivate the last active administrator");
-        }
-
         let admin = User::find_by_id(user_id)
             .one(&self.db)
             .await?
@@ -332,6 +322,19 @@ impl UserAuthBackend {
 
         if !admin.active {
             anyhow::bail!("User is already deactivated");
+        }
+
+        // Deactivating the last active administrator would lock the site
+        if admin.is_administrator() {
+            let active_admin_count = User::find()
+                .filter(user::Column::Active.eq(true))
+                .filter(user::Column::Role.eq(user::ROLE_ADMINISTRATOR))
+                .count(&self.db)
+                .await?;
+
+            if active_admin_count <= 1 {
+                anyhow::bail!("Cannot deactivate the last active administrator");
+            }
         }
 
         let mut admin_active: user::ActiveModel = admin.into();
