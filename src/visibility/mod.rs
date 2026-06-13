@@ -38,6 +38,7 @@ use crate::middleware::admin_auth::UserAuthSession;
 use anyhow::Result;
 use sea_orm::{
     ColumnTrait, ConnectionTrait, EntityTrait, FromQueryResult, QueryFilter, QuerySelect,
+    QueryTrait,
 };
 use uuid::Uuid;
 
@@ -340,15 +341,16 @@ impl ViewerCtx {
 
 /// Resolve the set of category ids visible to this caller.
 ///
-/// Three-part filter (author-first for index-friendly evaluation):
+/// Three OR'd predicates in a single SELECT (selecting from `categories`
+/// directly, so each matching row is returned once, no dedup needed):
 /// 1. Categories the viewer created  any tier, since "I created it, I
-///    see it". Cheapest predicate (indexed equality on `created_by`).
+///    see it" (only when authenticated).
 /// 2. Categories whose `visibility` is in the role's allowed list.
 /// 3. Categories whose `visibility = 'user_list'` AND the viewer is in
-///    `category_member`.
+///    `category_member` (only when authenticated), via a subquery.
 ///
 /// Administrators short-circuit to "every category id" so they can
-/// moderate at the category layer. Anonymous viewers skip parts 1 and 3
+/// moderate at the category layer. Anonymous viewers get predicate 2 only
 /// (no `viewer_id`). The result is used by `feed_condition` and
 /// `can_view_category`. Runs once per request.
 async fn resolve_accessible_categories<C>(
@@ -374,49 +376,31 @@ where
 
     let allowed: Vec<&'static str> = tier.allowed_visibilities().to_vec();
 
-    // Creator hits  any tier, only when authenticated.
-    let mut creator_ids: Vec<Uuid> = if let Some(vid) = viewer_id {
-        Category::find()
-            .filter(category::Column::CreatedBy.eq(vid))
-            .select_only()
-            .column(category::Column::Id)
-            .into_tuple::<Uuid>()
-            .all(db)
-            .await?
-    } else {
-        Vec::new()
-    };
+    // Predicate 2 (role-based) always applies. Predicates 1 (creator) and 3
+    // (user_list membership) only when authenticated.
+    let mut cond = sea_orm::Condition::any().add(category::Column::Visibility.is_in(allowed));
+    if let Some(vid) = viewer_id {
+        cond = cond.add(category::Column::CreatedBy.eq(vid));
 
-    // Role-based hits.
-    let mut role_ids: Vec<Uuid> = Category::find()
-        .filter(category::Column::Visibility.is_in(allowed))
+        let member_categories = CategoryMember::find()
+            .select_only()
+            .column(category_member::Column::CategoryId)
+            .filter(category_member::Column::UserId.eq(vid))
+            .into_query();
+        cond = cond.add(
+            sea_orm::Condition::all()
+                .add(category::Column::Visibility.eq(VISIBILITY_USER_LIST))
+                .add(category::Column::Id.in_subquery(member_categories)),
+        );
+    }
+
+    Ok(Category::find()
+        .filter(cond)
         .select_only()
         .column(category::Column::Id)
         .into_tuple::<Uuid>()
         .all(db)
-        .await?;
-
-    // user_list hits  only when authenticated.
-    let mut acl_ids: Vec<Uuid> = if let Some(vid) = viewer_id {
-        CategoryMember::find()
-            .filter(category_member::Column::UserId.eq(vid))
-            .inner_join(Category)
-            .filter(category::Column::Visibility.eq(VISIBILITY_USER_LIST))
-            .select_only()
-            .column(category_member::Column::CategoryId)
-            .into_tuple::<Uuid>()
-            .all(db)
-            .await?
-    } else {
-        Vec::new()
-    };
-
-    let mut all = creator_ids.split_off(0);
-    all.append(&mut role_ids);
-    all.append(&mut acl_ids);
-    all.sort();
-    all.dedup();
-    Ok(all)
+        .await?)
 }
 
 /// Compose-time gate: confirm `user` may write a post or album into
