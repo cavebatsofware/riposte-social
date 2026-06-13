@@ -22,8 +22,8 @@ use crate::entities::{
     PostMediaReaction, Reaction,
 };
 use sea_orm::{
-    ColumnTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter, QueryOrder,
-    QuerySelect,
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult,
+    QueryFilter, QuerySelect, Statement,
 };
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -117,26 +117,32 @@ pub async fn fetch_engagement_for_posts(
         out.entry(row.post_id).or_default().comment_count = row.count;
     }
 
-    // 4) latest live comments per post. Family-scale traffic: fetching every
-    // live comment for the page of posts and trimming in memory is simpler
-    // than a per-post LATERAL JOIN and the row volume stays well under any
-    // reasonable bound. If the platform grows beyond that, replace with
-    // `ROW_NUMBER() OVER (PARTITION BY post_id ORDER BY created_at DESC)`.
-    let all_live: Vec<comment::Model> = Comment::find()
-        .filter(comment::Column::PostId.is_in(post_ids.to_vec()))
-        .filter(comment::Column::DeletedAt.is_null())
-        .order_by_desc(comment::Column::CreatedAt)
-        .order_by_desc(comment::Column::Id)
-        .all(db)
-        .await?;
+    // 4) latest live comments per post, capped at TOP_COMMENTS_PER_POST each.
+    // A LATERAL join reads only the top few rows per post via the existing
+    // `idx_comments_post_thread` index (post_id, deleted_at, created_at, id)
+    // instead of fetching every live comment on the page and trimming in
+    // memory. Post IDs expand into rows with `unnest`; the cap is a const,
+    // so it is inlined safely.
+    let backend = db.get_database_backend();
+    let id_placeholders = (1..=post_ids.len())
+        .map(|i| format!("${i}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT c.* \
+         FROM unnest(ARRAY[{id_placeholders}]::uuid[]) AS p(post_id) \
+         CROSS JOIN LATERAL ( \
+            SELECT * FROM comments \
+            WHERE post_id = p.post_id AND deleted_at IS NULL \
+            ORDER BY created_at DESC, id DESC \
+            LIMIT {TOP_COMMENTS_PER_POST} \
+         ) c"
+    );
+    let values: Vec<sea_orm::Value> = post_ids.iter().map(|id| (*id).into()).collect();
+    let stmt = Statement::from_sql_and_values(backend, sql, values);
+    let top_comments = Comment::find().from_raw_sql(stmt).all(db).await?;
 
-    let mut per_post_count: HashMap<Uuid, usize> = HashMap::new();
-    for row in all_live {
-        let n = per_post_count.entry(row.post_id).or_default();
-        if *n >= TOP_COMMENTS_PER_POST {
-            continue;
-        }
-        *n += 1;
+    for row in top_comments {
         out.entry(row.post_id).or_default().top_comments.push(row);
     }
 
