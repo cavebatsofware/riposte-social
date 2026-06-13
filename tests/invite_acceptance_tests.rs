@@ -257,6 +257,20 @@ async fn test_password_invite_used_invite_rolls_back_activation(pool: sqlx::PgPo
     assert!(!row.email_verified);
 }
 
+/// mark_used disambiguates its 0-row update: a nonexistent invite is
+/// NotFound (as the pre-atomic version returned), not "already used".
+#[sqlx::test(migrations = false)]
+async fn test_mark_used_missing_invite_returns_not_found(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let err = riposte_social::invites::mark_used(&db, Uuid::new_v4(), Uuid::new_v4())
+        .await
+        .expect_err("missing invite must error");
+    assert!(
+        err.to_string().to_lowercase().contains("not found"),
+        "expected NotFound, got: {err}"
+    );
+}
+
 #[sqlx::test(migrations = false)]
 async fn test_password_invite_rejects_email_hint_mismatch(pool: sqlx::PgPool) {
     let (server, _backend, db) = build_test_server(pool).await;

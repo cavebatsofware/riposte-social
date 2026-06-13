@@ -66,6 +66,11 @@ pub async fn validate_invite_code(
 /// same code: the loser's update affects 0 rows and errors. Callers run this
 /// inside their activation transaction so that error rolls the activation
 /// back.
+///
+/// A 0-row update is disambiguated so the error is accurate: a present row
+/// means another acceptance already consumed it (`ValidationError`); an
+/// absent row means the id doesn't exist (`NotFound`, as the pre-atomic
+/// version returned).
 pub async fn mark_used<C>(db: &C, invite_id: Uuid, user_id: Uuid) -> AppResult<()>
 where
     C: ConnectionTrait,
@@ -79,9 +84,12 @@ where
         .await?;
 
     if result.rows_affected == 0 {
-        return Err(AppError::ValidationError(
-            "Invite has already been used".to_string(),
-        ));
+        let exists = InviteCode::find_by_id(invite_id).one(db).await?.is_some();
+        return Err(if exists {
+            AppError::ValidationError("Invite has already been used".to_string())
+        } else {
+            AppError::NotFound("Invite not found".to_string())
+        });
     }
     Ok(())
 }
