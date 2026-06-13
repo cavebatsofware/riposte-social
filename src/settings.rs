@@ -349,6 +349,15 @@ impl SettingsService {
             .unwrap_or_else(|| "ses".to_string()))
     }
 
+    /// Default locale for outbound emails: used for recipients with no stored
+    /// language preference (and as the catalog fallback). Falls back to "en"
+    /// when unset or set to an unsupported code.
+    pub async fn get_default_locale(&self) -> Result<String> {
+        let v = self.get("default_locale", Some("email"), None).await?;
+        Ok(v.filter(|s| crate::profile::locale::is_supported(s))
+            .unwrap_or_else(|| "en".to_string()))
+    }
+
     /// SendGrid API key, stored encrypted (the `secret_` prefix makes the
     /// admin settings API encrypt it). `None` when unset.
     pub async fn get_sendgrid_api_key(&self) -> Result<Option<String>> {

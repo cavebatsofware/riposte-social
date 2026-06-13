@@ -1,0 +1,63 @@
+{
+  "roles": {
+    "administrator": "administrador",
+    "poster": "autor",
+    "member": "miembro"
+  },
+  "invite": {
+    "subject": "Te han invitado a {{site}}",
+    "heading": "Te damos la bienvenida a {{site}}",
+    "body": "**{{inviter}}** te ha invitado a unirte a {{site}} como {{role}}. Haz clic en el botón de abajo para activar tu cuenta.",
+    "cta": "Aceptar invitación",
+    "footer": "Este enlace de invitación caducará en 7 días.\n\nSi no esperabas esta invitación, puedes ignorar este correo de forma segura."
+  },
+  "verify_admin": {
+    "subject": "Verifica tu cuenta de administrador",
+    "heading": "Te damos la bienvenida a la administración de {{site}}",
+    "body": "Gracias por registrarte como administrador. Verifica tu dirección de correo electrónico para completar tu registro.",
+    "cta": "Verificar correo electrónico",
+    "footer": "Este enlace de verificación caducará en 24 horas.\n\nSi no solicitaste este correo de verificación, puedes ignorarlo de forma segura."
+  },
+  "contact_form": {
+    "subject": "Formulario de contacto: {{subject}}",
+    "heading": "Nuevo envío del formulario de contacto",
+    "body": "**Nombre:** {{name}}\n\n**Correo electrónico:** {{email}}\n\n**Asunto:** {{subject}}\n\n**Mensaje:**\n\n{{message}}",
+    "footer": "Este mensaje se envió a través del formulario de contacto en {{site}}."
+  },
+  "order_notification": {
+    "subject": "Nuevo pedido: {{title}}",
+    "heading": "Nuevo pedido",
+    "body": "**Pedido:** {{title}}\n\n**Cliente:** {{name}}\n\n**Teléfono:** [{{phone}}](tel:{{phone}})\n\n**Correo electrónico:** [{{email}}](mailto:{{email}})\n\n**Estimación:** {{estimate}}\n\n**Detalles del pedido:**\n\n```\n{{summary}}\n```",
+    "footer": "Enviado a través de {{site}}.",
+    "not_provided": "no proporcionado"
+  },
+  "order_confirmation": {
+    "subject": "Hemos recibido tu pedido: {{title}}",
+    "heading": "Pedido recibido",
+    "body": "Hola {{name}}:\n\nGracias por tu pedido. Te llamaré personalmente para confirmar los detalles y explicarte el depósito antes de realizar cualquier cargo. Todavía no se ha cobrado nada.\n\n**Estimación:** {{estimate}}\n\n**Tu pedido:**\n\n```\n{{summary}}\n```\n\nConserva este correo para tus registros.",
+    "footer": "{{site}}",
+    "estimate_tbd": "por confirmar"
+  },
+  "subscription_confirmation": {
+    "subject": "Confirma tu suscripción al blog",
+    "heading": "¡Te damos la bienvenida al blog de {{site}}!",
+    "body": "Gracias por suscribirte. Confirma tu dirección de correo electrónico para empezar a recibir novedades.",
+    "cta": "Confirmar suscripción",
+    "footer": "Este enlace de confirmación caducará en 7 días.\n\nSi no te suscribiste a este blog, puedes ignorar este correo de forma segura."
+  },
+  "password_changed": {
+    "subject": "Tu contraseña ha sido cambiada",
+    "heading": "Contraseña cambiada",
+    "body": "La contraseña de tu cuenta de administrador se cambió recientemente {{change_source}}.\n\nSi hiciste este cambio, puedes ignorar este correo de forma segura.\n\n**Si no hiciste este cambio**, contacta a un administrador de inmediato, ya que tu cuenta podría estar comprometida.",
+    "footer": "Esta es una notificación de seguridad automática.",
+    "source_admin": "por un administrador",
+    "source_self": "desde tu cuenta"
+  },
+  "password_reset": {
+    "subject": "Solicitud de restablecimiento de contraseña",
+    "heading": "Solicitud de restablecimiento de contraseña",
+    "body": "Hemos recibido una solicitud para restablecer la contraseña de tu cuenta de administrador.",
+    "cta": "Restablecer contraseña",
+    "footer": "**Este enlace caducará en 1 hora.**\n\nSi no solicitaste un restablecimiento de contraseña, puedes ignorar este correo de forma segura. Tu contraseña no cambiará."
+  }
+}

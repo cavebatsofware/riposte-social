@@ -293,6 +293,8 @@ async fn submit_order(
             payload.customer_phone.trim(),
             Some(customer_email),
             payload.estimate_total,
+            // Recipient is the site owner: use the site default locale.
+            None,
         )
         .await
     {
@@ -309,6 +311,8 @@ async fn submit_order(
             payload.title.trim(),
             payload.summary.trim(),
             payload.estimate_total,
+            // Customer is not a registered user: use the site default locale.
+            None,
         )
         .await
     {

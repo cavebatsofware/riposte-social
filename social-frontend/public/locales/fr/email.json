@@ -1,0 +1,63 @@
+{
+  "roles": {
+    "administrator": "administrateur",
+    "poster": "auteur",
+    "member": "membre"
+  },
+  "invite": {
+    "subject": "Vous êtes invité à rejoindre {{site}}",
+    "heading": "Bienvenue sur {{site}}",
+    "body": "**{{inviter}}** vous a invité à rejoindre {{site}} en tant que {{role}}. Cliquez sur le bouton ci-dessous pour activer votre compte.",
+    "cta": "Accepter l'invitation",
+    "footer": "Ce lien d'invitation expirera dans 7 jours.\n\nSi vous n'attendiez pas cette invitation, vous pouvez ignorer cet e-mail en toute sécurité."
+  },
+  "verify_admin": {
+    "subject": "Vérifiez votre compte administrateur",
+    "heading": "Bienvenue dans l'administration de {{site}}",
+    "body": "Merci de vous être inscrit en tant qu'administrateur. Veuillez vérifier votre adresse e-mail pour finaliser votre inscription.",
+    "cta": "Vérifier l'adresse e-mail",
+    "footer": "Ce lien de vérification expirera dans 24 heures.\n\nSi vous n'avez pas demandé cet e-mail de vérification, vous pouvez l'ignorer en toute sécurité."
+  },
+  "contact_form": {
+    "subject": "Formulaire de contact : {{subject}}",
+    "heading": "Nouvelle soumission du formulaire de contact",
+    "body": "**Nom :** {{name}}\n\n**E-mail :** {{email}}\n\n**Objet :** {{subject}}\n\n**Message :**\n\n{{message}}",
+    "footer": "Ce message a été envoyé via le formulaire de contact sur {{site}}."
+  },
+  "order_notification": {
+    "subject": "Nouvelle commande : {{title}}",
+    "heading": "Nouvelle commande",
+    "body": "**Commande :** {{title}}\n\n**Client :** {{name}}\n\n**Téléphone :** [{{phone}}](tel:{{phone}})\n\n**E-mail :** [{{email}}](mailto:{{email}})\n\n**Estimation :** {{estimate}}\n\n**Détails de la commande :**\n\n```\n{{summary}}\n```",
+    "footer": "Soumis via {{site}}.",
+    "not_provided": "non fourni"
+  },
+  "order_confirmation": {
+    "subject": "Nous avons bien reçu votre commande : {{title}}",
+    "heading": "Commande reçue",
+    "body": "Bonjour {{name}},\n\nMerci pour votre commande. Je vous appellerai personnellement pour confirmer les détails et vous expliquer l'acompte avant tout prélèvement. Rien n'a encore été facturé.\n\n**Estimation :** {{estimate}}\n\n**Votre commande :**\n\n```\n{{summary}}\n```\n\nConservez cet e-mail pour vos dossiers.",
+    "footer": "{{site}}",
+    "estimate_tbd": "à confirmer"
+  },
+  "subscription_confirmation": {
+    "subject": "Confirmez votre abonnement au blog",
+    "heading": "Bienvenue sur le blog de {{site}} !",
+    "body": "Merci de votre abonnement. Veuillez confirmer votre adresse e-mail pour commencer à recevoir les actualités.",
+    "cta": "Confirmer l'abonnement",
+    "footer": "Ce lien de confirmation expirera dans 7 jours.\n\nSi vous ne vous êtes pas abonné à ce blog, vous pouvez ignorer cet e-mail en toute sécurité."
+  },
+  "password_changed": {
+    "subject": "Votre mot de passe a été modifié",
+    "heading": "Mot de passe modifié",
+    "body": "Le mot de passe de votre compte administrateur a récemment été modifié {{change_source}}.\n\nSi vous êtes à l'origine de ce changement, vous pouvez ignorer cet e-mail en toute sécurité.\n\n**Si vous n'êtes pas à l'origine de ce changement**, contactez immédiatement un administrateur, car votre compte pourrait être compromis.",
+    "footer": "Ceci est une notification de sécurité automatique.",
+    "source_admin": "par un administrateur",
+    "source_self": "depuis votre compte"
+  },
+  "password_reset": {
+    "subject": "Demande de réinitialisation du mot de passe",
+    "heading": "Demande de réinitialisation du mot de passe",
+    "body": "Nous avons reçu une demande de réinitialisation du mot de passe de votre compte administrateur.",
+    "cta": "Réinitialiser le mot de passe",
+    "footer": "**Ce lien expirera dans 1 heure.**\n\nSi vous n'avez pas demandé de réinitialisation du mot de passe, vous pouvez ignorer cet e-mail en toute sécurité. Votre mot de passe restera inchangé."
+  }
+}

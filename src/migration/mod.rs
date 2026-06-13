@@ -94,6 +94,7 @@ mod m20260608_000002_add_phone_verification_to_orders;
 mod m20260608_000003_seed_twilio_settings;
 mod m20260610_000001_seed_email_provider_settings;
 mod m20260612_000001_add_token_hashes_to_users;
+mod m20260613_000001_seed_default_locale_setting;
 
 pub struct Migrator;
 
@@ -179,6 +180,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260608_000003_seed_twilio_settings::Migration),
             Box::new(m20260610_000001_seed_email_provider_settings::Migration),
             Box::new(m20260612_000001_add_token_hashes_to_users::Migration),
+            Box::new(m20260613_000001_seed_default_locale_setting::Migration),
         ]
     }
 }

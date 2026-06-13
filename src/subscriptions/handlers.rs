@@ -125,7 +125,7 @@ async fn subscribe(
             if let Some(token) = &existing.verification_token {
                 let _ = state
                     .email_service
-                    .send_subscription_confirmation(&email, token)
+                    .send_subscription_confirmation(&email, token, None)
                     .await;
             }
             return Ok((
@@ -156,7 +156,7 @@ async fn subscribe(
         Ok(_) => {
             match state
                 .email_service
-                .send_subscription_confirmation(&email, &verification_token)
+                .send_subscription_confirmation(&email, &verification_token, None)
                 .await
             {
                 Ok(_) => {

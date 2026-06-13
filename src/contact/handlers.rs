@@ -117,6 +117,8 @@ async fn submit_contact_form(
             payload.email.trim(),
             payload.subject.trim(),
             payload.message.trim(),
+            // Recipient is the site owner, not a known user: use the site default.
+            None,
         )
         .await
     {

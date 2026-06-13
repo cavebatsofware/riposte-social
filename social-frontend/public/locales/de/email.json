@@ -1,0 +1,63 @@
+{
+  "roles": {
+    "administrator": "Administrator",
+    "poster": "Autor",
+    "member": "Mitglied"
+  },
+  "invite": {
+    "subject": "Sie sind zu {{site}} eingeladen",
+    "heading": "Willkommen bei {{site}}",
+    "body": "**{{inviter}}** hat Sie eingeladen, {{site}} als {{role}} beizutreten. Klicken Sie auf die Schaltfläche unten, um Ihr Konto zu aktivieren.",
+    "cta": "Einladung annehmen",
+    "footer": "Dieser Einladungslink läuft in 7 Tagen ab.\n\nWenn Sie diese Einladung nicht erwartet haben, können Sie diese E-Mail bedenkenlos ignorieren."
+  },
+  "verify_admin": {
+    "subject": "Bestätigen Sie Ihr Administratorkonto",
+    "heading": "Willkommen in der {{site}}-Administration",
+    "body": "Vielen Dank für Ihre Registrierung als Administrator. Bitte bestätigen Sie Ihre E-Mail-Adresse, um Ihre Registrierung abzuschließen.",
+    "cta": "E-Mail-Adresse bestätigen",
+    "footer": "Dieser Bestätigungslink läuft in 24 Stunden ab.\n\nWenn Sie diese Bestätigungs-E-Mail nicht angefordert haben, können Sie sie bedenkenlos ignorieren."
+  },
+  "contact_form": {
+    "subject": "Kontaktformular: {{subject}}",
+    "heading": "Neue Einsendung über das Kontaktformular",
+    "body": "**Name:** {{name}}\n\n**E-Mail:** {{email}}\n\n**Betreff:** {{subject}}\n\n**Nachricht:**\n\n{{message}}",
+    "footer": "Diese Nachricht wurde über das Kontaktformular auf {{site}} gesendet."
+  },
+  "order_notification": {
+    "subject": "Neue Bestellung: {{title}}",
+    "heading": "Neue Bestellung",
+    "body": "**Bestellung:** {{title}}\n\n**Kunde:** {{name}}\n\n**Telefon:** [{{phone}}](tel:{{phone}})\n\n**E-Mail:** [{{email}}](mailto:{{email}})\n\n**Schätzung:** {{estimate}}\n\n**Bestelldetails:**\n\n```\n{{summary}}\n```",
+    "footer": "Eingereicht über {{site}}.",
+    "not_provided": "nicht angegeben"
+  },
+  "order_confirmation": {
+    "subject": "Wir haben Ihre Bestellung erhalten: {{title}}",
+    "heading": "Bestellung erhalten",
+    "body": "Hallo {{name}},\n\nvielen Dank für Ihre Bestellung. Ich werde Sie persönlich anrufen, um die Details zu bestätigen und die Anzahlung mit Ihnen durchzugehen, bevor etwas berechnet wird. Es wurde noch nichts berechnet.\n\n**Schätzung:** {{estimate}}\n\n**Ihre Bestellung:**\n\n```\n{{summary}}\n```\n\nBitte bewahren Sie diese E-Mail für Ihre Unterlagen auf.",
+    "footer": "{{site}}",
+    "estimate_tbd": "wird noch bestätigt"
+  },
+  "subscription_confirmation": {
+    "subject": "Bestätigen Sie Ihr Blog-Abonnement",
+    "heading": "Willkommen beim {{site}}-Blog!",
+    "body": "Vielen Dank für Ihr Abonnement. Bitte bestätigen Sie Ihre E-Mail-Adresse, um Updates zu erhalten.",
+    "cta": "Abonnement bestätigen",
+    "footer": "Dieser Bestätigungslink läuft in 7 Tagen ab.\n\nWenn Sie diesen Blog nicht abonniert haben, können Sie diese E-Mail bedenkenlos ignorieren."
+  },
+  "password_changed": {
+    "subject": "Ihr Passwort wurde geändert",
+    "heading": "Passwort geändert",
+    "body": "Das Passwort Ihres Administratorkontos wurde kürzlich {{change_source}} geändert.\n\nWenn Sie diese Änderung vorgenommen haben, können Sie diese E-Mail bedenkenlos ignorieren.\n\n**Wenn Sie diese Änderung nicht vorgenommen haben**, wenden Sie sich bitte umgehend an einen Administrator, da Ihr Konto möglicherweise kompromittiert wurde.",
+    "footer": "Dies ist eine automatische Sicherheitsbenachrichtigung.",
+    "source_admin": "von einem Administrator",
+    "source_self": "über Ihr Konto"
+  },
+  "password_reset": {
+    "subject": "Anfrage zum Zurücksetzen des Passworts",
+    "heading": "Anfrage zum Zurücksetzen des Passworts",
+    "body": "Wir haben eine Anfrage zum Zurücksetzen des Passworts Ihres Administratorkontos erhalten.",
+    "cta": "Passwort zurücksetzen",
+    "footer": "**Dieser Link läuft in 1 Stunde ab.**\n\nWenn Sie kein Zurücksetzen des Passworts angefordert haben, können Sie diese E-Mail bedenkenlos ignorieren. Ihr Passwort bleibt unverändert."
+  }
+}

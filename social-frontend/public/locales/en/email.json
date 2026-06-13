@@ -1,0 +1,63 @@
+{
+  "roles": {
+    "administrator": "an administrator",
+    "poster": "a poster",
+    "member": "a member"
+  },
+  "invite": {
+    "subject": "You're invited to {{site}}",
+    "heading": "Welcome to {{site}}",
+    "body": "**{{inviter}}** has invited you to join {{site}} as {{role}}. Click the button below to activate your account.",
+    "cta": "Accept Invite",
+    "footer": "This invite link will expire in 7 days.\n\nIf you weren't expecting this invitation, you can safely ignore this email."
+  },
+  "verify_admin": {
+    "subject": "Verify Your Admin Account",
+    "heading": "Welcome to {{site}} Admin",
+    "body": "Thank you for registering as an admin user. Please verify your email address to complete your registration.",
+    "cta": "Verify Email Address",
+    "footer": "This verification link will expire in 24 hours.\n\nIf you didn't request this verification email, you can safely ignore it."
+  },
+  "contact_form": {
+    "subject": "Contact Form: {{subject}}",
+    "heading": "New Contact Form Submission",
+    "body": "**Name:** {{name}}\n\n**Email:** {{email}}\n\n**Subject:** {{subject}}\n\n**Message:**\n\n{{message}}",
+    "footer": "This message was sent via the contact form on {{site}}."
+  },
+  "order_notification": {
+    "subject": "New order: {{title}}",
+    "heading": "New order",
+    "body": "**Order:** {{title}}\n\n**Customer:** {{name}}\n\n**Phone:** [{{phone}}](tel:{{phone}})\n\n**Email:** [{{email}}](mailto:{{email}})\n\n**Estimate:** {{estimate}}\n\n**Order details:**\n\n```\n{{summary}}\n```",
+    "footer": "Submitted via {{site}}.",
+    "not_provided": "not provided"
+  },
+  "order_confirmation": {
+    "subject": "We received your order: {{title}}",
+    "heading": "Order received",
+    "body": "Hi {{name}},\n\nThanks for your order. I will personally call you to confirm the details and walk through the deposit before anything is charged. Nothing has been charged yet.\n\n**Estimate:** {{estimate}}\n\n**Your order:**\n\n```\n{{summary}}\n```\n\nPlease keep this email for your records.",
+    "footer": "{{site}}",
+    "estimate_tbd": "to be confirmed"
+  },
+  "subscription_confirmation": {
+    "subject": "Confirm Your Blog Subscription",
+    "heading": "Welcome to {{site}} Blog!",
+    "body": "Thank you for subscribing. Please confirm your email address to start receiving updates.",
+    "cta": "Confirm Subscription",
+    "footer": "This confirmation link will expire in 7 days.\n\nIf you didn't subscribe to this blog, you can safely ignore this email."
+  },
+  "password_changed": {
+    "subject": "Your Password Has Been Changed",
+    "heading": "Password Changed",
+    "body": "Your admin account password was recently changed {{change_source}}.\n\nIf you made this change, you can safely ignore this email.\n\n**If you did not make this change**, please contact an administrator immediately as your account may have been compromised.",
+    "footer": "This is an automated security notification.",
+    "source_admin": "by an administrator",
+    "source_self": "using your account"
+  },
+  "password_reset": {
+    "subject": "Password Reset Request",
+    "heading": "Password Reset Request",
+    "body": "We received a request to reset your admin account password.",
+    "cta": "Reset Password",
+    "footer": "**This link will expire in 1 hour.**\n\nIf you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged."
+  }
+}

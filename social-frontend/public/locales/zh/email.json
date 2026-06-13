@@ -1,0 +1,63 @@
+{
+  "roles": {
+    "administrator": "管理员",
+    "poster": "作者",
+    "member": "成员"
+  },
+  "invite": {
+    "subject": "您受邀加入 {{site}}",
+    "heading": "欢迎来到 {{site}}",
+    "body": "**{{inviter}}** 邀请您以{{role}}身份加入 {{site}}。请点击下方按钮激活您的账户。",
+    "cta": "接受邀请",
+    "footer": "此邀请链接将在 7 天后失效。\n\n如果您并未预期收到此邀请，可以放心忽略这封邮件。"
+  },
+  "verify_admin": {
+    "subject": "验证您的管理员账户",
+    "heading": "欢迎来到 {{site}} 管理后台",
+    "body": "感谢您注册为管理员。请验证您的电子邮箱地址以完成注册。",
+    "cta": "验证电子邮箱",
+    "footer": "此验证链接将在 24 小时后失效。\n\n如果您并未请求此验证邮件，可以放心忽略。"
+  },
+  "contact_form": {
+    "subject": "联系表单：{{subject}}",
+    "heading": "新的联系表单提交",
+    "body": "**姓名：** {{name}}\n\n**电子邮箱：** {{email}}\n\n**主题：** {{subject}}\n\n**留言：**\n\n{{message}}",
+    "footer": "此消息通过 {{site}} 上的联系表单发送。"
+  },
+  "order_notification": {
+    "subject": "新订单：{{title}}",
+    "heading": "新订单",
+    "body": "**订单：** {{title}}\n\n**客户：** {{name}}\n\n**电话：** [{{phone}}](tel:{{phone}})\n\n**电子邮箱：** [{{email}}](mailto:{{email}})\n\n**预估：** {{estimate}}\n\n**订单详情：**\n\n```\n{{summary}}\n```",
+    "footer": "通过 {{site}} 提交。",
+    "not_provided": "未提供"
+  },
+  "order_confirmation": {
+    "subject": "我们已收到您的订单：{{title}}",
+    "heading": "订单已收到",
+    "body": "您好 {{name}}：\n\n感谢您的订单。在收取任何费用之前，我会亲自致电与您确认详情并说明定金事宜。目前尚未收取任何费用。\n\n**预估：** {{estimate}}\n\n**您的订单：**\n\n```\n{{summary}}\n```\n\n请保留此邮件以备查阅。",
+    "footer": "{{site}}",
+    "estimate_tbd": "待确认"
+  },
+  "subscription_confirmation": {
+    "subject": "确认您的博客订阅",
+    "heading": "欢迎来到 {{site}} 博客！",
+    "body": "感谢您的订阅。请确认您的电子邮箱地址以开始接收更新。",
+    "cta": "确认订阅",
+    "footer": "此确认链接将在 7 天后失效。\n\n如果您并未订阅此博客，可以放心忽略这封邮件。"
+  },
+  "password_changed": {
+    "subject": "您的密码已更改",
+    "heading": "密码已更改",
+    "body": "您的管理员账户密码最近{{change_source}}被更改。\n\n如果是您本人进行的更改，可以放心忽略这封邮件。\n\n**如果这不是您本人的操作**，请立即联系管理员，您的账户可能已被盗用。",
+    "footer": "这是一封自动发送的安全通知。",
+    "source_admin": "由管理员",
+    "source_self": "通过您的账户"
+  },
+  "password_reset": {
+    "subject": "密码重置请求",
+    "heading": "密码重置请求",
+    "body": "我们收到了重置您管理员账户密码的请求。",
+    "cta": "重置密码",
+    "footer": "**此链接将在 1 小时后失效。**\n\n如果您并未请求重置密码，可以放心忽略这封邮件。您的密码将保持不变。"
+  }
+}
