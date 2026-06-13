@@ -34,6 +34,9 @@ pub struct Model {
     pub password_hash: String,
     pub email_verified: bool,
     pub verification_token: Option<String>,
+    /// BLAKE2b hex digest of the plaintext verification token; lookups go
+    /// through the index on this column, then decrypt-verify the one row.
+    pub verification_token_hash: Option<String>,
     pub verification_token_expires_at: Option<DateTimeWithTimeZone>,
     pub created_at: DateTimeWithTimeZone,
     pub updated_at: DateTimeWithTimeZone,
@@ -49,6 +52,9 @@ pub struct Model {
     pub deactivated_at: Option<DateTimeWithTimeZone>,
     pub force_password_change: bool,
     pub password_reset_token: Option<String>,
+    /// BLAKE2b hex digest of the plaintext reset token, mirroring
+    /// `verification_token_hash`.
+    pub password_reset_token_hash: Option<String>,
     pub password_reset_token_expires_at: Option<DateTimeWithTimeZone>,
     // Role-based access control
     pub role: String,

@@ -158,6 +158,16 @@ pub fn encrypt_token(plaintext: &str) -> Result<String> {
     encrypt_bytes(plaintext.as_bytes())
 }
 
+/// BLAKE2b digest of a single-use token, hex-encoded. Stored next to the
+/// ciphertext so token lookup is one indexed equality probe instead of
+/// decrypting every pending token (the invite-code pattern).
+pub fn hash_token(plaintext: &str) -> String {
+    use blake2::{Blake2b512, Digest};
+    let mut hasher = Blake2b512::new();
+    hasher.update(plaintext.as_bytes());
+    hex::encode(hasher.finalize())
+}
+
 /// Decrypt a single-use token from storage.
 pub fn decrypt_token(stored_value: &str) -> Result<String> {
     let plaintext = decrypt_bytes(stored_value, "token")?;
