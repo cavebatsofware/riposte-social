@@ -188,7 +188,8 @@ async fn test_password_invite_creates_commenter(pool: sqlx::PgPool) {
 #[sqlx::test(migrations = false)]
 async fn test_password_invite_concurrent_double_acceptance(pool: sqlx::PgPool) {
     let (_server, backend, db) = build_test_server(pool).await;
-    let creator_id = insert_inert_row(&db, &test_email("race-creator"), "administrator", None).await;
+    let creator_id =
+        insert_inert_row(&db, &test_email("race-creator"), "administrator", None).await;
     let (invite, _plaintext) = issue_invite(&db, creator_id, None).await;
 
     let email_a = test_email("race-a");

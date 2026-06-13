@@ -207,11 +207,12 @@ impl S3Service {
     /// can set the right `Content-Type` header. Use this for handlers that
     /// just stream bytes to an HTTP response; `get_object_at` remains for
     /// callers that need the bytes in process (e.g. re-upload during import).
-    pub async fn get_object_stream(
-        &self,
-        key: &str,
-    ) -> Result<(axum::body::Body, Option<String>)> {
-        tracing::debug!("Streaming from S3: bucket={}, key={}", self.bucket_name, key);
+    pub async fn get_object_stream(&self, key: &str) -> Result<(axum::body::Body, Option<String>)> {
+        tracing::debug!(
+            "Streaming from S3: bucket={}, key={}",
+            self.bucket_name,
+            key
+        );
 
         let response = self
             .client

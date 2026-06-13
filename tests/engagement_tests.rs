@@ -762,8 +762,14 @@ async fn test_top_comments_capped_per_post_no_bleed(pool: sqlx::PgPool) {
 
     assert_eq!(p1_top.len(), 3, "p1 capped at 3");
     assert_eq!(p2_top.len(), 3, "p2 capped at 3");
-    assert!(p1_top.iter().all(|c| c.post_id == p1.id), "no bleed into p1");
-    assert!(p2_top.iter().all(|c| c.post_id == p2.id), "no bleed into p2");
+    assert!(
+        p1_top.iter().all(|c| c.post_id == p1.id),
+        "no bleed into p1"
+    );
+    assert!(
+        p2_top.iter().all(|c| c.post_id == p2.id),
+        "no bleed into p2"
+    );
     // Newest-first within each post.
     assert_eq!(p1_top[0].body, "p1-3");
     assert_eq!(p2_top[0].body, "p2-3");
