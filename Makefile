@@ -291,10 +291,10 @@ show-config:
 .PHONY: db-up
 db-up:
 	@echo "🚀 Starting PostgreSQL database..."
-	docker-compose up -d postgres
+	docker compose up -d postgres
 	@echo "⏳ Waiting for database to be ready..."
 	@sleep 5
-	@docker-compose exec postgres pg_isready -U $${POSTGRES_USER:-riposte_social_user} || echo "Waiting..."
+	@docker compose exec postgres pg_isready -U $${POSTGRES_USER:-riposte_social_user} || echo "Waiting..."
 	@echo "✅ Database is ready!"
 	@echo "📍 Connection: postgresql://$${POSTGRES_USER:-riposte_social_user}:****@localhost:$${POSTGRES_PORT:-5432}/$${POSTGRES_DB:-riposte_social}"
 
@@ -302,19 +302,19 @@ db-up:
 .PHONY: db-down
 db-down:
 	@echo "🛑 Stopping PostgreSQL database..."
-	docker-compose down
+	docker compose down
 	@echo "✅ Database stopped"
 
 # View database logs
 .PHONY: db-logs
 db-logs:
-	docker-compose logs -f postgres
+	docker compose logs -f postgres
 
 # Open PostgreSQL shell
 .PHONY: db-shell
 db-shell:
 	@echo "🐘 Opening PostgreSQL shell..."
-	docker-compose exec postgres psql -U $${POSTGRES_USER:-riposte_social_user} -d $${POSTGRES_DB:-riposte_social}
+	docker compose exec postgres psql -U $${POSTGRES_USER:-riposte_social_user} -d $${POSTGRES_DB:-riposte_social}
 
 # Run database migrations
 .PHONY: db-migrate
@@ -330,8 +330,8 @@ db-reset:
 	@read -p "Are you sure? Type 'yes' to continue: " confirm; \
 	if [ "$$confirm" = "yes" ]; then \
 		echo "🗑️  Resetting database..."; \
-		docker-compose down -v; \
-		docker-compose up -d postgres; \
+		docker compose down -v; \
+		docker compose up -d postgres; \
 		sleep 5; \
 		MIGRATE_DB=true cargo run $(call features_flag,$(SHOP_FEATURE)) -- migrate; \
 		echo "✅ Database reset complete!"; \
@@ -345,7 +345,7 @@ db-backup:
 	@echo "💾 Creating database backup..."
 	@mkdir -p backups
 	@BACKUP_FILE="backups/riposte_social_$$(date +%Y%m%d_%H%M%S).sql"; \
-	docker-compose exec -T postgres pg_dump -U $${POSTGRES_USER:-riposte_social_user} $${POSTGRES_DB:-riposte_social} > $$BACKUP_FILE; \
+	docker compose exec -T postgres pg_dump -U $${POSTGRES_USER:-riposte_social_user} $${POSTGRES_DB:-riposte_social} > $$BACKUP_FILE; \
 	echo "✅ Backup created: $$BACKUP_FILE"
 
 # Restore database from backup
@@ -356,7 +356,7 @@ db-restore:
 	@read -p "Enter backup filename (e.g., backups/riposte_social_20250119_120000.sql): " backup; \
 	if [ -f "$$backup" ]; then \
 		echo "♻️  Restoring from $$backup..."; \
-		docker-compose exec -T postgres psql -U $${POSTGRES_USER:-riposte_social_user} $${POSTGRES_DB:-riposte_social} < $$backup; \
+		docker compose exec -T postgres psql -U $${POSTGRES_USER:-riposte_social_user} $${POSTGRES_DB:-riposte_social} < $$backup; \
 		echo "✅ Restore complete!"; \
 	else \
 		echo "❌ Backup file not found: $$backup"; \
@@ -370,10 +370,10 @@ db-restore:
 .PHONY: test-db-up
 test-db-up:
 	@echo "🚀 Starting test database..."
-	docker-compose -f docker-compose.test.yml up -d
+	docker compose -f docker-compose.test.yml up -d
 	@echo "⏳ Waiting for test database to be ready..."
 	@sleep 5
-	@docker-compose -f docker-compose.test.yml exec postgres-test pg_isready -U $${TEST_POSTGRES_USER:-riposte_social_test_user} || echo "Waiting..."
+	@docker compose -f docker-compose.test.yml exec postgres-test pg_isready -U $${TEST_POSTGRES_USER:-riposte_social_test_user} || echo "Waiting..."
 	@echo "✅ Test database is ready!"
 	@echo "📍 Connection: postgresql://$${TEST_POSTGRES_USER:-riposte_social_test_user}:****@localhost:$${TEST_POSTGRES_PORT:-5433}/$${TEST_POSTGRES_DB:-riposte_social_test}"
 
@@ -381,15 +381,15 @@ test-db-up:
 .PHONY: test-db-down
 test-db-down:
 	@echo "🛑 Stopping test database..."
-	docker-compose -f docker-compose.test.yml down
+	docker compose -f docker-compose.test.yml down
 	@echo "✅ Test database stopped"
 
 # Reset test database
 .PHONY: test-db-reset
 test-db-reset:
 	@echo "🗑️  Resetting test database..."
-	docker-compose -f docker-compose.test.yml down -v
-	docker-compose -f docker-compose.test.yml up -d
+	docker compose -f docker-compose.test.yml down -v
+	docker compose -f docker-compose.test.yml up -d
 	@sleep 5
 	@echo "✅ Test database reset complete!"
 
@@ -409,7 +409,7 @@ test: test-db-up
 .PHONY: test-app-up
 test-app-up:
 	@echo "🚀 Starting test stack (db + app)..."
-	docker-compose -f docker-compose.test.yml --profile app up -d --build
+	docker compose -f docker-compose.test.yml --profile app up -d --build
 	@echo "⏳ Waiting for test app to be ready..."
 	@for i in $$(seq 1 30); do \
 		if curl -fs http://localhost:3001/health >/dev/null 2>&1; then \
@@ -425,7 +425,7 @@ test-app-up:
 .PHONY: test-app-down
 test-app-down:
 	@echo "🛑 Stopping test stack..."
-	docker-compose -f docker-compose.test.yml --profile app down
+	docker compose -f docker-compose.test.yml --profile app down
 	@echo "✅ Test stack stopped"
 
 # Reset the containerized test stack to a fresh DB. Brings the stack
@@ -435,13 +435,13 @@ test-app-down:
 .PHONY: test-app-reset
 test-app-reset:
 	@echo "🗑️  Resetting test stack (drops postgres_test_data volume)..."
-	docker-compose -f docker-compose.test.yml --profile app down -v
+	docker compose -f docker-compose.test.yml --profile app down -v
 	@$(MAKE) test-app-up
 
 # Tail logs from the test app container.
 .PHONY: test-app-logs
 test-app-logs:
-	docker-compose -f docker-compose.test.yml --profile app logs -f app-test
+	docker compose -f docker-compose.test.yml --profile app logs -f app-test
 
 #
 # Cypress Commands
@@ -544,7 +544,7 @@ dev-no-watch: db-up
 .PHONY: dev-logs
 dev-logs:
 	@echo "📋 Tailing logs (Ctrl+C to exit)..."
-	docker-compose logs -f postgres
+	docker compose logs -f postgres
 
 # Run clippy
 .PHONY: clippy
