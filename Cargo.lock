@@ -4360,6 +4360,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "riposte-design-system"
+version = "0.1.0"
+source = "git+https://github.com/cavebatsofware/riposte-design-system.git#4dcd883c93c0bd6d79795990712e94260b83c46e"
+dependencies = [
+ "i18n-md-email-templates",
+ "serde_json",
+]
+
+[[package]]
 name = "riposte-social"
 version = "0.1.0"
 dependencies = [
@@ -4395,6 +4404,7 @@ dependencies = [
  "rand 0.10.1",
  "regex",
  "reqwest",
+ "riposte-design-system",
  "riposte-social",
  "rsa",
  "sea-orm",

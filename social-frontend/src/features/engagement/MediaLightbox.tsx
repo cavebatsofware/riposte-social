@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { fetchMediaEngagement } from "./api";
-import useFocusTrap from "../../utils/useFocusTrap";
+import { useFocusTrap } from "@cavebatsofware/riposte-design-system/components";
 import CommentThread from "./CommentThread";
 import ReactionBar from "./ReactionBar";
 import "./MediaLightbox.css";

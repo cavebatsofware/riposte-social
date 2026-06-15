@@ -12,7 +12,7 @@ import {
 } from "./api";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSiteConfig } from "../../contexts/SiteConfigContext";
-import { useFocusTrap } from "../../utils/useFocusTrap";
+import { useFocusTrap } from "@cavebatsofware/riposte-design-system/components";
 import "./Categories.css";
 
 const VISIBILITY_OPTIONS = [

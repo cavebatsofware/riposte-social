@@ -17,7 +17,7 @@
  *     unit forever.
  */
 
-import { endLoad, startLoad, type LoadOptions } from "./loadingState";
+import { endLoad, startLoad, type LoadOptions } from "@cavebatsofware/riposte-design-system/components";
 
 export interface RiposteRequestInit extends RequestInit {
   /** `[current, total]` for serial loop progress. See `loadingState`. */

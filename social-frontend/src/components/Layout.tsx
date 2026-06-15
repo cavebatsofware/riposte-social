@@ -5,12 +5,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import BrowseRail from "./BrowseRail";
 import ComposeMenu from "./ComposeMenu";
-import LanguagePicker from "./LanguagePicker";
-import LoadingBar from "./LoadingBar";
+import { LanguagePicker } from "@cavebatsofware/riposte-pickers";
+import { LoadingBar } from "@cavebatsofware/riposte-design-system/components";
 import MobileDrawer from "./MobileDrawer";
-import ThemePicker from "./ThemePicker";
+import { ThemePicker } from "@cavebatsofware/riposte-pickers";
 import UserMenu from "./UserMenu";
-import { resetLoadCount } from "../utils/loadingState";
+import { resetLoadCount } from "@cavebatsofware/riposte-design-system/components";
 import "./Layout.css";
 
 /// Shared application shell for the social frontend.

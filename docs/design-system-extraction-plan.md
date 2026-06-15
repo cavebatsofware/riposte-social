@@ -223,12 +223,16 @@ app/feature-specific CSS in the app. Run `bun run lint`, `bun run check:i18n`,
 `bun run build:social`, and the a11y smoke (`bun run a11y:smoke`) to confirm
 parity (all 8 themes still switch, pickers still work).
 
-**Phase 5: upgrade picnic-table-configurator.** Bump
-`@cavebatsofware/riposte-pickers` to `^0.2.0`, add
-`@cavebatsofware/riposte-design-system`, swap
-`import "@cavebatsofware/riposte-pickers/styles"` for the design-system styles
-import. Net effect: picnic gains the 3 WCAG themes for free. Verify the static
-export still builds.
+**Phase 5: upgrade picnic-table-configurator. DONE.** Switched both deps to the
+`github:` form (`riposte-pickers` + the new `riposte-design-system`), moved the
+`ThemeProvider` import to `@cavebatsofware/riposte-design-system/theme` (it left
+pickers in 0.2), and added the design-system styles import ahead of the pickers
+styles in `app/layout.tsx`. `ThemePicker` and `themeResources` still come from
+pickers. Verified: `bun install` + `next build` green (8 static pages exported),
+single React, and all 8 colorways now in the bundle, **including the 3 WCAG
+themes** picnic previously rendered as dead swatches. Open item: picnic tracks
+both `bun.lock` (updated) and a now-stale `package-lock.json`; pick one (bun, to
+match the rest of Riposte).
 
 **Phase 6 (later, out of this scope): admin-frontend normalization.** Adopt
 design-system tokens + chassis incrementally; not part of the first cut, but the
@@ -238,9 +242,29 @@ package boundary is designed so admin can opt in component-by-component.
 
 - **Local dev linking.** DECIDED. `social-frontend` (and the pickers refactor)
   consume design-system via `file:../riposte-design-system` for instant local
-  iteration; `picnic-table-configurator` pins real published versions. CI for
-  riposte-social must resolve the `file:` path (the sibling checkout) or fall
-  back to a published version; settle the CI checkout layout in Phase 4.
+  iteration; `picnic-table-configurator` pins real published versions.
+- **Phase 4 DONE locally (build/lint/i18n green), with one production gap.** The
+  rewire is complete: social-frontend consumes `@cavebatsofware/riposte-design-system`
+  + `@cavebatsofware/riposte-pickers` (both `file:`), all duplicate
+  engine/picker/component/hook files deleted, `index.css` reduced to app
+  reset + feature CSS, i18n bundles merged. A real find: the `file:` links carry
+  their own nested `react`/`react-dom`/`react-i18next`, so the bundle pulled two
+  React copies (broken hooks/context); `scripts/build-social.ts` now has a Bun
+  resolver plugin forcing them to the app's single copy, and `build:watch:social`
+  routes through that script too.
+  - **Production packaging: RESOLVED via committed-dist git deps.** Both
+    packages commit their built `dist/` (un-gitignored) and social consumes them
+    as `github:cavebatsofware/riposte-{design-system,pickers}`. A git/tarball
+    install then needs no build, no devDependencies, and creates no nested
+    `node_modules`, so react / react-i18next / the design-system `ThemeContext`
+    each resolve to social's single copy with no help needed (the build-social
+    dedupe plugin remains as insurance). Verified: `bun install` pulls the git
+    deps with `dist`, `bun run build:social` is green and single-copy, lint +
+    check:i18n pass. The Rust crate is the same repo via a cargo git dep
+    (`Cargo.lock` re-pinned past the amended history to the live commit).
+    Trade-off: `dist/` lives in git and must be rebuilt + recommitted when the
+    package src/styles change; local design-system iteration uses `bun link` or
+    a temporary `file:` override to stay instant.
 - **Bun bundling of package CSS.** `social-frontend` is bundled by Bun from
   `index.html`. Importing CSS from a node_modules package works the same way
   picnic-config imports it under Next; verify Bun inlines
@@ -255,6 +279,52 @@ package boundary is designed so admin can opt in component-by-component.
   guard can enforce it.
 - **Theme parity gate.** Before/after Phase 4, the a11y smoke and a manual
   8-theme x light/dark sweep confirm no visual or token regressions.
+
+## Rust crate (added mid-migration)
+
+Triggered by a Docker build failure: `src/email/catalog.rs` `include_str!`d the
+email catalogs from `social-frontend/public/locales/<lng>/email.json`, a path
+the Rust builder stage never copied. Rather than patch the Dockerfile, the
+design system grew a Rust side so it owns the branded backend assets too.
+
+- The repo is now polyglot: npm package at the root, a `crate/` Rust crate
+  (`riposte-design-system`) discovered via a root `[workspace]` manifest.
+- Crate vs app split (corrected after a first pass that wrongly baked the
+  catalogs into the crate): the crate owns the email **mechanism** and **brand
+  presentation**, the app owns the **content**. Per `i18n-md-email-templates`'
+  own "mechanism vs content" design, and because deployments must customize
+  copy (every business rewrites the order emails), the catalogs cannot be a
+  fixed crate asset.
+  - Crate ships: the **email layout shell** (`crate/assets/email/layout.html`),
+    a **catalog merge** (`deep_merge` / `build_catalog`) for layering overrides,
+    and **shared CSS** accessors (`stylesheet()`, `PALETTE_CSS`, etc.).
+  - App owns: the **default catalogs** in `src/email/catalogs/*.json` (moved out
+    of `social-frontend`; backend-only and unused by the SPA). Embedded via
+    `include_str!`, so `COPY src` carries them and the Docker build is fixed.
+- `riposte-social` depends on the crate as a **git dependency** (like
+  `axum-login`), so the Docker builder resolves it by fetch. `catalog.rs` builds
+  the live catalog with `build_catalog(defaults, overrides, "en")`; `render.rs`
+  uses `riposte_design_system::EMAIL_LAYOUT`. The Dockerfile hotfix was reverted.
+- Locale parity for the default catalogs (previously a side effect of
+  `check:i18n` scanning the locales dir) is now a `cargo test` in `catalog.rs`.
+- **Prerequisite**: `riposte-design-system` must be pushed to GitHub before
+  `riposte-social` builds (git dep). Verified locally via a temporary path dep.
+
+### Follow-up: operator email overrides (not yet built)
+
+The merge seam is in place (`build_catalog` with an empty override set today).
+The override mechanism, decided but deferred, is **DB settings + admin UI**,
+matching how `site_name` / `from_email` / `order_email` already work:
+
+- Store overrides as `settings` rows (e.g. category `email`, per email-key and
+  locale, or a JSON blob per locale), edited via the existing
+  `GET`/`PUT /api/admin/settings` and the admin panel.
+- At send time, fetch the overrides and pass them as `build_catalog`'s
+  `overrides`, deep-merged over the app defaults. This makes `catalog()` an
+  async, settings-aware build (likely cached with invalidation on settings
+  change) rather than the current process-wide `OnceLock`.
+- Order emails (`#[cfg(feature = "business")]`) are the primary driver: every
+  business deployment rewrites them; defaults are placeholders.
 
 ## Open questions for you
 

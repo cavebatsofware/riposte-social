@@ -15,7 +15,7 @@ import Albums from "./features/albums/Albums";
 import Article from "./features/articles/Article";
 import Articles from "./features/articles/Articles";
 import Categories from "./features/categories/Categories";
-import CookieBanner from "./components/CookieBanner";
+import { CookieBanner } from "@cavebatsofware/riposte-design-system/components";
 import Layout from "./components/Layout";
 
 /// `<Layout>` (header + rails + main) is mounted as a parent layout route

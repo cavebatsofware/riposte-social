@@ -8,7 +8,7 @@
     "build:admin": "bun run scripts/build-admin.ts",
     "build:social": "bun run scripts/build-social.ts",
     "build:watch": "bun build ./admin-frontend/index.html --outdir ./admin-assets --public-path /admin/ --asset-naming 'assets/[name]-[hash].[ext]' --chunk-naming 'assets/[name]-[hash].[ext]' --watch",
-    "build:watch:social": "bun build ./social-frontend/index.html --outdir ./social-assets --public-path / --asset-naming 'app/[name]-[hash].[ext]' --chunk-naming 'app/[name]-[hash].[ext]' --watch",
+    "build:watch:social": "bun run scripts/build-social.ts --watch",
     "check:i18n": "bun scripts/check-translations.js",
     "lint": "bun eslint --max-warnings 0 social-frontend",
     "lint:a11y": "bun eslint --rule '{ \"react/jsx-uses-vars\": \"off\", \"no-unused-vars\": \"off\" }' social-frontend",
@@ -25,6 +25,8 @@
   "license": "GPL-3.0-only",
   "type": "commonjs",
   "dependencies": {
+    "@cavebatsofware/riposte-design-system": "github:cavebatsofware/riposte-design-system",
+    "@cavebatsofware/riposte-pickers": "github:cavebatsofware/riposte-pickers",
     "@uiw/react-md-editor": "4.1.0",
     "@xterm/xterm": "6.0.0",
     "apexcharts": "5.10.6",

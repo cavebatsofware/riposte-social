@@ -5,7 +5,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { deleteAlbum, fetchAlbum } from "./api";
 import { recordAlbumVisit } from "../../utils/browseHistory";
 import MediaLightbox from "../engagement/MediaLightbox";
-import SkeletonCard from "../../components/SkeletonCard";
+import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
 import VisibilityBadge from "../../components/VisibilityBadge";
 import { useMediaVariants } from "../../hooks/useMediaVariants";
 import "./Album.css";

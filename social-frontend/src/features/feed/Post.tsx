@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import CommentThread from "../engagement/CommentThread";
 import PostCard from "./PostCard";
-import SkeletonCard from "../../components/SkeletonCard";
+import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
 import { deletePost, fetchPost } from "./api";
 
 /// Permalink page at `/post/:id`. Renders a single post with the full-

@@ -21,9 +21,10 @@ use i18n_md_email_templates::{inline_css, render, Cta, EmailTemplate};
 
 use super::catalog::catalog;
 
-/// The Riposte-branded shared email shell. Carries the `{{content}}` / `{{footer}}`
-/// slots and the single `<style>` block all emails share.
-const LAYOUT: &str = include_str!("templates/layout.html");
+/// The Riposte-branded shared email shell (`{{content}}` / `{{footer}}` slots
+/// and the single inline-safe `<style>` block all emails share). Owned by the
+/// design system so the branded layout has one home.
+const LAYOUT: &str = riposte_design_system::EMAIL_LAYOUT;
 
 /// Subject, HTML body, and plaintext body for one outbound email.
 pub struct EmailParts {

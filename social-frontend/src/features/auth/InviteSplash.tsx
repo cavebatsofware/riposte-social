@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { clearPendingInvite, fetchCurrentInvite } from "./api";
-import { useFocusTrap } from "../../utils/useFocusTrap";
+import { useFocusTrap } from "@cavebatsofware/riposte-design-system/components";
 import InviteAcceptForm from "./InviteAcceptForm";
 
 /// Welcome modal shown on the public feed (`/`) when a `pending_invite`

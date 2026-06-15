@@ -38,7 +38,9 @@ WORKDIR /app
 # `DEV_MODE` runtime overrides are available in the test container.
 ARG CARGO_FEATURES=""
 
-# Copy manifest + source.
+# Copy manifest + source. The email catalogs and layout the binary embeds now
+# come from the riposte-design-system crate (a git dependency cargo fetches),
+# so this stage no longer needs any social-frontend files.
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 

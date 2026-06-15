@@ -11,7 +11,7 @@ import MDEditor from "@uiw/react-md-editor";
 import "@uiw/react-md-editor/markdown-editor.css";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSiteConfig } from "../../contexts/SiteConfigContext";
-import { useTheme } from "../../contexts/ThemeContext";
+import { useTheme } from "@cavebatsofware/riposte-design-system/theme";
 import VisibilityPicker from "../../components/VisibilityPicker";
 import { fetchCategoriesForCompose } from "./api";
 import { useArticleDraft } from "./useArticleDraft";
