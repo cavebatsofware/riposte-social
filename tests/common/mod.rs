@@ -184,6 +184,73 @@ pub async fn build_test_server_with(
     (server, admin_backend, db)
 }
 
+/// Build a TestServer over the SHOP router (order intake + contact form),
+/// with the same SecurityContext base layer the real shop server applies. The
+/// shop router has no CSRF/session (anonymous intake). Returns the settings
+/// service so a test can toggle the Turnstile secret. Business-only.
+#[cfg(feature = "business")]
+pub async fn build_shop_test_server(
+    pool: sqlx::PgPool,
+) -> (TestServer, SettingsService, sea_orm::DatabaseConnection) {
+    dotenvy::dotenv().ok();
+
+    let db = test_db_from_pool(pool.clone()).await;
+    let callbacks = AppRateLimitCallbacks::new(db.clone(), false, false);
+    let config = RateLimitConfig::new(10000, Duration::from_secs(60));
+    let rate_limiter = RateLimiter::new(config.clone(), callbacks.clone());
+    let auth_rate_limiter = RateLimiter::new(config.clone(), callbacks.clone());
+    let phone_lookup_rate_limiter = RateLimiter::new(config, callbacks.clone());
+    let settings = SettingsService::new(db.clone());
+
+    let spy = s3_mock::S3Spy::new();
+    let s3 = s3_mock::build_test_s3_service(s3_mock::mock_s3_default(&spy));
+
+    let oidc = OidcService::new(OidcConfig {
+        enabled: false,
+        issuer_url: String::new(),
+        client_id: String::new(),
+        client_secret: String::new(),
+        redirect_uri: String::new(),
+        scopes: vec!["openid".to_string()],
+        role_claim: "realm_access.roles".to_string(),
+        admin_role: "admin".to_string(),
+        poster_role: "poster".to_string(),
+    })
+    .await
+    .expect("OidcService::new should succeed with enabled=false");
+
+    let state = AppState {
+        db: db.clone(),
+        rate_limiter,
+        auth_rate_limiter,
+        phone_lookup_rate_limiter,
+        callbacks,
+        settings: settings.clone(),
+        s3,
+        oidc,
+        enable_logging: false,
+        log_successful_attempts: false,
+    };
+
+    let email_spy = email_mock::EmailSpy::new();
+    let email_service = email_mock::build_test_email_service_any(&email_spy, &db);
+
+    let app = riposte_social::app::build_shop_router(&state, email_service);
+
+    let security_config =
+        SecurityContextConfig::new().with_ip_extraction(IpExtractionStrategy::SocketAddr);
+    let socket_addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    let app = app
+        .layer(from_fn_with_state(
+            security_config,
+            security_context_middleware_with_config,
+        ))
+        .layer(MockConnectInfo(socket_addr));
+
+    let server = TestServer::builder().build(app);
+    (server, settings, db)
+}
+
 pub async fn create_verified_admin(
     backend: &UserAuthBackend,
     email: &str,

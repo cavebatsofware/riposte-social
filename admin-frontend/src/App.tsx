@@ -1,25 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense, lazy } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { fetchApi } from "./utils/api";
-import Login from "./features/auth/Login";
-import Register from "./features/auth/Register";
-import VerifyEmail from "./features/auth/VerifyEmail";
-import MFAVerify from "./features/auth/MFAVerify";
-import ForgotPassword from "./features/auth/ForgotPassword";
-import ResetPassword from "./features/auth/ResetPassword";
-import ForcePasswordChange from "./features/auth/ForcePasswordChange";
-import Dashboard from "./features/dashboard/Dashboard";
-import AccessCodes from "./features/access-codes/AccessCodes";
-import AccessLogs from "./features/access-logs/AccessLogs";
-import Orders from "./features/orders/Orders";
-import Users from "./features/users/Users";
-import Imports from "./features/imports/Imports";
-import InviteCodes from "./features/invites/InviteCodes";
-import Moderation from "./features/moderation/Moderation";
-import Settings from "./features/settings/Settings";
-import Profile from "./features/profile/Profile";
 import "./App.css";
+
+// Each route is code-split into its own chunk fetched on first visit, so the
+// login/initial payload no longer carries every page (notably the dashboard's
+// charting library). A Suspense boundary below covers the chunk load.
+const Login = lazy(() => import("./features/auth/Login"));
+const Register = lazy(() => import("./features/auth/Register"));
+const VerifyEmail = lazy(() => import("./features/auth/VerifyEmail"));
+const MFAVerify = lazy(() => import("./features/auth/MFAVerify"));
+const ForgotPassword = lazy(() => import("./features/auth/ForgotPassword"));
+const ResetPassword = lazy(() => import("./features/auth/ResetPassword"));
+const ForcePasswordChange = lazy(() => import("./features/auth/ForcePasswordChange"));
+const Dashboard = lazy(() => import("./features/dashboard/Dashboard"));
+const AccessCodes = lazy(() => import("./features/access-codes/AccessCodes"));
+const AccessLogs = lazy(() => import("./features/access-logs/AccessLogs"));
+const Orders = lazy(() => import("./features/orders/Orders"));
+const Users = lazy(() => import("./features/users/Users"));
+const Imports = lazy(() => import("./features/imports/Imports"));
+const InviteCodes = lazy(() => import("./features/invites/InviteCodes"));
+const Moderation = lazy(() => import("./features/moderation/Moderation"));
+const Settings = lazy(() => import("./features/settings/Settings"));
+const Profile = lazy(() => import("./features/profile/Profile"));
 
 function ProtectedRoute({ children, allowForcePasswordChange = false }) {
   const { user, loading, logout } = useAuth();
@@ -99,7 +103,10 @@ function App() {
   return (
     <AuthProvider>
       <div className="app">
-        <Routes>
+        {/* Covers the active route's lazy chunk load with the same loading
+            state ProtectedRoute uses, so navigation degrades gracefully. */}
+        <Suspense fallback={<div className="loading">Loading...</div>}>
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -197,7 +204,8 @@ function App() {
           />
           <Route path="/mfa-verify" element={<MFAVerify />} />
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+          </Routes>
+        </Suspense>
       </div>
     </AuthProvider>
   );

@@ -11,6 +11,58 @@
             rel="stylesheet"
         />
         <title>Riposte Social</title>
+        <script>
+            // Pre-paint handoff + no-flash theme. Runs before the module bundle
+            // (and before i18next/ThemeProvider read localStorage): consume the
+            // cross-app ?rs_theme=/?rs_locale= params into localStorage and strip
+            // them, then apply the stored (or OS-preferred) theme to <html> so
+            // the first paint is correct. Mirrors the design-system handoff
+            // helper and ThemeProvider's resolve; the providers re-validate and
+            // correct any stale value on mount. Theme key rs_theme_v1, locale
+            // key rs_locale_v1, default colorway forest.
+            (function () {
+                var THEME_KEY = "rs_theme_v1";
+                var LOCALE_KEY = "rs_locale_v1";
+                try {
+                    var params = new URLSearchParams(window.location.search);
+                    var t = params.get("rs_theme");
+                    var l = params.get("rs_locale");
+                    if (t !== null || l !== null) {
+                        try {
+                            if (t) localStorage.setItem(THEME_KEY, t);
+                            if (l) localStorage.setItem(LOCALE_KEY, l);
+                        } catch (e) {}
+                        params.delete("rs_theme");
+                        params.delete("rs_locale");
+                        var q = params.toString();
+                        var url =
+                            window.location.pathname +
+                            (q ? "?" + q : "") +
+                            window.location.hash;
+                        try {
+                            window.history.replaceState(window.history.state, "", url);
+                        } catch (e) {}
+                    }
+                } catch (e) {}
+                try {
+                    var stored = null;
+                    try {
+                        stored = localStorage.getItem(THEME_KEY);
+                    } catch (e) {}
+                    var theme = stored;
+                    if (!theme) {
+                        var dark = false;
+                        try {
+                            dark = window.matchMedia(
+                                "(prefers-color-scheme: dark)",
+                            ).matches;
+                        } catch (e) {}
+                        theme = dark ? "forest-dark" : "forest";
+                    }
+                    document.documentElement.dataset.theme = theme;
+                } catch (e) {}
+            })();
+        </script>
     </head>
     <body>
         <div id="root"></div>

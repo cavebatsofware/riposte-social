@@ -36,6 +36,21 @@ pub struct EmailMessage {
     pub text_body: String,
 }
 
+/// Inputs for [`EmailService::send_order_notification`], bundled so the order
+/// fields travel as one value rather than widening the signature (and so locale
+/// or future fields thread through without growing it further). Borrowed for the
+/// call; the PII here composes the message and is never logged.
+#[cfg(feature = "business")]
+pub struct OrderNotification<'a> {
+    pub title: &'a str,
+    pub summary: &'a str,
+    pub customer_name: &'a str,
+    pub customer_phone: &'a str,
+    pub customer_email: Option<&'a str>,
+    pub estimate_total: Option<f64>,
+    pub locale: Option<&'a str>,
+}
+
 #[async_trait::async_trait]
 pub trait EmailTransport: Send + Sync {
     async fn send(&self, msg: &EmailMessage) -> Result<()>;
@@ -290,41 +305,34 @@ impl EmailService {
     /// product. Plaintext PII is passed in here only to compose the message and
     /// is never logged. Recipient is the configured order email.
     #[cfg(feature = "business")]
-    #[allow(clippy::too_many_arguments)]
-    pub async fn send_order_notification(
-        &self,
-        title: &str,
-        summary: &str,
-        customer_name: &str,
-        customer_phone: &str,
-        customer_email: Option<&str>,
-        estimate_total: Option<f64>,
-        locale: Option<&str>,
-    ) -> Result<()> {
-        let locale = self.resolve_locale(locale).await?;
+    pub async fn send_order_notification(&self, order: OrderNotification<'_>) -> Result<()> {
+        let locale = self.resolve_locale(order.locale).await?;
         let site_name = self.settings.get_site_name().await?;
         let to_email = self.settings.get_order_email().await?;
         let sender_email = self.settings.get_from_email().await?;
 
         let not_provided =
             render::tr(&locale, "order_notification.not_provided").unwrap_or_default();
-        let estimate_str = match estimate_total {
+        let estimate_str = match order.estimate_total {
             Some(v) => format!("${:.2}", v),
             None => not_provided.clone(),
         };
-        let email_str = customer_email.map(str::to_string).unwrap_or(not_provided);
+        let email_str = order
+            .customer_email
+            .map(str::to_string)
+            .unwrap_or(not_provided);
 
         let parts = render::build(
             &locale,
             "order_notification",
             None,
             &[
-                ("title", title.to_string()),
-                ("name", customer_name.to_string()),
-                ("phone", customer_phone.to_string()),
+                ("title", order.title.to_string()),
+                ("name", order.customer_name.to_string()),
+                ("phone", order.customer_phone.to_string()),
                 ("email", email_str),
                 ("estimate", estimate_str),
-                ("summary", summary.to_string()),
+                ("summary", order.summary.to_string()),
                 ("site", site_name),
             ],
         )?;
@@ -337,7 +345,7 @@ impl EmailService {
         )
         .await?;
 
-        tracing::info!("Order notification email sent for {}", title);
+        tracing::info!("Order notification email sent for {}", order.title);
 
         Ok(())
     }

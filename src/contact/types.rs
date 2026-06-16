@@ -23,6 +23,9 @@ pub struct ContactFormRequest {
     pub email: String,
     pub subject: String,
     pub message: String,
+    /// Cloudflare Turnstile token; verified server-side when a secret is set.
+    #[serde(default)]
+    pub turnstile_token: Option<String>,
 }
 
 #[derive(Serialize, TS)]

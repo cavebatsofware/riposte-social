@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import Table from "../../components/Table";
+import { Table } from "@cavebatsofware/riposte-design-system/components";
 import {
   createInviteCode,
   fetchInviteCodes,

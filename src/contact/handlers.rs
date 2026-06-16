@@ -86,6 +86,42 @@ async fn submit_contact_form(
             AppError::InternalError("Invalid IP address".to_string())
         })?;
 
+    // CAPTCHA: when a Turnstile secret is configured (encrypted setting),
+    // require a valid token. No secret configured (e.g. local dev) skips it.
+    // A read/decryption failure is a server misconfiguration, not "disabled":
+    // fail closed so a broken secret can't silently drop enforcement.
+    match state.settings.get_turnstile_secret().await {
+        Ok(Some(secret)) => {
+            let token = payload
+                .turnstile_token
+                .as_deref()
+                .map(str::trim)
+                .filter(|t| !t.is_empty());
+            let ok = match token {
+                Some(token) => {
+                    crate::turnstile::verify(&state.http, &secret, token, Some(ip_addr)).await
+                }
+                None => false,
+            };
+            if !ok {
+                return Ok((
+                    StatusCode::BAD_REQUEST,
+                    Json(ContactFormResponse {
+                        success: false,
+                        message: "Captcha verification failed. Please try again.".to_string(),
+                    }),
+                ));
+            }
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::error!("Failed to read Turnstile secret: {e:#}");
+            return Err(AppError::InternalError(
+                "captcha configuration error".to_string(),
+            ));
+        }
+    }
+
     let has_recent_submission = state
         .callbacks
         .has_recent_contact_submission(ip_addr)

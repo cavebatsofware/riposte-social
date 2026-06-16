@@ -1,0 +1,15 @@
+{
+  "title": "Contact",
+  "intro": "Une question ou envie de nous joindre ? Envoyez un message et nous vous répondrons.",
+  "fields": {
+    "name": "Nom",
+    "email": "E-mail",
+    "subject": "Objet",
+    "message": "Message"
+  },
+  "submit": "Envoyer le message",
+  "sending": "Envoi…",
+  "success": "Merci pour votre message. Nous vous répondrons bientôt.",
+  "error": "Une erreur s'est produite. Veuillez réessayer.",
+  "rateLimited": "Votre message a été envoyé. Pour éviter les doublons, vous ne pouvez pas en envoyer un autre tant que nous n'avons pas répondu ou qu'un peu de temps ne s'est pas écoulé."
+}

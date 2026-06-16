@@ -319,6 +319,17 @@ impl SettingsService {
             .await
     }
 
+    /// Public Cloudflare Turnstile site key for the order + contact form
+    /// widgets, exposed to the frontends via /api/site/config. Not secret (it
+    /// is embedded in served HTML). `None`/empty when unset, in which case the
+    /// social contact form renders without a captcha widget.
+    pub async fn get_turnstile_site_key(&self) -> Result<Option<String>> {
+        let v = self
+            .get("turnstile_site_key", Some("business"), None)
+            .await?;
+        Ok(v.filter(|s| !s.is_empty()))
+    }
+
     /// Whether order phone numbers are verified via Twilio Lookup (defaults to
     /// false). On top of the compile-time `business` feature and the presence of
     /// Twilio credentials.

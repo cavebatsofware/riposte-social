@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { ThemePicker } from "@cavebatsofware/riposte-pickers";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchApi } from "../utils/api";
 import "./Layout.css";
@@ -61,6 +62,7 @@ function Layout({ children }) {
             Admin
           </h1>
           <div className="header-spacer" />
+          <ThemePicker />
           <AccountMenu user={user} onLogout={logout} onNavigate={go} />
         </div>
       </header>

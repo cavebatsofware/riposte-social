@@ -39,6 +39,7 @@ export const NAMESPACES = [
   "auth",
   "browse",
   "articles",
+  "contact",
 ];
 
 i18n

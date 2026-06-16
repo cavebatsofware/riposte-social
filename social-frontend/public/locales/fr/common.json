@@ -21,6 +21,7 @@
   "nav": {
     "feed": "Fil",
     "store": "Boutique",
+    "contact": "Contact",
     "compose": "Rédiger",
     "composeMenuAria": "Ouvrir le menu de rédaction",
     "newPost": "Nouvelle publication",

@@ -391,6 +391,18 @@ async fn site_config(
     if let Some(shop_url) = state.settings.get_shop_url().await.map_err(read_err)? {
         payload.insert("shop_url".to_string(), serde_json::Value::String(shop_url));
     }
+    // Public Turnstile site key for the contact form widget, when configured.
+    if let Some(site_key) = state
+        .settings
+        .get_turnstile_site_key()
+        .await
+        .map_err(read_err)?
+    {
+        payload.insert(
+            "turnstile_site_key".to_string(),
+            serde_json::Value::String(site_key),
+        );
+    }
     // Whether this build carries the commerce/orders surface, so the admin SPA
     // hides the Orders nav + route on a social-only build (those backend routes
     // exist only with the `business` feature).

@@ -137,7 +137,7 @@ input:disabled + .toggle-slider {
 .text-input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(var(--color-primary-rgb), 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .text-input:disabled {
@@ -160,8 +160,8 @@ input:disabled + .toggle-slider {
 }
 
 .save-status.saved {
-  color: #059669;
-  background: #d1fae5;
+  color: var(--color-success);
+  background: var(--color-success-bg);
   font-weight: var(--font-weight-medium);
 }
 

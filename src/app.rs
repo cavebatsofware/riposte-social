@@ -735,6 +735,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         email_service: email_service.clone(),
         callbacks: state.callbacks.clone(),
         settings: state.settings.clone(),
+        http: reqwest::Client::new(),
     };
     let contact_routes = contact::contact_routes()
         .with_state(contact_state)
@@ -812,13 +813,27 @@ pub fn build_router(deps: RouterDeps) -> Router {
 /// with no CSRF (an anonymous intake has no session to forge).
 #[cfg(feature = "business")]
 pub fn build_shop_router(state: &AppState, email_service: Arc<EmailService>) -> Router {
+    let http = reqwest::Client::new();
     let order_state = crate::orders::OrderState {
-        email_service,
+        email_service: email_service.clone(),
         callbacks: state.callbacks.clone(),
         settings: state.settings.clone(),
         db: state.db.clone(),
-        http: reqwest::Client::new(),
+        http: http.clone(),
         phone_lookup_rate_limiter: state.phone_lookup_rate_limiter.clone(),
     };
-    crate::orders::order_routes().with_state(order_state)
+
+    // Contact form alongside order intake: public, unauthenticated, no CSRF
+    // (an anonymous intake has no session to forge). Turnstile guards it when a
+    // secret is configured, same as orders.
+    let contact_state = contact::ContactState {
+        email_service,
+        callbacks: state.callbacks.clone(),
+        settings: state.settings.clone(),
+        http,
+    };
+
+    crate::orders::order_routes()
+        .with_state(order_state)
+        .merge(contact::contact_routes().with_state(contact_state))
 }

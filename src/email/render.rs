@@ -66,10 +66,10 @@ pub fn build(
     // The recipient heading drives the layout's title/header. It uses a
     // dedicated `heading` token so an email whose `extra_vars` carries a
     // content `title` (e.g. the order emails) cannot clobber the header.
-    vars.insert("heading", heading);
     for (k, v) in extra_vars {
         vars.insert(k, v.clone());
     }
+    vars.insert("heading", heading);
 
     let cta = match (cta_label, cta_url) {
         (Some(label), Some(url)) => Some(Cta {

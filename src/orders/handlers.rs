@@ -14,6 +14,7 @@
  *  along with riposte-social.  If not, see <https://www.gnu.org/licenses/gpl-3.0.html>.
  */
 use crate::crypto;
+use crate::email::OrderNotification;
 use crate::entities::order;
 use crate::errors::{AppError, AppResult};
 use crate::middleware::rate_limit::AccessLogEvent;
@@ -133,7 +134,7 @@ async fn submit_order(
     match state.settings.get_turnstile_secret().await {
         Ok(Some(secret)) => {
             let ok = match non_empty(payload.turnstile_token.as_deref()) {
-                Some(token) => verify_turnstile(&state.http, &secret, token, ip_addr).await,
+                Some(token) => crate::turnstile::verify(&state.http, &secret, token, ip_addr).await,
                 None => false,
             };
             if !ok {
@@ -286,16 +287,16 @@ async fn submit_order(
     // logged but the order is already saved, so we still report success.
     if let Err(e) = state
         .email_service
-        .send_order_notification(
-            payload.title.trim(),
-            payload.summary.trim(),
-            payload.customer_name.trim(),
-            payload.customer_phone.trim(),
-            Some(customer_email),
-            payload.estimate_total,
+        .send_order_notification(OrderNotification {
+            title: payload.title.trim(),
+            summary: payload.summary.trim(),
+            customer_name: payload.customer_name.trim(),
+            customer_phone: payload.customer_phone.trim(),
+            customer_email: Some(customer_email),
+            estimate_total: payload.estimate_total,
             // Recipient is the site owner: use the site default locale.
-            None,
-        )
+            locale: None,
+        })
         .await
     {
         tracing::error!("Order {} saved but notification email failed: {}", id, e);
@@ -330,44 +331,6 @@ async fn submit_order(
     tracing::info!("Order {} received ({})", order_id, payload.kind.trim());
 
     Ok(reply(StatusCode::OK, true, order_id, "Order received."))
-}
-
-/// Verify a Cloudflare Turnstile token via the siteverify endpoint. Returns
-/// true only on a confirmed `success`; any network/parse error fails closed.
-async fn verify_turnstile(
-    http: &reqwest::Client,
-    secret: &str,
-    token: &str,
-    ip: Option<std::net::IpAddr>,
-) -> bool {
-    let mut form = vec![
-        ("secret", secret.to_string()),
-        ("response", token.to_string()),
-    ];
-    if let Some(ip) = ip {
-        form.push(("remoteip", ip.to_string()));
-    }
-    match http
-        .post("https://challenges.cloudflare.com/turnstile/v0/siteverify")
-        .form(&form)
-        .send()
-        .await
-    {
-        Ok(resp) => match resp.text().await {
-            Ok(body) => serde_json::from_str::<serde_json::Value>(&body)
-                .ok()
-                .and_then(|v| v.get("success").and_then(|s| s.as_bool()))
-                .unwrap_or(false),
-            Err(e) => {
-                tracing::error!("Turnstile siteverify read failed: {}", e);
-                false
-            }
-        },
-        Err(e) => {
-            tracing::error!("Turnstile siteverify request failed: {}", e);
-            false
-        }
-    }
 }
 
 /// Best-effort audit entry; failures to log are swallowed.

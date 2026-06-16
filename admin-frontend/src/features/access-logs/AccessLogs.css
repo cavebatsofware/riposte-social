@@ -2,6 +2,13 @@
   width: 100%;
 }
 
+/* Failed access-log rows, flagged via the table's getRowClassName="failed".
+   Targets the design-system table; danger-bg adapts to the active colorway. */
+.rds-data-table tbody tr.failed,
+.rds-data-table tbody tr.failed:hover {
+  background-color: var(--color-danger-bg);
+}
+
 /* Stats Grid */
 .logs-stats {
   display: grid;
@@ -58,8 +65,8 @@
 }
 
 .badge-patch {
-  background-color: #f3e8ff;
-  color: #7c3aed;
+  background-color: var(--color-info-light);
+  color: var(--color-info);
 }
 
 /* Status Badges - solid colors for better visibility */

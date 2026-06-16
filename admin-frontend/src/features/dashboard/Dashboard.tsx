@@ -1,18 +1,55 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Chart from "react-apexcharts";
+import { useTheme } from "@cavebatsofware/riposte-design-system/theme";
 import Layout from "../../components/Layout";
 import { useAuth } from "../../contexts/AuthContext";
 import { fetchDashboardMetrics } from "./api";
 import "./Dashboard.css";
 
+/// ApexCharts is configured in JS, not CSS, so it can't read design tokens by
+/// itself. Resolve the current colorway's tokens off <html> at runtime; the
+/// component re-reads these whenever the theme changes so the charts retrace in
+/// the active colorway. Fallbacks are the pre-theme hardcoded values.
+function readChartTokens() {
+  const fallback = {
+    primary: "#3498db",
+    accent: "#27ae60",
+    text: "#2c3e50",
+    muted: "#6b7280",
+    border: "#f1f1f1",
+    onPrimary: "#ffffff",
+  };
+  if (typeof window === "undefined") return fallback;
+  const s = getComputedStyle(document.documentElement);
+  const get = (name: string, fb: string) =>
+    s.getPropertyValue(name).trim() || fb;
+  return {
+    primary: get("--color-primary", fallback.primary),
+    accent: get("--color-success", fallback.accent),
+    text: get("--color-text", fallback.text),
+    muted: get("--color-muted", fallback.muted),
+    border: get("--color-border", fallback.border),
+    onPrimary: get("--color-on-primary", fallback.onPrimary),
+  };
+}
+
 function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { theme, mode } = useTheme();
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const accessCodesEnabled = user?.features?.access_codes_enabled !== false;
+
+  // Re-read tokens after each theme change. A passive effect runs after the
+  // ThemeProvider's layout effect has applied the new `data-theme`, so
+  // getComputedStyle sees the active colorway's values.
+  const [tk, setTk] = useState(readChartTokens);
+  useEffect(() => {
+    setTk(readChartTokens());
+  }, [theme]);
 
   useEffect(() => {
     fetchMetrics();
@@ -40,6 +77,8 @@ function Dashboard() {
     chart: {
       type: "line" as const,
       height: 350,
+      foreColor: tk.muted,
+      background: "transparent",
       toolbar: {
         show: true,
       },
@@ -47,11 +86,12 @@ function Dashboard() {
         enabled: false,
       },
     },
+    theme: { mode },
     stroke: {
       curve: "smooth" as const,
       width: 3,
     },
-    colors: ["#3498db"],
+    colors: [tk.primary],
     xaxis: {
       categories: metrics?.hourly_access_rates?.map((d) => d.hour) || [],
       title: {
@@ -75,11 +115,11 @@ function Dashboard() {
       style: {
         fontSize: "18px",
         fontWeight: "600",
-        color: "#2c3e50",
+        color: tk.text,
       },
     },
     grid: {
-      borderColor: "#f1f1f1",
+      borderColor: tk.border,
     },
     tooltip: {
       y: {
@@ -100,6 +140,8 @@ function Dashboard() {
     chart: {
       type: "bar" as const,
       height: 350,
+      foreColor: tk.muted,
+      background: "transparent",
       toolbar: {
         show: true,
       },
@@ -113,13 +155,14 @@ function Dashboard() {
         },
       },
     },
+    theme: { mode },
     plotOptions: {
       bar: {
         borderRadius: 4,
         horizontal: true,
       },
     },
-    colors: ["#27ae60"],
+    colors: [tk.accent],
     xaxis: {
       categories: metrics?.recent_access_codes?.map((d) => d.name) || [],
       title: {
@@ -137,11 +180,11 @@ function Dashboard() {
       style: {
         fontSize: "18px",
         fontWeight: "600",
-        color: "#2c3e50",
+        color: tk.text,
       },
     },
     grid: {
-      borderColor: "#f1f1f1",
+      borderColor: tk.border,
     },
     tooltip: {
       y: {
@@ -152,7 +195,7 @@ function Dashboard() {
       enabled: true,
       style: {
         fontSize: "12px",
-        colors: ["#333"],
+        colors: [tk.onPrimary],
       },
       background: {
         enabled: false,
