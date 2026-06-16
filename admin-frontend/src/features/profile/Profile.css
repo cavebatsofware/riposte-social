@@ -154,7 +154,7 @@
   background: var(--color-warning-light);
   padding: var(--spacing-3) var(--spacing-4);
   border-radius: var(--radius-md);
-  border: 1px solid #fcd34d;
+  border: 1px solid var(--color-warning);
 }
 
 /* Responsive */

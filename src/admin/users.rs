@@ -194,7 +194,11 @@ async fn update_admin_user(
             // Send verification email for reactivated user
             if let Err(e) = state
                 .email_service
-                .send_verification_email(&target_email, &verification_token)
+                .send_verification_email(
+                    &target_email,
+                    &verification_token,
+                    admin.locale.as_deref(),
+                )
                 .await
             {
                 tracing::warn!("Failed to send verification email: {}", e);
@@ -226,7 +230,7 @@ async fn update_admin_user(
         // Send notification email
         if let Err(e) = state
             .email_service
-            .send_password_changed_notification(&target_email, true)
+            .send_password_changed_notification(&target_email, true, admin.locale.as_deref())
             .await
         {
             tracing::warn!("Failed to send password change notification: {}", e);
@@ -301,7 +305,11 @@ async fn resend_verification_email(
     // Send verification email
     state
         .email_service
-        .send_verification_email(&updated.email, &verification_token)
+        .send_verification_email(
+            &updated.email,
+            &verification_token,
+            updated.locale.as_deref(),
+        )
         .await
         .map_err(|e| AppError::AuthError(format!("Failed to send email: {}", e)))?;
 
@@ -432,6 +440,8 @@ async fn create_admin_user(
             &invite_plaintext,
             &created.role,
             &current_user.email,
+            // No stored preference for a brand-new invitee: use the site default.
+            None,
         )
         .await
     {

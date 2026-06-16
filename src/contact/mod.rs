@@ -28,4 +28,6 @@ pub struct ContactState {
     pub email_service: Arc<EmailService>,
     pub callbacks: AppRateLimitCallbacks,
     pub settings: SettingsService,
+    /// Shared HTTP client for the Turnstile siteverify call.
+    pub http: reqwest::Client,
 }

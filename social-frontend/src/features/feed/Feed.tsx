@@ -7,7 +7,7 @@ import { recordCategoryVisit } from "../../utils/browseHistory";
 import InviteSplash from "../auth/InviteSplash";
 import PostCard from "./PostCard";
 import ArticleCard from "../articles/ArticleCard";
-import SkeletonCard from "../../components/SkeletonCard";
+import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
 import { fetchFeed } from "./api";
 
 const FEED_LIMIT = 20;

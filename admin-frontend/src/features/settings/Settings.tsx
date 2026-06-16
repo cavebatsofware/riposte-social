@@ -155,6 +155,7 @@ function Settings() {
       shop_url: "Storefront URL",
       order_statuses: "Order Statuses",
       secret_turnstile: "Turnstile Secret Key",
+      turnstile_site_key: "Turnstile Site Key",
       phone_verification_enabled: "Phone Verification",
       twilio_account_sid: "Twilio Account SID",
       secret_twilio_auth_token: "Twilio Auth Token",
@@ -197,7 +198,9 @@ function Settings() {
       order_statuses:
         "Comma-separated order workflow statuses, used for the status dropdown on orders.",
       secret_turnstile:
-        "Cloudflare Turnstile secret key for verifying the order form captcha. Leave unset to skip captcha.",
+        "Cloudflare Turnstile secret key for verifying the order and contact form captcha. Leave unset to skip captcha.",
+      turnstile_site_key:
+        "Cloudflare Turnstile public site key for the order and contact form widgets. Safe to expose; required for the social contact form captcha to render. Pairs with the secret above.",
       phone_verification_enabled:
         "Verify customer phone numbers via Twilio Lookup when an order is placed. Requires the Twilio Account SID and Auth Token below.",
       twilio_account_sid: "Twilio Account SID used for phone-number verification (Lookup).",

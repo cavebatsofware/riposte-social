@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { patchPostVisibility } from "../features/feed/api";
-import useRovingFocus from "../utils/useRovingFocus";
+import { useRovingFocus } from "@cavebatsofware/riposte-design-system/shared";
 
 const OPTION_IDS = ["private", "public", "commenters", "posters"];
 

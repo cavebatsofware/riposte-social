@@ -39,6 +39,7 @@ export const NAMESPACES = [
   "auth",
   "browse",
   "articles",
+  "contact",
 ];
 
 i18n
@@ -78,6 +79,17 @@ i18n
     // production catalogs in sync; this is dev-time defense.
     returnEmptyString: false,
   });
+
+// The design-system pickers and shared components read their strings from the
+// `common` namespace, and this app's own `public/locales/<lng>/common.json`
+// already carries every key they use (the package i18n was extracted from these
+// catalogs). So no bundle merge is needed here: adding the package's
+// `addResourceBundle` fragments for `common` before the HTTP backend loads it
+// makes i18next treat `common` as already-bundled and skip the fetch, which
+// drops the app's own keys (Layout, UserMenu, etc.). The one package-only key,
+// the drawer's close label, is supplied via the `closeLabel` prop in
+// MobileDrawer. Other consumers without these catalogs merge the bundles
+// (themeResources / languageResources / componentResources) themselves.
 
 // Keep `<html lang>` in sync with the active locale so the browser's
 // font shaping, hyphenation, and screen-reader pronunciation pick the

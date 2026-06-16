@@ -1,0 +1,15 @@
+{
+  "title": "Kontakt",
+  "intro": "Eine Frage oder möchten Sie Kontakt aufnehmen? Senden Sie eine Nachricht und wir melden uns.",
+  "fields": {
+    "name": "Name",
+    "email": "E-Mail",
+    "subject": "Betreff",
+    "message": "Nachricht"
+  },
+  "submit": "Nachricht senden",
+  "sending": "Wird gesendet…",
+  "success": "Danke für Ihre Nachricht. Wir melden uns bald.",
+  "error": "Etwas ist schiefgelaufen. Bitte versuchen Sie es erneut.",
+  "rateLimited": "Ihre Nachricht wurde gesendet. Um Duplikate zu vermeiden, können Sie keine weitere senden, bis wir antworten oder etwas Zeit vergangen ist."
+}

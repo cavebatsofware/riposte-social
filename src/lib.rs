@@ -45,6 +45,7 @@ pub mod secret;
 pub mod settings;
 pub mod sitemap;
 pub mod subscriptions;
+pub mod turnstile;
 pub mod visibility;
 
 #[cfg(any(test, feature = "e2e_testing"))]

@@ -7,7 +7,7 @@ import { recordPersonVisit } from "../../utils/browseHistory";
 import PostCard from "../feed/PostCard";
 import ArticleCard from "../articles/ArticleCard";
 import { fetchUserArticles, fetchMyDrafts } from "../articles/api";
-import SkeletonCard from "../../components/SkeletonCard";
+import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
 import FollowButton from "../profile/FollowButton";
 import "./Profile.css";
 

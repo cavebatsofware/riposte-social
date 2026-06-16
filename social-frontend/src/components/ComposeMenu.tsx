@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import PopoverPicker from "./PopoverPicker";
-import { useRovingFocus } from "../utils/useRovingFocus";
+import { PopoverPicker } from "@cavebatsofware/riposte-design-system/shared";
+import { useRovingFocus } from "@cavebatsofware/riposte-design-system/shared";
 
 interface ComposeLink {
   to: string;

@@ -319,6 +319,17 @@ impl SettingsService {
             .await
     }
 
+    /// Public Cloudflare Turnstile site key for the order + contact form
+    /// widgets, exposed to the frontends via /api/site/config. Not secret (it
+    /// is embedded in served HTML). `None`/empty when unset, in which case the
+    /// social contact form renders without a captcha widget.
+    pub async fn get_turnstile_site_key(&self) -> Result<Option<String>> {
+        let v = self
+            .get("turnstile_site_key", Some("business"), None)
+            .await?;
+        Ok(v.filter(|s| !s.is_empty()))
+    }
+
     /// Whether order phone numbers are verified via Twilio Lookup (defaults to
     /// false). On top of the compile-time `business` feature and the presence of
     /// Twilio credentials.
@@ -347,6 +358,15 @@ impl SettingsService {
         let v = self.get("email_provider", Some("email"), None).await?;
         Ok(v.filter(|s| !s.is_empty())
             .unwrap_or_else(|| "ses".to_string()))
+    }
+
+    /// Default locale for outbound emails: used for recipients with no stored
+    /// language preference (and as the catalog fallback). Falls back to "en"
+    /// when unset or set to an unsupported code.
+    pub async fn get_default_locale(&self) -> Result<String> {
+        let v = self.get("default_locale", Some("email"), None).await?;
+        Ok(v.filter(|s| crate::profile::locale::is_supported(s))
+            .unwrap_or_else(|| "en".to_string()))
     }
 
     /// SendGrid API key, stored encrypted (the `secret_` prefix makes the

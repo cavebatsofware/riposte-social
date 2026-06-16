@@ -21,6 +21,7 @@
   "nav": {
     "feed": "Feed",
     "store": "Tienda",
+    "contact": "Contacto",
     "compose": "Crear",
     "composeMenuAria": "Abrir menú de creación",
     "newPost": "Nueva publicación",

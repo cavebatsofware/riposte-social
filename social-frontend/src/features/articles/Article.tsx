@@ -4,7 +4,7 @@ import DOMPurify from "dompurify";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import CommentThread from "../engagement/CommentThread";
-import SkeletonCard from "../../components/SkeletonCard";
+import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
 import { deleteArticle, fetchArticle } from "./api";
 
 /// Permalink page at `/articles/:id`. Renders the article cover as a

@@ -1,16 +1,17 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { useSiteConfig } from "../contexts/SiteConfigContext";
 import BrowseRail from "./BrowseRail";
 import ComposeMenu from "./ComposeMenu";
-import LanguagePicker from "./LanguagePicker";
-import LoadingBar from "./LoadingBar";
+import { LanguagePicker } from "@cavebatsofware/riposte-pickers";
+import { appendHandoffParams } from "@cavebatsofware/riposte-design-system/handoff";
+import { LoadingBar } from "@cavebatsofware/riposte-design-system/components";
 import MobileDrawer from "./MobileDrawer";
-import ThemePicker from "./ThemePicker";
+import { ThemePicker } from "@cavebatsofware/riposte-pickers";
 import UserMenu from "./UserMenu";
-import { resetLoadCount } from "../utils/loadingState";
+import { resetLoadCount } from "@cavebatsofware/riposte-design-system/components";
 import "./Layout.css";
 
 /// Shared application shell for the social frontend.
@@ -79,7 +80,10 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
         site !== null &&
         site.poster_posting_enabled === true));
 
-  const navLinks = [{ to: "/", label: t("nav.feed") }];
+  const navLinks = [
+    { to: "/", label: t("nav.feed") },
+    { to: "/contact", label: t("nav.contact") },
+  ];
 
   const composeLinks = canCompose
     ? [
@@ -120,6 +124,15 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
                 href={site.shop_url}
                 target="_blank"
                 rel="noopener noreferrer"
+                // Carry the current theme + locale across to the store (a
+                // different origin, so localStorage doesn't follow). Rewritten
+                // just-in-time so a choice changed after load is still forwarded.
+                onMouseDown={(e) => {
+                  e.currentTarget.href = appendHandoffParams(site.shop_url);
+                }}
+                onClick={(e) => {
+                  e.currentTarget.href = appendHandoffParams(site.shop_url);
+                }}
               >
                 {t("nav.store")}
               </a>
@@ -168,7 +181,11 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
           <aside className="layout-rail layout-rail-left">{effectiveLeftRail}</aside>
         )}
         <main id="main-content" className="layout-main">
-          {children ?? <Outlet />}
+          {/* Catches the lazy page chunk's load so only the content region waits
+              while the shell stays mounted. Fallback is null: chunks resolve in
+              tens of milliseconds same-origin and the LoadingBar already signals
+              in-flight work. */}
+          <Suspense fallback={null}>{children ?? <Outlet />}</Suspense>
         </main>
         {rightRail && <aside className="layout-rail layout-rail-right">{rightRail}</aside>}
       </div>

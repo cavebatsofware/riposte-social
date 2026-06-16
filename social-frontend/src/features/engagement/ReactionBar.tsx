@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { addReaction, removeReaction } from "./api";
-import useRovingFocus from "../../utils/useRovingFocus";
+import { useRovingFocus } from "@cavebatsofware/riposte-design-system/shared";
 
 /// The Facebook-6 reaction set. Order is the display order in the picker
 /// strip. The first entry is the default kind a user gets when they click

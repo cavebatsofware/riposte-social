@@ -116,6 +116,7 @@ async fn test_invite_email_escapes_html(pool: sqlx::PgPool) {
             "CODE1234",
             "commenter",
             "evil<img src=x onerror=alert(1)>@example.com",
+            None,
         )
         .await
         .unwrap();
@@ -426,5 +427,95 @@ async fn test_admin_password_change_notification_sent(pool: sqlx::PgPool) {
         sent.text_body.to_lowercase().contains("administrator")
             || sent.html_body.to_lowercase().contains("administrator"),
         "body should indicate admin-initiated change"
+    );
+}
+
+// ==================== Localization ====================
+
+#[sqlx::test(migrations = false)]
+async fn test_email_renders_in_requested_locale(pool: sqlx::PgPool) {
+    let db = riposte_social::tests::test_db_from_pool(pool).await;
+    seed_site_settings(&db).await;
+
+    let spy = EmailSpy::new();
+    let email = build_test_email_service(&spy, &db);
+    email
+        .send_verification_email("user@example.test", "TOK", Some("es"))
+        .await
+        .unwrap();
+
+    let sent = spy.captured().pop().expect("one email sent");
+    // Spanish subject and body copy from the `es` catalog.
+    assert_eq!(sent.subject, "Verifica tu cuenta de administrador");
+    assert!(
+        sent.html_body.contains("administración"),
+        "html body should be Spanish, got: {}",
+        sent.html_body
+    );
+    // The plaintext body keeps the raw verification URL (not HTML-escaped).
+    assert!(sent.text_body.contains("/admin/verify-email?token=TOK"));
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_unsupported_locale_falls_back_to_default(pool: sqlx::PgPool) {
+    let db = riposte_social::tests::test_db_from_pool(pool).await;
+    seed_site_settings(&db).await;
+
+    let spy = EmailSpy::new();
+    let email = build_test_email_service(&spy, &db);
+    // "xx" is not a supported locale; with no default_locale setting it falls
+    // back to "en".
+    email
+        .send_verification_email("user@example.test", "TOK", Some("xx"))
+        .await
+        .unwrap();
+
+    let sent = spy.captured().pop().expect("one email sent");
+    assert_eq!(sent.subject, "Verify Your Admin Account");
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_default_locale_setting_drives_unknown_recipients(pool: sqlx::PgPool) {
+    let db = riposte_social::tests::test_db_from_pool(pool).await;
+    seed_site_settings(&db).await;
+    // Site default is French; a recipient with no preference (None) gets French.
+    SettingsService::new(db.clone())
+        .set("default_locale", "fr", Some("email"), None)
+        .await
+        .unwrap();
+
+    let spy = EmailSpy::new();
+    let email = build_test_email_service(&spy, &db);
+    email
+        .send_verification_email("user@example.test", "TOK", None)
+        .await
+        .unwrap();
+
+    let sent = spy.captured().pop().expect("one email sent");
+    assert_eq!(sent.subject, "Vérifiez votre compte administrateur");
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_email_html_is_css_inlined(pool: sqlx::PgPool) {
+    let db = riposte_social::tests::test_db_from_pool(pool).await;
+    seed_site_settings(&db).await;
+
+    let spy = EmailSpy::new();
+    let email = build_test_email_service(&spy, &db);
+    email
+        .send_verification_email("user@example.test", "TOK", None)
+        .await
+        .unwrap();
+
+    let sent = spy.captured().pop().expect("one email sent");
+    // The shared <style> block is inlined away and the button carries inline styles,
+    // so the email renders correctly in clients that ignore embedded stylesheets.
+    assert!(
+        !sent.html_body.contains("<style"),
+        "the <style> block should be inlined away"
+    );
+    assert!(
+        sent.html_body.contains("style="),
+        "elements should carry inline styles after inlining"
     );
 }

@@ -123,7 +123,7 @@ async fn register(
     // Send verification email
     state
         .email_service
-        .send_verification_email(&admin.email, &verification_token)
+        .send_verification_email(&admin.email, &verification_token, admin.locale.as_deref())
         .await
         .map_err(|e| AppError::AuthError(format!("Failed to send verification email: {}", e)))?;
 
@@ -390,6 +390,18 @@ async fn site_config(
     // Public storefront link, exposed to everyone only when configured.
     if let Some(shop_url) = state.settings.get_shop_url().await.map_err(read_err)? {
         payload.insert("shop_url".to_string(), serde_json::Value::String(shop_url));
+    }
+    // Public Turnstile site key for the contact form widget, when configured.
+    if let Some(site_key) = state
+        .settings
+        .get_turnstile_site_key()
+        .await
+        .map_err(read_err)?
+    {
+        payload.insert(
+            "turnstile_site_key".to_string(),
+            serde_json::Value::String(site_key),
+        );
     }
     // Whether this build carries the commerce/orders surface, so the admin SPA
     // hides the Orders nav + route on a social-only build (those backend routes
@@ -737,7 +749,7 @@ async fn change_password(
     // Send notification email
     if let Err(e) = state
         .email_service
-        .send_password_changed_notification(&user.email, false)
+        .send_password_changed_notification(&user.email, false, admin.locale.as_deref())
         .await
     {
         tracing::warn!("Failed to send password change notification: {}", e);
@@ -859,7 +871,7 @@ async fn forgot_password_verify_mfa(
     // Send password reset email
     state
         .email_service
-        .send_password_reset_email(&admin.email, &reset_token)
+        .send_password_reset_email(&admin.email, &reset_token, admin.locale.as_deref())
         .await
         .map_err(|e| AppError::AuthError(format!("Failed to send reset email: {}", e)))?;
 
@@ -900,7 +912,7 @@ async fn reset_password(
     // Send notification email
     if let Err(e) = state
         .email_service
-        .send_password_changed_notification(&admin.email, false)
+        .send_password_changed_notification(&admin.email, false, admin.locale.as_deref())
         .await
     {
         tracing::warn!("Failed to send password change notification: {}", e);

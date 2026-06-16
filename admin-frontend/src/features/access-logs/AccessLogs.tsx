@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
-import Table from "../../components/Table";
+import { Table } from "@cavebatsofware/riposte-design-system/components";
 import { clearAccessLogs, fetchAccessLogs as fetchLogsApi } from "./api";
 import "./AccessLogs.css";
 

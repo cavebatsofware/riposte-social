@@ -1,0 +1,15 @@
+{
+  "title": "Contacto",
+  "intro": "¿Tienes una pregunta o quieres ponerte en contacto? Envía un mensaje y te responderemos.",
+  "fields": {
+    "name": "Nombre",
+    "email": "Correo electrónico",
+    "subject": "Asunto",
+    "message": "Mensaje"
+  },
+  "submit": "Enviar mensaje",
+  "sending": "Enviando…",
+  "success": "Gracias por tu mensaje. Te responderemos pronto.",
+  "error": "Algo salió mal. Inténtalo de nuevo.",
+  "rateLimited": "Tu mensaje se envió. Para evitar duplicados, no puedes enviar otro hasta que respondamos o pase un poco de tiempo."
+}

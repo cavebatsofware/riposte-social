@@ -21,6 +21,7 @@
   "nav": {
     "feed": "Feed",
     "store": "Store",
+    "contact": "Contact",
     "compose": "Compose",
     "composeMenuAria": "Open compose menu",
     "newPost": "New post",

@@ -1,0 +1,15 @@
+{
+  "title": "Contact",
+  "intro": "Have a question or want to get in touch? Send a message and we'll get back to you.",
+  "fields": {
+    "name": "Name",
+    "email": "Email",
+    "subject": "Subject",
+    "message": "Message"
+  },
+  "submit": "Send message",
+  "sending": "Sending…",
+  "success": "Thanks for your message. We'll get back to you soon.",
+  "error": "Something went wrong. Please try again.",
+  "rateLimited": "Your message was sent. To prevent duplicates, you can't send another until we reply or a little time has passed."
+}

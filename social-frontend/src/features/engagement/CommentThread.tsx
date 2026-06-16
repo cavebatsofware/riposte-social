@@ -12,8 +12,8 @@ import {
 } from "./api";
 import { formatRelativeTime } from "../../utils/formatTime";
 import ReactionBar from "./ReactionBar";
-// `.skeleton-line` classes are defined in SkeletonCard.css.
-import "../../components/SkeletonCard.css";
+// `.skeleton-line` classes ship in the design-system styles bundle
+// (@cavebatsofware/riposte-design-system/styles), imported in main.tsx.
 
 /// Comment thread for a post permalink OR a media item inside a lightbox.
 ///

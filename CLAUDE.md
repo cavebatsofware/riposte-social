@@ -6,7 +6,7 @@ See CONTRIBUTING.md for branching, commits, and CI. PR template: .github/PULL_RE
 ## Stack and architecture
 
 - `src/` Rust/Axum backend; modules: `posts`, `albums`, `auth`, `admin`, `follows`, `engagement`, `invites`, `migration`, `entities`
-- `social-frontend/` React SPA (social feed, profiles); built to `social-assets/`
+- `social-frontend/` React SPA (social feed, profiles); built to `social-assets/`. Tokens, theme engine, pickers, and shared components come from the shared `@cavebatsofware/riposte-design-system` + `riposte-pickers` packages, NOT `social-frontend/src`.
 - `admin-frontend/` React SPA (admin panel); built to `admin-assets/`
 - `tests/` integration tests (axum-test + wiremock); test DB on port 5433
 
@@ -25,7 +25,10 @@ bun run check:i18n  # verify i18n keys are in sync
 - Do not mix the two; they are separate containers on separate ports
 - `make dev` runs with `--features e2e_testing`; bare `cargo run` breaks socket-address extraction and non-Secure cookies
 - Edits to `social-frontend/public/locales/*` need `bun run build:social`; the backend serves from `social-assets/locales/`, not source
-- Use `bun run <script>`, never npm; bun is the package manager for all frontend tooling
+- Use bun for all frontend tooling and scripting (deps, package scripts, ad-hoc scripts); never npm, never python
+- Design-system deps are `github:` npm deps + a cargo git dep (committed-`dist` model). A clean build needs `riposte-design-system` and `riposte-pickers` pushed; iterate locally with a `file:` / `bun link` / cargo `[patch]` override
+- `scripts/build-social.ts` has a resolver plugin forcing a single `react` / `react-i18next` / design-system copy. Do not remove it; the linked packages carry nested copies that otherwise break hooks and the theme context
+- Email catalogs are app-owned in `src/email/catalogs/`; the design-system crate supplies the email layout shell, CSS, and catalog merge
 
 ## Code conventions
 
@@ -33,7 +36,7 @@ bun run check:i18n  # verify i18n keys are in sync
 - **SQL-side filters**: push auth/scope filters into the `WHERE` clause; don't fetch broader and filter in Rust.
 - **No imagined problems**: don't add `is_empty()` guards, NULL checks on NOT-NULL columns, or "just in case" branches the framework/schema already handles.
 - **No legacy workarounds**: pre-MVP, no production data. No compat shims, NULL fallbacks, or "claim ownership of legacy rows" branches.
-- **Comments**: document behavior once at the implementation; never at call sites or wrappers. Default to no comment; add one only when the WHY is non-obvious.
+- **Comments**: not commit messages, describe current behavior, never narrate the change. Explain once at the implementation, never at call sites or wrappers (do not propagate the explanation up the call chain). Default to none; otherwise the minimum that clarifies what non-obvious code does, with a fuller WHY only when the situation requires it. Verbosity is a cost, not a virtue.
 - **No em-dash** (U+2014) anywhere: comments, prose, PR bodies, commit messages, any output. Use commas, parentheses, colons, semicolons, or rephrase.
 
 ## Issues and PRs
@@ -48,9 +51,11 @@ bun run check:i18n  # verify i18n keys are in sync
 
 ## References
 
-**Owned crates** (modify and bump rather than work around):
+**Owned packages** (modify and bump rather than work around):
 - `basic-axum-rate-limit` https://github.com/cavebatsofware/rate-limiter
 - `axum-tower-sessions-csrf` https://github.com/cavebatsofware/axum-tower-sessions-csrf
+- `@cavebatsofware/riposte-design-system` (polyglot: npm package + Rust crate) https://github.com/cavebatsofware/riposte-design-system
+- `@cavebatsofware/riposte-pickers` (npm; depends on riposte-design-system) https://github.com/cavebatsofware/riposte-pickers
 
 **Babysitting until upstream updates land** (use as-is; don't modify):
 - `axum-login` (fork) https://github.com/cavebatsofware/axum-login

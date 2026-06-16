@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import useRovingFocus from "../utils/useRovingFocus";
+import { useRovingFocus } from "@cavebatsofware/riposte-design-system/shared";
 
 /// Avatar dropdown that replaces the bare Sign-out button in `<Layout>`.
 ///
