@@ -41,7 +41,7 @@ export interface ShopConfig {
 
 export interface SiteManifest {
   name: string; // registry key, image tag, secrets subdir identity
-  siteDomain: string; // bare domain, baked into the SPAs as VITE_SITE_DOMAIN
+  siteDomain: string; // bare domain, read at runtime by the app as SITE_DOMAIN
   siteUrl: string; // canonical social app origin
   siteName: string; // display name (also seeded as the site_name setting)
   appRole: AppRole;
@@ -80,7 +80,7 @@ export function validateManifest(m: SiteManifest): void {
   };
 
   if (!m.name) err("name is required");
-  if (!m.siteDomain) err("siteDomain is empty (would bake an empty VITE_SITE_DOMAIN)");
+  if (!m.siteDomain) err("siteDomain is empty (the app needs it at runtime as SITE_DOMAIN)");
   if (/[:/]/.test(m.siteDomain)) err(`siteDomain must be a bare domain, not a URL: ${m.siteDomain}`);
   if (!BARE_DOMAIN.test(m.siteDomain)) err(`siteDomain is not a valid domain: ${m.siteDomain}`);
 

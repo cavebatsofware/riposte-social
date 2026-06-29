@@ -1,5 +1,5 @@
 import { materialize } from "../lib/sops";
-import { ensureRoleAndDb } from "../lib/sql";
+import { ensureRoleAndDb, waitForPostgres } from "../lib/sql";
 import { run } from "../lib/proc";
 import { repoRoot } from "../lib/manifest";
 import type { SiteManifest } from "../../sites";
@@ -13,6 +13,7 @@ export async function provision(m: SiteManifest): Promise<void> {
   const root = repoRoot();
   await materialize(m);
   await run(["docker", "compose", "-f", "docker-compose.prod.yml", "up", "-d", "postgres"], { cwd: root });
+  await waitForPostgres(["docker", "compose", "-f", "docker-compose.prod.yml"], "postgres", root);
   await ensureRoleAndDb(m);
   await run(["docker", "compose", "-f", "docker-compose.prod.yml", "up", "-d", m.compose.service], { cwd: root });
   console.log(`provisioned ${m.name}: secrets materialized, role/db ensured, ${m.compose.service} up`);

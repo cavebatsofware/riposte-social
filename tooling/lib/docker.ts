@@ -1,5 +1,6 @@
 import { tmpdir } from "os";
 import { join } from "path";
+import { rm } from "fs/promises";
 import { run, capture } from "./proc";
 import { repoRoot } from "./manifest";
 import { imageRef, type SiteManifest } from "../../sites";
@@ -24,8 +25,12 @@ export async function dockerBuild(m: SiteManifest): Promise<string> {
   const features = cargoFeatures(m);
   if (features) args.push("--build-arg", `CARGO_FEATURES=${features}`);
   args.push("--iidfile", iidFile, ".");
-  await run(args, { cwd: repoRoot() });
-  return (await Bun.file(iidFile).text()).trim();
+  try {
+    await run(args, { cwd: repoRoot() });
+    return (await Bun.file(iidFile).text()).trim();
+  } finally {
+    await rm(iidFile, { force: true });
+  }
 }
 
 async function grepInImage(iid: string, needle: string, paths: string[]): Promise<boolean> {

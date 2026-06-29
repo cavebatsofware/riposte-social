@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from "fs";
 import { join } from "path";
-import { run } from "./proc";
+import { run, capture } from "./proc";
 import { repoRoot } from "./manifest";
 import { resolveSecret } from "./secrets";
 import type { SiteManifest } from "../../sites";
@@ -32,6 +32,24 @@ SELECT format('CREATE DATABASE %I OWNER %I', :'dbname', :'role')
 WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'dbname')
 \\gexec
 `;
+
+/** Poll the container's pg_isready until Postgres accepts connections (or time out). */
+export async function waitForPostgres(
+  compose: string[],
+  service: string,
+  cwd: string,
+  timeoutMs = 60_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const res = await capture([...compose, "exec", "-T", service, "pg_isready"], { cwd });
+    if (res.code === 0) return;
+    if (Date.now() > deadline) {
+      throw new Error(`postgres (${service}) not ready after ${timeoutMs}ms`);
+    }
+    await Bun.sleep(500);
+  }
+}
 
 /**
  * Ensure the site's login role and database exist on the shared prod postgres,

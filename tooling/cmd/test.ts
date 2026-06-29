@@ -1,4 +1,5 @@
 import { run } from "../lib/proc";
+import { waitForPostgres } from "../lib/sql";
 import { repoRoot } from "../lib/manifest";
 import { featuresFlag } from "../lib/site-env";
 import type { SiteManifest } from "../../sites";
@@ -7,6 +8,7 @@ import type { SiteManifest } from "../../sites";
 export async function test(m: SiteManifest): Promise<void> {
   const root = repoRoot();
   await run(["docker", "compose", "-f", "docker-compose.test.yml", "up", "-d"], { cwd: root });
+  await waitForPostgres(["docker", "compose", "-f", "docker-compose.test.yml"], "postgres-test", root);
 
   const user = process.env.TEST_POSTGRES_USER ?? "riposte_social_test_user";
   const pw = process.env.TEST_POSTGRES_PASSWORD ?? "test_password";
