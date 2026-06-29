@@ -11,7 +11,7 @@ function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const { user, register, authConfig } = useAuth();
 
-  const siteDomain = import.meta.env.VITE_SITE_DOMAIN;
+  const siteDomain = authConfig.siteDomain;
 
   if (user) {
     return <Navigate to="/dashboard" replace />;

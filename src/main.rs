@@ -18,6 +18,7 @@ use axum::{
     middleware::from_fn_with_state,
     response::IntoResponse,
     routing::get,
+    Extension,
 };
 use std::{env, sync::Arc};
 use time::Duration as TimeDuration;
@@ -31,6 +32,7 @@ use tower_http::{
 use tower_sessions::{cookie::SameSite, ExpiredDeletion, Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
+use riposte_social::settings::SettingsService;
 use riposte_social::{admin, app, crypto, database, email, errors, imports, metrics, middleware};
 
 use app::{AppState, RouterDeps};
@@ -86,32 +88,38 @@ async fn serve_favicon_svg() -> AppResult<impl IntoResponse> {
     Ok(response)
 }
 
-async fn serve_admin_spa() -> AppResult<impl IntoResponse> {
-    let html_content = tokio::fs::read_to_string("admin-assets/index.html")
-        .await
-        .map_err(AppError::FileSystem)?;
-
-    let response = (
-        StatusCode::OK,
-        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-        html_content,
-    );
-
-    Ok(response)
+/// Substitute the per-site theme defaults into the SPA shell so the pre-paint
+/// no-flash script resolves the right theme without a round-trip. Empty values
+/// leave the design-system fallback (forest, OS shade) in effect.
+async fn inject_theme_defaults(html: String, settings: &SettingsService) -> String {
+    let colorway = settings.get_default_colorway().await.unwrap_or_default();
+    let shade = settings.get_default_shade().await.unwrap_or_default();
+    html.replace("__RS_DEFAULT_COLORWAY__", &colorway)
+        .replace("__RS_DEFAULT_SHADE__", &shade)
 }
 
-async fn serve_social_spa() -> AppResult<impl IntoResponse> {
-    let html_content = tokio::fs::read_to_string("social-assets/index.html")
+async fn serve_spa(path: &str, settings: &SettingsService) -> AppResult<impl IntoResponse> {
+    let html = tokio::fs::read_to_string(path)
         .await
         .map_err(AppError::FileSystem)?;
-
-    let response = (
+    let html = inject_theme_defaults(html, settings).await;
+    Ok((
         StatusCode::OK,
         [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-        html_content,
-    );
+        html,
+    ))
+}
 
-    Ok(response)
+async fn serve_admin_spa(
+    Extension(settings): Extension<SettingsService>,
+) -> AppResult<impl IntoResponse> {
+    serve_spa("admin-assets/index.html", &settings).await
+}
+
+async fn serve_social_spa(
+    Extension(settings): Extension<SettingsService>,
+) -> AppResult<impl IntoResponse> {
+    serve_spa("social-assets/index.html", &settings).await
 }
 
 #[tokio::main]
@@ -304,7 +312,10 @@ async fn main() -> anyhow::Result<()> {
         )
         // Social SPA fallback: any unmatched path serves index.html so React
         // Router handles client-side routing.
-        .fallback(serve_social_spa);
+        .fallback(serve_social_spa)
+        // Make per-site settings available to the SPA shell handlers so they can
+        // inject the theme defaults into index.html before first paint.
+        .layer(Extension(state.settings.clone()));
 
     // The shared base middleware stack (compression, security context, rate
     // limiting, access logging, tracing) is applied per-server by

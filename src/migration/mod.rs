@@ -97,6 +97,7 @@ mod m20260612_000001_add_token_hashes_to_users;
 mod m20260613_000001_seed_default_locale_setting;
 #[cfg(feature = "business")]
 mod m20260615_000001_seed_turnstile_site_key;
+mod m20260629_000001_seed_theme_defaults;
 
 pub struct Migrator;
 
@@ -185,6 +186,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260613_000001_seed_default_locale_setting::Migration),
             #[cfg(feature = "business")]
             Box::new(m20260615_000001_seed_turnstile_site_key::Migration),
+            Box::new(m20260629_000001_seed_theme_defaults::Migration),
         ]
     }
 }

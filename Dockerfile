@@ -15,15 +15,10 @@ COPY tsconfig.json ./
 COPY admin-frontend ./admin-frontend
 COPY social-frontend ./social-frontend
 
-# SITE_DOMAIN is baked into both SPAs as VITE_SITE_DOMAIN at build time (e.g. the
-# admin register page's "@<domain>" email-tier check). The Makefile passes it via
-# --build-arg; declare the ARG and promote it to an env var so the build scripts'
-# process.env.SITE_DOMAIN sees it. Without this the SPAs ship an empty domain.
-ARG SITE_DOMAIN
-ENV SITE_DOMAIN=$SITE_DOMAIN
-
 # Build both frontends. `bun run build` chains build:admin and build:social
-# per package.json scripts and emits to admin-assets/ and social-assets/.
+# per package.json scripts and emits to admin-assets/ and social-assets/. The
+# site domain is no longer baked here; the admin reads it at runtime from
+# /api/auth/config, so one image serves any site.
 RUN bun run build
 
 # Rust build stage. Debian 13 (trixie) image so the runtime stage can

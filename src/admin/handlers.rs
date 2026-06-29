@@ -335,6 +335,7 @@ async fn auth_config(State(state): State<AdminState>) -> Json<AuthConfigResponse
         oidc_enabled: state.oidc_enabled,
         login_url,
         account_url: state.oidc_account_url.clone(),
+        site_domain: std::env::var("SITE_DOMAIN").unwrap_or_default(),
     })
 }
 
@@ -376,6 +377,22 @@ async fn site_config(
     payload.insert(
         "site_name".to_string(),
         serde_json::Value::String(state.settings.get_site_name().await.map_err(read_err)?),
+    );
+    // Default theme for fresh visitors; the frontends fall back to the
+    // design-system defaults when these are empty.
+    payload.insert(
+        "default_colorway".to_string(),
+        serde_json::Value::String(
+            state
+                .settings
+                .get_default_colorway()
+                .await
+                .map_err(read_err)?,
+        ),
+    );
+    payload.insert(
+        "default_shade".to_string(),
+        serde_json::Value::String(state.settings.get_default_shade().await.map_err(read_err)?),
     );
     payload.insert(
         "public_feed_enabled".to_string(),

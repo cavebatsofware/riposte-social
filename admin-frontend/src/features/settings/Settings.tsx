@@ -148,6 +148,8 @@ function Settings() {
       fb_import_enabled: "Facebook Import",
       site_name: "Site Name",
       site_domain: "Site Domain",
+      default_colorway: "Default Theme",
+      default_shade: "Default Shade",
       contact_email: "Contact Email",
       from_email: "From Email",
       max_image_dimension: "Max Image Dimension",
@@ -188,6 +190,10 @@ function Settings() {
         "Allow administrators to upload new Facebook archives. Existing import jobs are unaffected.",
       site_name: "The name of your website displayed in emails and pages",
       site_domain: "The domain name of your website (e.g., example.com)",
+      default_colorway:
+        "Theme colorway new visitors see before they choose one (e.g. avernus, forest, plum). Leave blank for the platform default (forest).",
+      default_shade:
+        "Force the light/dark shade for new visitors: 'light' or 'dark'. Leave blank to follow the visitor's operating system.",
       contact_email: "Email address for contact form submissions",
       from_email: "Email address used as the sender for outgoing emails",
       max_image_dimension:

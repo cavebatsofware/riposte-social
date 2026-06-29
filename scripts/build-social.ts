@@ -49,11 +49,6 @@ async function buildSocial() {
     // `bun build --watch` behavior; production builds minify.
     minify: !watchMode,
     plugins: [dedupeSingletons],
-    define: {
-      "import.meta.env.VITE_SITE_DOMAIN": JSON.stringify(
-        process.env.SITE_DOMAIN ?? ""
-      ),
-    },
   });
 
   if (!result.success) {

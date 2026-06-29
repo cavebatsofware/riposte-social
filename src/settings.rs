@@ -218,6 +218,32 @@ impl SettingsService {
             .unwrap_or_else(|_| "noreply@example.com".to_string()))
     }
 
+    /// Default theme colorway for fresh visitors (no stored choice). Empty when
+    /// unset; the frontends then fall back to the design-system default.
+    pub async fn get_default_colorway(&self) -> Result<String> {
+        if let Some(v) = self
+            .get("default_colorway", Some("site"), None)
+            .await?
+            .filter(|s| !s.is_empty())
+        {
+            return Ok(v);
+        }
+        Ok(std::env::var("DEFAULT_COLORWAY").unwrap_or_default())
+    }
+
+    /// Default light/dark shade for fresh visitors: "light" or "dark" forces it,
+    /// anything else (empty) means follow the OS preference.
+    pub async fn get_default_shade(&self) -> Result<String> {
+        if let Some(v) = self
+            .get("default_shade", Some("site"), None)
+            .await?
+            .filter(|s| !s.is_empty())
+        {
+            return Ok(v);
+        }
+        Ok(std::env::var("DEFAULT_SHADE").unwrap_or_default())
+    }
+
     /// Check if admin registration is enabled (defaults to false for security)
     pub async fn get_admin_registration_enabled(&self) -> Result<bool> {
         self.get_bool("admin_registration_enabled", Some("system"), None)

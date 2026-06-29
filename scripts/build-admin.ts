@@ -42,11 +42,6 @@ const result = await Bun.build({
   },
   minify: true,
   plugins: [dedupeSingletons],
-  define: {
-    "import.meta.env.VITE_SITE_DOMAIN": JSON.stringify(
-      process.env.SITE_DOMAIN ?? ""
-    ),
-  },
 });
 
 if (!result.success) {
