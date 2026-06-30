@@ -22,7 +22,8 @@ use std::sync::{Arc, Mutex};
 use aws_sdk_sesv2::operation::send_email::{SendEmailInput, SendEmailOutput};
 use aws_smithy_mocks::{mock, mock_client, RuleMode};
 use riposte_social::email::{
-    EmailMessage, EmailTransport, SelectingTransport, SendGridTransport, SesTransport,
+    EmailMessage, EmailTransport, ResendTransport, SelectingTransport, SendGridTransport,
+    SesTransport,
 };
 use riposte_social::settings::SettingsService;
 use riposte_social::tests::test_db_from_pool;
@@ -61,6 +62,16 @@ async fn mount_sendgrid_ok(server: &MockServer) {
         .and(header("authorization", "Bearer test-key"))
         .and(header("content-type", "application/json"))
         .respond_with(ResponseTemplate::new(202))
+        .mount(server)
+        .await;
+}
+
+async fn mount_resend_ok(server: &MockServer) {
+    Mock::given(method("POST"))
+        .and(path("/emails"))
+        .and(header("authorization", "Bearer test-key"))
+        .and(header("content-type", "application/json"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(r#"{"id":"mock-id"}"#))
         .mount(server)
         .await;
 }
@@ -113,6 +124,49 @@ async fn sendgrid_transport_error_includes_status_and_body() {
     assert!(msg.contains("bad key"), "should include body: {msg}");
 }
 
+// ==================== Resend transport ====================
+
+#[tokio::test]
+async fn resend_transport_sends_emails_request() {
+    let server = MockServer::start().await;
+    mount_resend_ok(&server).await;
+
+    let transport =
+        ResendTransport::new(reqwest::Client::new(), "test-key".to_string(), server.uri());
+    transport.send(&sample_message()).await.unwrap();
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    let body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+
+    assert_eq!(body["from"], "noreply@example.com");
+    assert_eq!(body["to"][0], "user@example.com");
+    assert_eq!(body["subject"], "Test subject");
+    assert_eq!(body["html"], "<p>Hello</p>");
+    assert_eq!(body["text"], "Hello");
+}
+
+#[tokio::test]
+async fn resend_transport_error_includes_status_and_body() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/emails"))
+        .respond_with(
+            ResponseTemplate::new(401)
+                .set_body_string(r#"{"name":"unauthorized","message":"bad key"}"#),
+        )
+        .mount(&server)
+        .await;
+
+    let transport =
+        ResendTransport::new(reqwest::Client::new(), "test-key".to_string(), server.uri());
+    let err = transport.send(&sample_message()).await.unwrap_err();
+
+    let msg = err.to_string();
+    assert!(msg.contains("401"), "should include status: {msg}");
+    assert!(msg.contains("bad key"), "should include body: {msg}");
+}
+
 // ==================== SES transport ====================
 
 #[tokio::test]
@@ -142,12 +196,14 @@ async fn ses_transport_sends_via_sdk_client() {
 fn selecting_transport(
     captures: &SesCaptures,
     sendgrid_base_url: String,
+    resend_base_url: String,
     settings: SettingsService,
 ) -> SelectingTransport {
     SelectingTransport::new(
         SesTransport::new(mock_ses_client(captures)),
         reqwest::Client::new(),
         sendgrid_base_url,
+        resend_base_url,
         settings,
     )
 }
@@ -159,7 +215,12 @@ async fn selecting_transport_defaults_to_ses(pool: sqlx::PgPool) {
     let settings = SettingsService::new(db);
 
     let captures: SesCaptures = Arc::default();
-    let transport = selecting_transport(&captures, "http://unused.invalid".to_string(), settings);
+    let transport = selecting_transport(
+        &captures,
+        "http://unused.invalid".to_string(),
+        "http://unused.invalid".to_string(),
+        settings,
+    );
 
     transport.send(&sample_message()).await.unwrap();
 
@@ -184,7 +245,12 @@ async fn selecting_transport_uses_sendgrid_when_selected(pool: sqlx::PgPool) {
     mount_sendgrid_ok(&server).await;
 
     let captures: SesCaptures = Arc::default();
-    let transport = selecting_transport(&captures, server.uri(), settings);
+    let transport = selecting_transport(
+        &captures,
+        server.uri(),
+        "http://unused.invalid".to_string(),
+        settings,
+    );
 
     transport.send(&sample_message()).await.unwrap();
 
@@ -205,11 +271,74 @@ async fn selecting_transport_errors_when_sendgrid_key_missing(pool: sqlx::PgPool
         .unwrap();
 
     let captures: SesCaptures = Arc::default();
-    let transport = selecting_transport(&captures, "http://unused.invalid".to_string(), settings);
+    let transport = selecting_transport(
+        &captures,
+        "http://unused.invalid".to_string(),
+        "http://unused.invalid".to_string(),
+        settings,
+    );
 
     let err = transport.send(&sample_message()).await.unwrap_err();
     assert!(
         err.to_string().contains("secret_sendgrid_api_key"),
+        "error should name the missing setting: {err}"
+    );
+}
+
+#[sqlx::test(migrations = false)]
+async fn selecting_transport_uses_resend_when_selected(pool: sqlx::PgPool) {
+    dotenvy::dotenv().ok();
+    let db = test_db_from_pool(pool).await;
+    let settings = SettingsService::new(db);
+    settings
+        .set("email_provider", "resend", Some("email"), None)
+        .await
+        .unwrap();
+    settings
+        .set_encrypted("secret_resend_api_key", "test-key", Some("email"), None)
+        .await
+        .unwrap();
+
+    let server = MockServer::start().await;
+    mount_resend_ok(&server).await;
+
+    let captures: SesCaptures = Arc::default();
+    let transport = selecting_transport(
+        &captures,
+        "http://unused.invalid".to_string(),
+        server.uri(),
+        settings,
+    );
+
+    transport.send(&sample_message()).await.unwrap();
+
+    assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    assert_eq!(captures.lock().unwrap().len(), 0, "SES must not be used");
+}
+
+#[sqlx::test(migrations = false)]
+async fn selecting_transport_errors_when_resend_key_missing(pool: sqlx::PgPool) {
+    dotenvy::dotenv().ok();
+    let db = test_db_from_pool(pool).await;
+    let settings = SettingsService::new(db);
+    // The seed migration leaves secret_resend_api_key as an empty encrypted
+    // placeholder; only the provider is switched here.
+    settings
+        .set("email_provider", "resend", Some("email"), None)
+        .await
+        .unwrap();
+
+    let captures: SesCaptures = Arc::default();
+    let transport = selecting_transport(
+        &captures,
+        "http://unused.invalid".to_string(),
+        "http://unused.invalid".to_string(),
+        settings,
+    );
+
+    let err = transport.send(&sample_message()).await.unwrap_err();
+    assert!(
+        err.to_string().contains("secret_resend_api_key"),
         "error should name the missing setting: {err}"
     );
 }
@@ -225,7 +354,12 @@ async fn selecting_transport_rejects_unknown_provider(pool: sqlx::PgPool) {
         .unwrap();
 
     let captures: SesCaptures = Arc::default();
-    let transport = selecting_transport(&captures, "http://unused.invalid".to_string(), settings);
+    let transport = selecting_transport(
+        &captures,
+        "http://unused.invalid".to_string(),
+        "http://unused.invalid".to_string(),
+        settings,
+    );
 
     let err = transport.send(&sample_message()).await.unwrap_err();
     assert!(

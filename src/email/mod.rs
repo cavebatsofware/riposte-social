@@ -21,9 +21,11 @@ use crate::settings::SettingsService;
 
 mod catalog;
 mod render;
+mod resend;
 mod sendgrid;
 mod ses;
 
+pub use resend::{ResendTransport, DEFAULT_BASE_URL as RESEND_DEFAULT_BASE_URL};
 pub use sendgrid::{SendGridTransport, DEFAULT_BASE_URL as SENDGRID_DEFAULT_BASE_URL};
 pub use ses::SesTransport;
 
@@ -56,13 +58,14 @@ pub trait EmailTransport: Send + Sync {
     async fn send(&self, msg: &EmailMessage) -> Result<()>;
 }
 
-/// Picks the transport per send from the `email_provider` setting ("ses" or
-/// "sendgrid"), so an admin can switch providers or rotate the SendGrid key
-/// without a restart.
+/// Picks the transport per send from the `email_provider` setting ("ses",
+/// "sendgrid", or "resend"), so an admin can switch providers or rotate an HTTP
+/// provider's key without a restart.
 pub struct SelectingTransport {
     ses: SesTransport,
     http: reqwest::Client,
     sendgrid_base_url: String,
+    resend_base_url: String,
     settings: SettingsService,
 }
 
@@ -71,12 +74,14 @@ impl SelectingTransport {
         ses: SesTransport,
         http: reqwest::Client,
         sendgrid_base_url: String,
+        resend_base_url: String,
         settings: SettingsService,
     ) -> Self {
         Self {
             ses,
             http,
             sendgrid_base_url,
+            resend_base_url,
             settings,
         }
     }
@@ -97,8 +102,18 @@ impl EmailTransport for SelectingTransport {
                     .send(msg)
                     .await
             }
+            "resend" => {
+                let api_key = self.settings.get_resend_api_key().await?.ok_or_else(|| {
+                    anyhow::anyhow!("email_provider is resend but secret_resend_api_key is not set")
+                })?;
+                ResendTransport::new(self.http.clone(), api_key, self.resend_base_url.clone())
+                    .send(msg)
+                    .await
+            }
             other => {
-                anyhow::bail!("unknown email_provider {other:?}, expected \"ses\" or \"sendgrid\"")
+                anyhow::bail!(
+                    "unknown email_provider {other:?}, expected \"ses\", \"sendgrid\", or \"resend\""
+                )
             }
         }
     }
@@ -144,6 +159,7 @@ impl EmailService {
             ses,
             reqwest::Client::new(),
             SENDGRID_DEFAULT_BASE_URL.to_string(),
+            RESEND_DEFAULT_BASE_URL.to_string(),
             settings.clone(),
         ));
         Ok(Self::with_transport(transport, settings, site_url))

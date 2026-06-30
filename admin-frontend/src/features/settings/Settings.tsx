@@ -165,6 +165,7 @@ function Settings() {
       secret_order_sms_to: "Order SMS Recipient",
       email_provider: "Email Provider",
       secret_sendgrid_api_key: "SendGrid API Key",
+      secret_resend_api_key: "Resend API Key",
     };
     return labels[key] || key;
   }
@@ -215,9 +216,11 @@ function Settings() {
       order_sms_enabled: "Reserved for a future SMS notification feature; not yet active.",
       secret_order_sms_to: "Reserved destination number for the future SMS feature.",
       email_provider:
-        'Outgoing email provider: "ses" (Amazon SES) or "sendgrid". Changes apply immediately, no restart needed.',
+        'Outgoing email provider: "ses" (Amazon SES), "sendgrid", or "resend". Changes apply immediately, no restart needed.',
       secret_sendgrid_api_key:
         "SendGrid API key used when the email provider is sendgrid. Stored encrypted.",
+      secret_resend_api_key:
+        "Resend API key used when the email provider is resend. Stored encrypted.",
     };
     return descriptions[key] || "";
   }
