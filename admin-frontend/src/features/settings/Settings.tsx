@@ -4,6 +4,26 @@ import { useAuth } from "../../contexts/AuthContext";
 import { fetchSettings as fetchSettingsApi, updateSetting } from "./api";
 import "./Settings.css";
 
+// Settings whose value is one of a fixed set: rendered as a dropdown rather
+// than a free-text input. The value stored is the token on the left; the label
+// is what the admin sees. For shop_link_label the token also names the
+// translated `nav.*` catalog key the social header renders.
+const SETTING_OPTIONS = {
+  email_provider: [
+    { value: "ses", label: "Amazon SES" },
+    { value: "sendgrid", label: "SendGrid" },
+    { value: "resend", label: "Resend" },
+  ],
+  shop_link_label: [
+    { value: "store", label: "Store" },
+    { value: "shop", label: "Shop" },
+    { value: "portfolio", label: "Portfolio" },
+    { value: "home", label: "Home" },
+    { value: "business", label: "Business" },
+    { value: "website", label: "Website" },
+  ],
+};
+
 function Settings() {
   const { refreshUser } = useAuth();
   const [settings, setSettings] = useState([]);
@@ -85,9 +105,19 @@ function Settings() {
     if (newValue === undefined || newValue === setting.value) {
       return; // No change
     }
+    await commitSetting(setting, newValue);
+  }
+
+  // Persist an explicit value. Used by text inputs (via saveTextSetting, which
+  // reads the in-flight edit) and by selects, which commit the chosen value
+  // directly to sidestep the async setState lag of editingValues.
+  async function commitSetting(setting, newValue) {
+    if (newValue === setting.value) {
+      return; // No change
+    }
 
     setSaving(true);
-    setSavingStates({ ...savingStates, [setting.id]: "saving" });
+    setSavingStates((prev) => ({ ...prev, [setting.id]: "saving" }));
     setError("");
 
     try {
@@ -117,7 +147,7 @@ function Settings() {
       setEditingValues(newEditingValues);
 
       // Show saved indicator
-      setSavingStates({ ...savingStates, [setting.id]: "saved" });
+      setSavingStates((prev) => ({ ...prev, [setting.id]: "saved" }));
 
       // Clear saved indicator after 2 seconds
       setTimeout(() => {
@@ -129,7 +159,7 @@ function Settings() {
       }, 2000);
     } catch (err) {
       setError(err.message);
-      setSavingStates({ ...savingStates, [setting.id]: "error" });
+      setSavingStates((prev) => ({ ...prev, [setting.id]: "error" }));
     } finally {
       setSaving(false);
     }
@@ -166,6 +196,7 @@ function Settings() {
       email_provider: "Email Provider",
       secret_sendgrid_api_key: "SendGrid API Key",
       secret_resend_api_key: "Resend API Key",
+      shop_link_label: "Shop Link Label",
     };
     return labels[key] || key;
   }
@@ -201,7 +232,8 @@ function Settings() {
         "Largest width or height in pixels accepted for an uploaded image (post media and avatars). Inputs over the limit are rejected before decode to bound server memory. 8000 covers typical phone/DSLR photos at ~256 MiB worst case; raise for a photography-oriented site, lower (e.g. 2048) for tighter storage.",
       business_enabled:
         "Master switch for the commerce module: order intake, the storefront, and order management. Requires a build with the business feature.",
-      shop_url: "Public URL of the storefront, shown as a link from the social site.",
+      shop_url:
+        "Public URL of the storefront, shown as a link from the social site.",
       order_statuses:
         "Comma-separated order workflow statuses, used for the status dropdown on orders.",
       secret_turnstile:
@@ -210,17 +242,22 @@ function Settings() {
         "Cloudflare Turnstile public site key for the order and contact form widgets. Safe to expose; required for the social contact form captcha to render. Pairs with the secret above.",
       phone_verification_enabled:
         "Verify customer phone numbers via Twilio Lookup when an order is placed. Requires the Twilio Account SID and Auth Token below.",
-      twilio_account_sid: "Twilio Account SID used for phone-number verification (Lookup).",
+      twilio_account_sid:
+        "Twilio Account SID used for phone-number verification (Lookup).",
       secret_twilio_auth_token:
         "Twilio Auth Token used for phone-number verification. Stored encrypted.",
-      order_sms_enabled: "Reserved for a future SMS notification feature; not yet active.",
-      secret_order_sms_to: "Reserved destination number for the future SMS feature.",
+      order_sms_enabled:
+        "Reserved for a future SMS notification feature; not yet active.",
+      secret_order_sms_to:
+        "Reserved destination number for the future SMS feature.",
       email_provider:
-        'Outgoing email provider: "ses" (Amazon SES), "sendgrid", or "resend". Changes apply immediately, no restart needed.',
+        "Outgoing email provider. Changes apply immediately, no restart needed.",
       secret_sendgrid_api_key:
         "SendGrid API key used when the email provider is sendgrid. Stored encrypted.",
       secret_resend_api_key:
         "Resend API key used when the email provider is resend. Stored encrypted.",
+      shop_link_label:
+        "Label shown on the storefront link in the social header. Translated automatically for each visitor's language.",
     };
     return descriptions[key] || "";
   }
@@ -234,10 +271,17 @@ function Settings() {
     return setting.encrypted === true || setting.key.startsWith("secret_");
   }
 
+  function isSelectSetting(setting) {
+    // Own-property check: admins can create arbitrary keys, so guard against
+    // inherited names like "toString"/"__proto__" matching via the prototype.
+    return Object.prototype.hasOwnProperty.call(SETTING_OPTIONS, setting.key);
+  }
+
   function hasUnsavedChanges(settingId) {
     return (
       editingValues[settingId] !== undefined &&
-      editingValues[settingId] !== settings.find((s) => s.id === settingId)?.value
+      editingValues[settingId] !==
+        settings.find((s) => s.id === settingId)?.value
     );
   }
 
@@ -317,6 +361,30 @@ function Settings() {
                         {setting.value === "true" ? "Enabled" : "Disabled"}
                       </span>
                     </>
+                  ) : isSelectSetting(setting) ? (
+                    <div className="text-input-container">
+                      <select
+                        className="select-input"
+                        value={editingValues[setting.id] ?? setting.value}
+                        onChange={(e) => {
+                          // Reflect the choice immediately so the control does
+                          // not snap back to the old value during the in-flight
+                          // save; the explicit value is what gets committed.
+                          handleTextChange(setting.id, e.target.value);
+                          // commitSetting handles its own errors; discard the
+                          // promise explicitly so the floating call is intended.
+                          void commitSetting(setting, e.target.value);
+                        }}
+                        disabled={saving}
+                      >
+                        {SETTING_OPTIONS[setting.key].map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                      {getSaveStatus(setting.id)}
+                    </div>
                   ) : isSecretSetting(setting) ? (
                     <div className="text-input-container">
                       <input

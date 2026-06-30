@@ -404,9 +404,20 @@ async fn site_config(
                 .map_err(read_err)?,
         ),
     );
-    // Public storefront link, exposed to everyone only when configured.
+    // Public storefront link, exposed to everyone only when configured. The
+    // label token selects which translated header label the social app shows.
     if let Some(shop_url) = state.settings.get_shop_url().await.map_err(read_err)? {
         payload.insert("shop_url".to_string(), serde_json::Value::String(shop_url));
+        payload.insert(
+            "shop_link_label".to_string(),
+            serde_json::Value::String(
+                state
+                    .settings
+                    .get_shop_link_label()
+                    .await
+                    .map_err(read_err)?,
+            ),
+        );
     }
     // Public Turnstile site key for the contact form widget, when configured.
     if let Some(site_key) = state

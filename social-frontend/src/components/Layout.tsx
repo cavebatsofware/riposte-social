@@ -134,7 +134,9 @@ export default function Layout({ leftRail, rightRail, children }: LayoutProps) {
                   e.currentTarget.href = appendHandoffParams(site.shop_url);
                 }}
               >
-                {t("nav.store")}
+                {t(`nav.${site?.shop_link_label || "store"}`, {
+                  defaultValue: t("nav.store"),
+                })}
               </a>
             ) : null}
             {composeLinks.length > 0 && <ComposeMenu links={composeLinks} />}

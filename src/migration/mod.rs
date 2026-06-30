@@ -99,6 +99,8 @@ mod m20260613_000001_seed_default_locale_setting;
 mod m20260615_000001_seed_turnstile_site_key;
 mod m20260629_000001_seed_theme_defaults;
 mod m20260629_000002_seed_resend_settings;
+#[cfg(feature = "business")]
+mod m20260629_000003_seed_shop_link_label;
 
 pub struct Migrator;
 
@@ -189,6 +191,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260615_000001_seed_turnstile_site_key::Migration),
             Box::new(m20260629_000001_seed_theme_defaults::Migration),
             Box::new(m20260629_000002_seed_resend_settings::Migration),
+            #[cfg(feature = "business")]
+            Box::new(m20260629_000003_seed_shop_link_label::Migration),
         ]
     }
 }
