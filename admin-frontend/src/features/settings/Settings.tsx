@@ -117,7 +117,7 @@ function Settings() {
     }
 
     setSaving(true);
-    setSavingStates({ ...savingStates, [setting.id]: "saving" });
+    setSavingStates((prev) => ({ ...prev, [setting.id]: "saving" }));
     setError("");
 
     try {
@@ -147,7 +147,7 @@ function Settings() {
       setEditingValues(newEditingValues);
 
       // Show saved indicator
-      setSavingStates({ ...savingStates, [setting.id]: "saved" });
+      setSavingStates((prev) => ({ ...prev, [setting.id]: "saved" }));
 
       // Clear saved indicator after 2 seconds
       setTimeout(() => {
@@ -159,7 +159,7 @@ function Settings() {
       }, 2000);
     } catch (err) {
       setError(err.message);
-      setSavingStates({ ...savingStates, [setting.id]: "error" });
+      setSavingStates((prev) => ({ ...prev, [setting.id]: "error" }));
     } finally {
       setSaving(false);
     }
@@ -272,7 +272,9 @@ function Settings() {
   }
 
   function isSelectSetting(setting) {
-    return setting.key in SETTING_OPTIONS;
+    // Own-property check: admins can create arbitrary keys, so guard against
+    // inherited names like "toString"/"__proto__" matching via the prototype.
+    return Object.prototype.hasOwnProperty.call(SETTING_OPTIONS, setting.key);
   }
 
   function hasUnsavedChanges(settingId) {
@@ -364,7 +366,15 @@ function Settings() {
                       <select
                         className="select-input"
                         value={editingValues[setting.id] ?? setting.value}
-                        onChange={(e) => commitSetting(setting, e.target.value)}
+                        onChange={(e) => {
+                          // Reflect the choice immediately so the control does
+                          // not snap back to the old value during the in-flight
+                          // save; the explicit value is what gets committed.
+                          handleTextChange(setting.id, e.target.value);
+                          // commitSetting handles its own errors; discard the
+                          // promise explicitly so the floating call is intended.
+                          void commitSetting(setting, e.target.value);
+                        }}
                         disabled={saving}
                       >
                         {SETTING_OPTIONS[setting.key].map((opt) => (

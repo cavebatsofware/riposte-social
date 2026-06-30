@@ -55,6 +55,7 @@ impl MigrationTrait for Migration {
                 Query::delete()
                     .from_table(Settings::Table)
                     .and_where(Expr::col(Settings::Key).eq("shop_link_label"))
+                    .and_where(Expr::col(Settings::Category).eq("business"))
                     .to_owned(),
             )
             .await?;
