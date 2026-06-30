@@ -28,10 +28,20 @@
             openssl
             docker-compose
             rustup
+            zsh
           ];
 
           shellHook = ''
             export SOPS_AGE_KEY_FILE="''${SOPS_AGE_KEY_FILE:-$HOME/.ssh/age.txt}"
+
+            # nix develop drops you into a bare bash. For interactive sessions,
+            # re-exec into zsh so your normal ~/.zshrc loads and the shell matches
+            # the rest of your terminal. Guarded to interactive shells so
+            # `nix develop --command ...` and CI keep running under bash.
+            if [[ $- == *i* ]]; then
+              export SHELL=${pkgs.zsh}/bin/zsh
+              exec ${pkgs.zsh}/bin/zsh
+            fi
           '';
         };
       }

@@ -364,7 +364,12 @@ async fn test_site_config_exposes_shop_link_label_with_shop_url(pool: sqlx::PgPo
     let (server, _backend, db) = build_test_server(pool).await;
     let settings = SettingsService::new(db.clone());
     settings
-        .set("shop_url", "https://shop.example.com", Some("business"), None)
+        .set(
+            "shop_url",
+            "https://shop.example.com",
+            Some("business"),
+            None,
+        )
         .await
         .unwrap();
     settings
