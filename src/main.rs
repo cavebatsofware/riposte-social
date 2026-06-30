@@ -94,8 +94,13 @@ async fn serve_favicon_svg() -> AppResult<impl IntoResponse> {
 async fn inject_theme_defaults(html: String, settings: &SettingsService) -> String {
     let colorway = settings.get_default_colorway().await.unwrap_or_default();
     let shade = settings.get_default_shade().await.unwrap_or_default();
-    html.replace("__RS_DEFAULT_COLORWAY__", &colorway)
-        .replace("__RS_DEFAULT_SHADE__", &shade)
+    // Substitute the quoted placeholder string literals only. The same tokens
+    // also appear unquoted as the window.__RS_DEFAULT_* globals the SPA reads;
+    // matching the surrounding quotes leaves those identifiers intact. An
+    // unquoted replace rewrites `window.__RS_DEFAULT_COLORWAY__` to `window.`
+    // on an empty value, breaking the shell with a syntax error.
+    html.replace("\"__RS_DEFAULT_COLORWAY__\"", &format!("\"{colorway}\""))
+        .replace("\"__RS_DEFAULT_SHADE__\"", &format!("\"{shade}\""))
 }
 
 async fn serve_spa(path: &str, settings: &SettingsService) -> AppResult<impl IntoResponse> {

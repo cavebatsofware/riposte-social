@@ -20,6 +20,7 @@ import { provision } from "./cmd/provision";
 import { secrets } from "./cmd/secrets";
 import { dev } from "./cmd/dev";
 import { test } from "./cmd/test";
+import { cypress } from "./cmd/cypress";
 import { db } from "./cmd/db";
 
 function usage(): void {
@@ -43,6 +44,7 @@ Secrets:
 Dev:
   dev <site>            db up + build SPAs + watch all three
   test <site>           test DB up + cargo test
+  cypress <sub>         test app stack up (:3001) + run cypress: feature | a11y | a11y:strict | all
   db <site> <sub>       up | down | logs | shell | migrate | reset
 
   show <site>           print the resolved, validated manifest
@@ -60,6 +62,11 @@ async function main(): Promise<void> {
   }
   if (verb === "sites" || verb === "list") {
     console.log(Object.keys(SITES).join("\n"));
+    return;
+  }
+  // The cypress test stack is site-agnostic; the first positional is the suite.
+  if (verb === "cypress") {
+    await cypress(siteName);
     return;
   }
   if (!siteName) {
