@@ -45,19 +45,24 @@
                     }
                 } catch (e) {}
                 try {
+                    var IDS = ["forest","warm","plum","avernus","mineral","daltonia","tritan","achroma"];
+                    function valid(id){if(!id)return false;var c=id.slice(-5)==="-dark"?id.slice(0,-5):id;return IDS.indexOf(c)>=0;}
+                    // Per-site defaults injected by the backend (serve_social_spa);
+                    // unreplaced/empty -> design-system fallback (forest, OS shade).
+                    var CW = "__RS_DEFAULT_COLORWAY__"; if (CW.indexOf("__RS_") === 0 || !CW) CW = "forest";
+                    var SH = "__RS_DEFAULT_SHADE__"; if (SH.indexOf("__RS_") === 0) SH = "";
+                    window.__RS_DEFAULT_COLORWAY__ = CW;
+                    window.__RS_DEFAULT_SHADE__ = SH;
                     var stored = null;
-                    try {
-                        stored = localStorage.getItem(THEME_KEY);
-                    } catch (e) {}
-                    var theme = stored;
-                    if (!theme) {
+                    try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}
+                    var theme;
+                    if (valid(stored)) { theme = stored; }
+                    else if (SH === "light") { theme = CW; }
+                    else if (SH === "dark") { theme = CW + "-dark"; }
+                    else {
                         var dark = false;
-                        try {
-                            dark = window.matchMedia(
-                                "(prefers-color-scheme: dark)",
-                            ).matches;
-                        } catch (e) {}
-                        theme = dark ? "forest-dark" : "forest";
+                        try { dark = window.matchMedia("(prefers-color-scheme: dark)").matches; } catch (e) {}
+                        theme = dark ? CW + "-dark" : CW;
                     }
                     document.documentElement.dataset.theme = theme;
                 } catch (e) {}

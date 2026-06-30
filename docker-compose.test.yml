@@ -1,9 +1,4 @@
 services:
-  # paradedb is a Postgres superset that ships pg_search; we don't use
-  # it yet but the image is in place for the planned FTS migration.
-  # Note: the on-disk format changed pg16 -> pg18, so the existing
-  # `postgres_test_data` volume is incompatible. Run `make test-app-reset`
-  # (which drops the volume via `-v`) once after pulling.
   postgres-test:
     image: paradedb/paradedb:0.24.0-pg18
     container_name: riposte-social-test-db

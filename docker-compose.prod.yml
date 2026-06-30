@@ -43,7 +43,7 @@ services:
     # Override RIPOSTE_IMAGE / IMAGE_TAG (shell or a root .env) to deploy any
     # build or registry. Defaults to the canonical published image.
     image: ${RIPOSTE_IMAGE:-ghcr.io/cavebatsofware/riposte-social}:${IMAGE_TAG:-latest}
-    container_name: riposte-social-prod-app
+    container_name: rs-woodworks-app
     restart: unless-stopped
     depends_on:
       postgres:
@@ -70,6 +70,30 @@ services:
     # Brand favicons and storefront are baked into the image at build time
     # (shop-assets). Migrations run only via MIGRATE_DB above, not on boot.
 
+  app-cavebat:
+    image: ${RIPOSTE_IMAGE:-ghcr.io/cavebatsofware/riposte-social}:${CAVEBAT_IMAGE_TAG:-cavebatsoftware}
+    container_name: rs-cavebat-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./deploy/.env.prod.cavebatsoftware
+    environment:
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      MIGRATE_DB: "true"
+    secrets:
+      - source: secure_values_key_cavebat
+        target: secure_values_key
+      - source: postgres_password_cavebat
+        target: postgres_password
+      - source: aws_credentials
+        target: aws_credentials
+    ports:
+      - "127.0.0.1:3002:3002"
+      - "127.0.0.1:3003:3003"
+    networks:
+      - riposte-net
+
 secrets:
   secure_values_key:
     file: ./deploy/secrets/secure_values_key
@@ -77,6 +101,10 @@ secrets:
     file: ./deploy/secrets/postgres_password
   aws_credentials:
     file: ./deploy/secrets/aws_credentials
+  secure_values_key_cavebat:
+    file: ./deploy/secrets-cavebat/secure_values_key
+  postgres_password_cavebat:
+    file: ./deploy/secrets-cavebat/postgres_password
 
 volumes:
   postgres_data:

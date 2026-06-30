@@ -15,7 +15,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authConfig, setAuthConfig] = useState({ oidcEnabled: false, loginUrl: null, accountUrl: null });
+  const [authConfig, setAuthConfig] = useState({ oidcEnabled: false, loginUrl: null, accountUrl: null, siteDomain: "" });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -32,6 +32,7 @@ export function AuthProvider({ children }) {
           oidcEnabled: data.oidc_enabled,
           loginUrl: data.login_url,
           accountUrl: data.account_url,
+          siteDomain: data.site_domain,
         });
       }
     } catch (error) {

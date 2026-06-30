@@ -5,7 +5,7 @@
     "": {
       "name": "riposte-social",
       "dependencies": {
-        "@cavebatsofware/riposte-design-system": "0.1.0",
+        "@cavebatsofware/riposte-design-system": "0.2.0",
         "@cavebatsofware/riposte-pickers": "0.2.0",
         "@uiw/react-md-editor": "4.1.0",
         "apexcharts": "5.10.6",
@@ -74,7 +74,7 @@
 
     "@barrierbreak/eslint-plugin-a11yinspect": ["@barrierbreak/eslint-plugin-a11yinspect@github:cavebatsofware/eslint-plugin-a11yinspect#8dc2012", { "peerDependencies": { "eslint": ">=7.0.0" } }, "cavebatsofware-eslint-plugin-a11yinspect-8dc2012"],
 
-    "@cavebatsofware/riposte-design-system": ["@cavebatsofware/riposte-design-system@0.1.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18", "react-i18next": ">=13" } }, "sha512-4w8OyL/KylBdUFKJkk+ue9tUcwAWDNf5BRzcqoHrDr2nS0WMFuFlKMs9Prqn0X6dIwZCOigqlJHlUwoMMNu9VA=="],
+    "@cavebatsofware/riposte-design-system": ["@cavebatsofware/riposte-design-system@0.2.0", "", { "peerDependencies": { "react": ">=18", "react-dom": ">=18", "react-i18next": ">=13" } }, "sha512-qw0yaJhTZUGeuiy8z0Z3wDHp7UOQKG1PO0y+Q3giJoVAJc5nLCiQYuv8EMKmnSw6ZwCG5dI9KT7nvR8daUYypQ=="],
 
     "@cavebatsofware/riposte-pickers": ["@cavebatsofware/riposte-pickers@0.2.0", "", { "peerDependencies": { "@cavebatsofware/riposte-design-system": ">=0.1.0", "react": ">=18", "react-dom": ">=18", "react-i18next": ">=13" }, "optionalPeers": ["@cavebatsofware/riposte-design-system"] }, "sha512-tpdy682xJsBan0tSvER/AlGYGz8bhbRQlTHGjpnMdibxlSGpisCcl12QmDYtoyM2J3hCZ5NoGaWegFcW+1nzFg=="],
 

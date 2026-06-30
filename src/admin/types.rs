@@ -73,6 +73,10 @@ pub struct AuthConfigResponse {
     pub oidc_enabled: bool,
     pub login_url: Option<String>,
     pub account_url: Option<String>,
+    /// The deployment's domain, gating the admin email on the register page.
+    /// Sourced from the runtime SITE_DOMAIN env so one image serves any site;
+    /// empty when unset.
+    pub site_domain: String,
 }
 
 #[derive(Serialize, TS)]

@@ -9,7 +9,7 @@
 
 *riposte* (n.): a quick, sharp reply; in fencing, the counterattack that follows a successful parry.
 
-A self-hosted, user-first social platform. Runs on a home server or scales to EC2/OCI; ships with production-ready containers either way. Accessible (WCAG 2.1 AA), internationalized (6 languages), and designed to federate with the wider fediverse via ActivityPub / ActivityStreams 2.0.
+A self-hosted, user-first social platform. Runs on a home server or scales to EC2/OCI; ships with production-ready containers either way. Accessible (WCAG 2.1 AA), internationalized (5 languages), and designed to federate with the wider fediverse via ActivityPub / ActivityStreams 2.0. An optional business module adds a storefront and order intake, so the same host can serve a community feed and a small commerce site side by side.
 
 > **Status:** Core social features complete; ActivityPub federation in progress. Not yet production-ready.
 
@@ -23,9 +23,10 @@ A self-hosted, user-first social platform. Runs on a home server or scales to EC
 - **BM25 full-text search**: powered by pg_search / ParadeDB on top of PostgreSQL 18.
 - **OIDC/Keycloak SSO**: primary auth mode, federates to any OIDC provider. Local password + TOTP fallback when OIDC is disabled.
 - **Facebook export import**: drag-drop the FB data export ZIP; the server dedupes, re-hosts media, and preserves publish dates.
+- **Optional business module**: a storefront + order-intake surface gated behind the `business` cargo feature and the `APP_ROLE` setting, with Cloudflare Turnstile captcha, optional Twilio phone verification, and a choice of SES or SendGrid for email. See [Business module](#business--storefront-module).
 - **WCAG 2.1 AA accessibility**: full ARIA roles and labels, keyboard navigation, skip links, focus management, and screen-reader coverage across both SPAs. Cypress a11y suite gates every merge.
 - **Internationalization**: UI fully translated in 5 languages (English, German, Spanish, French, Chinese); locale auto-detected from browser preference.
-- **8 colorways**: 5 standard themes plus 3 accessible variants (deuteranopia, tritanopia, monochrome); user-selectable at runtime with no reload. See [DESIGN.md](DESIGN.md) for color swatches and token reference.
+- **8 colorways**: 5 standard themes plus 3 accessible variants (deuteranopia, tritanopia, monochrome); user-selectable at runtime with no reload, with the per-site default (colorway + light/dark shade) configurable from the admin Settings UI. See [DESIGN.md](DESIGN.md) for color swatches and token reference.
 
 ### In progress / planned
 
@@ -38,43 +39,47 @@ A self-hosted, user-first social platform. Runs on a home server or scales to EC
 - Two-tier rate limiting (forgiving on cache hits, aggressive on errors), request screening, and access logging
 - Prometheus metrics and AES-256-GCM encryption at rest
 - S3-compatible media storage (AWS, OCI, MinIO)
+- Cloudflare Turnstile captcha on the public contact and order forms
 - Admin panel (React SPA) with email verification, MFA/TOTP, and RBAC
 
 ## Quick Start
 
 ### Prerequisites
 
-- Rust (latest stable)
+- Rust (latest stable, via rustup)
 - Docker and Docker Compose
-- Bun (for frontend builds)
+- Bun (all frontend builds and the deploy CLI)
 - AWS account with SES configured (for admin email verification)
+- For builds/deploys with the CLI: `sops` + `age` (secret management). A `flake.nix` dev shell provides bun, sops, age, the Docker client, and rustup: `nix develop`.
 
-### Setup
+### A site manifest
+
+The repo is configured per deployment with a typed **site manifest** under `sites/<name>.ts` (the `SiteManifest` type in `sites/manifest.ts`): the non-secret identity for one deployment, i.e. its domain, app role, image tag, compose service, database, optional storefront, and the names of its secrets. The bun CLI reads a site by name; secret *values* live encrypted (see [Secrets](#secrets-sops--age)), never in the manifest. The repo ships example manifests you can copy.
+
+### Local development
 
 ```bash
-# Clone and enter the directory
 git clone https://github.com/cavebatsofware/riposte-social.git
 cd riposte-social
 
-# Create environment configuration
+# Copy and edit local env (or use a manifest's dev env)
 cp .env.example .env
-# Edit .env with your values (see Configuration section below)
 
-# Run setup (creates .env if missing, installs npm deps, starts db, runs migrations)
-make setup
-
-# Start development server with hot reload
-make dev
+# Start the dev DB, build both SPAs, and watch Rust + admin + social with hot reload
+bun tooling/cli.ts dev <site>
 ```
 
-The application runs at `http://localhost:3000`. Run `make help` to see all available commands.
+The application runs at `http://localhost:3000`. Run `bun tooling/cli.ts` with no arguments for the full command list.
+
+> The legacy `Makefile` still exists but is **deprecated** and prints a notice; it will be removed. Use the bun CLI.
 
 ### Endpoints
 
 Public routes:
 - `/health` - Health check
 - `/metrics` - Prometheus metrics (localhost only)
-- `/api/contact` - Contact form submission
+- `/api/contact` - Contact form submission (Turnstile-protected when a secret is configured)
+- `/api/orders` - Order intake (business module; Turnstile-protected)
 - `/api/subscribe` - Newsletter subscription
 - `/api/subscribe/verify` - Verify subscription token
 - `/api/feed` - Public post feed
@@ -86,6 +91,7 @@ Public routes:
 - `/api/categories` - Category list
 - `/api/users/{user_id}/followers` - Follower list
 - `/api/users/{user_id}/following` - Following list
+- `/api/site/config` - Per-tier site configuration (see below)
 - `/media/{media_id}` - Post media
 - `/album-media/{media_id}` - Album media
 - `/access/{code}` - Code-gated document page
@@ -93,12 +99,14 @@ Public routes:
 - `/document/{code}` - Alias for access page
 - `/document/{code}/download` - Alias for download
 
+`/api/site/config` is public and tiered: every caller gets `site_name`, `public_feed_enabled`, the theme defaults (`default_colorway`, `default_shade`), and, when configured, `shop_url` / `turnstile_site_key` / `commerce_enabled`; posters and admins additionally see the gates relevant to them. The SPAs read it to keep features hidden until confirmed enabled.
+
 Auth routes:
 - `/api/auth/register` - Create account
 - `/api/auth/login` - Login
 - `/api/auth/logout` - Logout
 - `/api/auth/verify-email` - Email verification (required before login)
-- `/api/auth/config` - Frontend auth configuration (OIDC status)
+- `/api/auth/config` - Frontend auth configuration (OIDC status, login/account URLs, and `site_domain` for the admin email check)
 - `/api/auth/csrf-token` - CSRF token for forms
 - `/api/auth/forgot-password` - Request password reset
 - `/api/auth/reset-password` - Complete password reset
@@ -114,7 +122,6 @@ Invite routes:
 - `/api/auth/logout/invite` - Clear pending invite and log out
 
 Current-user routes (authenticated):
-- `/api/site/config` - Current user info and feature flags
 - `/api/me/password` - Change password
 - `/api/me/mfa/setup` - Initiate TOTP setup
 - `/api/me/mfa/confirm-setup` - Confirm TOTP enrollment
@@ -137,6 +144,8 @@ SPAs:
 - `/admin` - Admin panel (React SPA, serves `index.html` for all `/admin/*` paths)
 - `/` and all other paths - Social feed SPA (fallback)
 
+The shop role (business module) serves a separate storefront on its own port; see [Business module](#business--storefront-module).
+
 ## Configuration
 
 Copy `.env.example` to `.env` and configure. See `.env.example` for all options with descriptions.
@@ -146,9 +155,10 @@ Copy `.env.example` to `.env` and configure. See `.env.example` for all options 
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string |
-| `SITE_DOMAIN` | Your domain (used for admin email validation) |
+| `SITE_DOMAIN` | Your domain (used for admin email validation; served to the admin SPA at runtime via `/api/auth/config`) |
 | `SITE_URL` | Full site URL (used in emails and links) |
 | `SECURE_VALUES_KEY` | AES-256 key for encrypted-at-rest values: TOTP secrets, single-use tokens, encrypted `settings` rows (generate with `openssl rand -hex 32`). Resolved through the secret file-path chain (see Secret delivery). |
+| `APP_ROLE` | `social`, `shop`, or `both`. Selects which server(s) run; `shop`/`both` require the `business` build. Defaults to social. |
 
 ### Secret delivery
 
@@ -197,10 +207,11 @@ credentials.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RATE_LIMIT_PER_MINUTE` | 60 | General request rate limit per IP |
+| `RATE_LIMIT_PER_MINUTE` | 120 | General request rate limit per IP |
 | `BLOCK_DURATION_MINUTES` | 15 | Block duration after exceeding general limit |
 | `RATE_LIMIT_GRACE_PERIOD_SECONDS` | 1 | Grace period before the bucket starts charging requests |
-| `RATE_LIMIT_CACHE_REFUND_RATIO` | 0.5 | Fraction of token cost refunded for HTTP 304 NOT_MODIFIED responses (cache revalidation) |
+| `RATE_LIMIT_CACHE_REFUND_RATIO` | 0.75 | Fraction of token cost refunded for HTTP 304 NOT_MODIFIED responses (cache revalidation) |
+| `RATE_LIMIT_AUTH_REFUND_RATIO` | 0.5 | Fraction refunded on the general bucket for a successful authenticated request |
 | `RATE_LIMIT_ERROR_PENALTY` | 2.0 | Extra tokens charged for 4xx/5xx responses on top of the base 1-token cost |
 | `AUTH_RATE_LIMIT_PER_MINUTE` | 5 | Stricter limit for auth endpoints |
 | `AUTH_BLOCK_DURATION_MINUTES` | 30 | Block duration after exceeding auth limit |
@@ -218,22 +229,32 @@ The general bucket follows "forgiving on cache hits, aggressive on errors": a re
 | `LOG_SUCCESSFUL_ATTEMPTS` | true | Include successful attempts (false reduces DB writes) |
 | `ACCESS_LOG_RETENTION_DAYS` | 1 | Days to retain logs before automatic cleanup |
 
-### Site Settings (seed values)
+### Settings (admin UI is the source of truth)
 
-`SITE_NAME`, `CONTACT_EMAIL`, and `AWS_SES_FROM_EMAIL` serve as **initial seed values** for the database settings table. After the first migration, the admin Settings UI is the source of truth. The app uses a fallback chain: DB value > env var > hardcoded default.
+Most configuration is database-backed and edited at runtime in the admin **Settings** page, with no restart. A handful of env vars (`SITE_NAME`, `CONTACT_EMAIL`, `AWS_SES_FROM_EMAIL`, `SITE_DOMAIN`, theme defaults) serve as **initial seed values**; after first migration the DB is authoritative, via the chain: DB value > env var > hardcoded default.
 
-### Feature Gates (managed via admin UI)
+The Settings page is the complete, current list. Representative keys:
 
-The following features can be toggled at runtime through the admin Settings page without restarting the server:
-
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `admin_registration_enabled` | true | Allow new admin account registration |
-| `access_codes_enabled` | true | Enable public code-gated document access |
-| `contact_form_enabled` | true | Enable the public contact form endpoint |
-| `subscriptions_enabled` | true | Enable the public newsletter subscription endpoint |
+| Setting | Purpose |
+|---------|---------|
+| `admin_registration_enabled` | Allow new admin account registration |
+| `access_codes_enabled` | Enable public code-gated document access |
+| `contact_form_enabled` | Enable the public contact form endpoint |
+| `subscriptions_enabled` | Enable the public newsletter endpoint |
+| `public_feed_enabled` | Allow anonymous reads (off = invite-only) |
+| `commenter_invites_enabled` | Master switch for the invite system |
+| `poster_posting_enabled`, `poster_category_management_enabled` | Poster-tier capabilities |
+| `fb_import_enabled` | Allow new Facebook archive uploads |
+| `site_name`, `site_domain`, `contact_email`, `from_email` | Site identity |
+| `default_colorway`, `default_shade` | Per-site theme default (see below) |
+| `max_image_dimension` | Upload size guard |
+| Business keys | See [Business module](#business--storefront-module) |
 
 When a feature is disabled, public endpoints return 404 and the admin UI hides related navigation.
+
+#### Theme defaults
+
+`default_colorway` (e.g. `avernus`, `forest`, `plum`) and `default_shade` (`light`, `dark`, or blank = follow the visitor's OS) set the theme a fresh visitor sees. A visitor's own pick always wins and is never overwritten; with no stored pick the site default applies and is not persisted, so changing the setting later reaches everyone who hasn't chosen. The resolution lives in the shared `@cavebatsofware/riposte-design-system` `ThemeProvider`, so the social, admin, and storefront frontends behave identically.
 
 ### OIDC Authentication (optional)
 
@@ -254,114 +275,89 @@ When `OIDC_ENABLED=true`, local password authentication is disabled and users au
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | 3000 | Server listen port |
+| `PORT` | 3000 | Social server listen port |
+| `SHOP_PORT` | 3001 | Storefront listen port when `APP_ROLE=both` (a shop-only role uses `PORT`) |
 | `DEV_MODE` | false | Use socket address for IP extraction (for dev without proxy) |
 | `RUST_LOG` | - | Tracing/logging level |
 
+## Business / storefront module
+
+The business module is compiled behind the `business` cargo feature and run by setting `APP_ROLE`:
+
+- `social` (default): only the community network.
+- `shop`: only the storefront + order intake.
+- `both`: run both on one host, social on `PORT` and the storefront on `SHOP_PORT`.
+
+The storefront frontend is your own static site (any build that emits static HTML/JS), staged into `shop-assets/` and served by the shop server; its public origin is the `shop_url` setting. Order submissions hit `/api/orders` and are guarded by Cloudflare Turnstile. Optional add-ons: Twilio phone verification for orders, order SMS notifications, and a choice of SES or SendGrid for transactional email.
+
+Business-module settings (admin Settings UI):
+
+| Setting | Purpose |
+|---------|---------|
+| `business_enabled` | Master switch for the commerce surface |
+| `shop_url` | Public storefront origin (also exposed via `/api/site/config`) |
+| `turnstile_site_key` / `secret_turnstile` | Cloudflare Turnstile public key + secret (captcha on contact + orders) |
+| `order_statuses` | Configurable order status list |
+| `phone_verification_enabled`, `twilio_account_sid`, `secret_twilio_auth_token` | Twilio phone verification |
+| `order_sms_enabled`, `secret_order_sms_to` | Order SMS notifications |
+| `email_provider`, `secret_sendgrid_api_key` | Email provider selection (SES or SendGrid) |
+
 ## Development
 
-The Makefile provides all development commands. Run `make help` for the full list.
-
-### Common Commands
+The bun CLI (`tooling/cli.ts`) is the single interface for development and deployment. Run it with no arguments for the full list.
 
 ```bash
-make setup            # First-time setup (env, deps, db, migrations)
-make dev              # Start with hot reload (Rust + admin frontend)
-make dev-no-watch     # Start without hot reload
-make clippy           # Run linter
-make test             # Run tests (starts test database automatically)
-make build            # Build Docker image
+bun tooling/cli.ts dev <site>     # dev DB up + build SPAs + watch Rust/admin/social
+bun tooling/cli.ts test <site>    # test DB up + cargo test
+bun tooling/cli.ts db <site> up   # up | down | logs | shell | migrate | reset
+bun tooling/cli.ts show <site>    # print the resolved, validated manifest
+bun tooling/cli.ts sites          # list known sites
 ```
 
-### Database
-
-```bash
-make db-up            # Start PostgreSQL
-make db-down          # Stop PostgreSQL
-make db-logs          # View database logs
-make db-shell         # Open psql shell
-make db-migrate       # Run migrations
-make db-reset         # Reset database (WARNING: deletes data)
-make db-backup        # Backup to ./backups/
-make db-restore       # Restore from backup
-```
+Linting/typechecks run directly: `cargo clippy` (CI runs `-D warnings`), `bun run lint` (ESLint), `bun run check:i18n` (i18n key sync).
 
 ### Testing
 
 Tests use a separate database on port 5433 to avoid conflicts with the development database. The test infrastructure includes mock services for AWS SES, S3, and OIDC.
 
 ```bash
-make test             # Run all tests (starts test DB automatically)
-make test-db-up       # Start test database only
-make test-db-down     # Stop test database
-make test-db-reset    # Reset test database
-make cypress-feature  # Run Cypress feature tests (starts app stack)
-make cypress-a11y     # Run Cypress accessibility tests
-make cypress-all      # Run all Cypress tests
+bun tooling/cli.ts test <site>    # cargo tests against the test DB
+bun run e2e:feature               # Cypress feature suite
+bun run a11y:smoke                # Cypress accessibility smoke suite
 ```
 
-### Frontend Build
+### Frontends
 
-Both SPAs are built with Bun.
-
-```bash
-make admin-build      # Build admin React SPA
-make social-build     # Build social React SPA
-make frontend-build   # Build both frontends
-```
+Both SPAs are built with Bun and consume the shared `@cavebatsofware/riposte-design-system` + `riposte-pickers` packages (tokens, theme engine, pickers). The CLI builds them as part of `dev`/`build`; to build standalone: `bun run build:admin`, `bun run build:social`.
 
 ## Deployment
 
-### Docker Build
+The production stack is a single host fronted by a reverse proxy or tunnel: `docker-compose.prod.yml` runs PostgreSQL plus one app container per deployment. Non-secret runtime config comes from a per-deployment env file; secrets are file-based Docker secrets resolved via the file-path chain above.
+
+The CLI drives build, deploy, and provisioning per site:
 
 ```bash
-make build            # Build Docker image
-make run              # Run container locally (requires ACCESS_CODES env var)
-make clean            # Remove local Docker images
+bun tooling/cli.ts build <site>      # build the image + verify the baked storefront identity
+bun tooling/cli.ts deploy <site>     # build (with verify) + atomic tag/push to GHCR (same image id)
+bun tooling/cli.ts provision <site>  # decrypt secrets, ensure the DB role/database, bring the service up
 ```
 
-### ECR Deployment
+`deploy` pushes the exact built image (no stale-tag re-tag). `provision` is idempotent: it materializes the runtime secrets, creates the role/database if absent (re-syncing the role password), and starts the compose service, which runs SeaORM migrations on boot via `MIGRATE_DB=true`. The migration runner is also available standalone: `MIGRATE_DB=true cargo run -- migrate`.
 
-Configure ECR settings in `.env`:
+### Secrets (SOPS + age)
+
+Per-deployment secrets are encrypted at rest with [SOPS](https://github.com/getsops/sops) + [age](https://github.com/FiloSottile/age). A `.sops.yaml` names the age recipient; the encrypted file is local-only (gitignored). The CLI manages them:
+
 ```bash
-ECR_REGISTRY_URL=<account-id>.dkr.ecr.<region>.amazonaws.com
-ECR_REPO_NAME=your-repo-name
-ECR_REGION=us-east-2
+bun tooling/cli.ts secrets <site> gen      # new site: generate values
+bun tooling/cli.ts secrets <site> import   # existing deploy: encrypt current plaintext (preserves keys)
+bun tooling/cli.ts secrets <site> edit     # open decrypted in $EDITOR
+bun tooling/cli.ts secrets <site> decrypt  # materialize runtime secrets for compose
 ```
 
-Then deploy:
-```bash
-make check-prereqs    # Verify Docker and AWS CLI setup
-make deploy           # Build, tag, and push to ECR
-```
+Point `SOPS_AGE_KEY_FILE` at your age key (the `flake.nix` dev shell defaults it). At deploy time `provision`/`deploy` decrypt as needed; plaintext only ever lands in the gitignored secrets mount.
 
-### OCIR Deployment
-
-Configure OCIR settings in `.env`:
-```bash
-OCIR_REGISTRY_URL=<region>.ocir.io/<tenancy-namespace>
-OCIR_REPO_NAME=your-repo-name
-OCIR_REGION_NAME=us-ashburn-1
-OCIR_USERNAME=<tenancy-namespace>/<username>
-OCIR_AUTH_TOKEN=<auth-token>
-```
-
-Then deploy:
-```bash
-make deploy-ocir      # Build, tag, and push to OCIR
-```
-
-### Production Database
-
-Update `DATABASE_URL` in your production environment:
-```bash
-DATABASE_URL=postgresql://user:password@your-db-host:5432/dbname
-```
-
-Run migrations on first deploy:
-```bash
-MIGRATE_DB=true cargo run -- migrate
-```
+> The `Makefile` retains the older ECR (`make deploy`) and OCIR (`make deploy-ocir`) targets, but it is **deprecated** and will be removed. Use the CLI.
 
 ## Security
 

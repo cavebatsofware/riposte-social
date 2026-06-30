@@ -1,14 +1,41 @@
 # riposte-social Deployment Makefile
-# Follows the deployment instructions from README.md
+#
+# DEPRECATED. The bun CLI (tooling/cli.ts) replaces this Makefile and is the
+# documented interface. This file is kept temporarily and will be removed.
 
-# Load environment. Production deploy targets build from deploy/.env.prod so the
-# image's build-time config (e.g. SITE_DOMAIN baked into the SPAs) comes from
-# prod config, not the dev .env. Everything else reads .env.
+$(info )
+$(info ====================================================================)
+$(info  DEPRECATED: do not use the Makefile. Use the bun CLI instead:)
+$(info    bun tooling/cli.ts <verb> <site>    (run with no args for help))
+$(info  The Makefile is kept temporarily and will be deleted.)
+$(info ====================================================================)
+$(info )
+
+# Load environment. SITE picks a frontend; what it does depends on the target:
+#   - dev targets (dev, dev-no-watch, shop-build): SITE selects which per-site
+#     DEV env loads, sites/<name>.env, so you run/stage that site locally:
+#       make dev SITE=cavebatsoftware          # loads sites/cavebatsoftware.env
+#       make shop-build SITE=cavebatsoftware
+#   - image-build/deploy targets (build, deploy-ghcr, ...): SITE only TAGS the
+#     image so the right one uploads (GHCR_IMAGE_TAG defaults to the SITE name);
+#     the build values come from the CLI on the build machine, e.g.
+#       SITE_DOMAIN=cavebatsoftware.com SHOP_SRC=../cavebatsoftware-site ... \
+#         make deploy-ghcr SITE=cavebatsoftware
+# sites/<name>.env are dev files (gitignored, like .env). With no SITE: dev/test/
+# db read .env; prod deploy targets read deploy/.env.prod.
 PROD_TARGETS := deploy-ghcr deploy deploy-ocir
-ifneq (,$(filter $(PROD_TARGETS),$(MAKECMDGOALS)))
-ENV_FILE := deploy/.env.prod
-else
+DEV_SITE_TARGETS := dev dev-no-watch shop-build
+
 ENV_FILE := .env
+ifneq (,$(filter $(DEV_SITE_TARGETS),$(MAKECMDGOALS)))
+ifneq (,$(SITE))
+ENV_FILE := sites/$(SITE).env
+ifeq (,$(wildcard $(ENV_FILE)))
+$(error SITE env not found: $(ENV_FILE). Available: $(patsubst sites/%.env,%,$(wildcard sites/*.env)))
+endif
+endif
+else ifneq (,$(filter $(PROD_TARGETS),$(MAKECMDGOALS)))
+ENV_FILE := deploy/.env.prod
 endif
 
 ifneq (,$(wildcard $(ENV_FILE)))
@@ -21,7 +48,9 @@ DOCKER_IMAGE := riposte-social
 ECR_REGISTRY ?= $(if $(ECR_REGISTRY_URL),$(ECR_REGISTRY_URL),$(error ECR_REGISTRY_URL not found. Create .env file or set environment variable))
 ECR_REPOSITORY ?= $(if $(ECR_REPO_NAME),$(ECR_REPO_NAME),$(error ECR_REPO_NAME not found. Create .env file or set environment variable))
 ECR_REGION ?= us-east-2
-ECR_IMAGE := $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest
+# Lazy: only ECR targets (push-ecr/deploy/clean) need ECR config, so don't force
+# the ECR_REGISTRY_URL check at parse time for GHCR / SITE-tagged builds.
+ECR_IMAGE = $(ECR_REGISTRY)/$(ECR_REPOSITORY):latest
 
 # OCI Container Registry (OCIR) Configuration (optional)
 OCIR_REGISTRY ?= $(OCIR_REGISTRY_URL)
@@ -34,7 +63,9 @@ OCIR_IMAGE = $(if $(OCIR_REGISTRY),$(OCIR_REGISTRY)/$(OCIR_REPOSITORY):latest,)
 # GitHub token with write:packages (PAT or `gh auth token`).
 GHCR_REGISTRY ?= ghcr.io
 GHCR_OWNER ?= cavebatsofware
-GHCR_IMAGE_TAG ?= latest
+# For image builds, SITE tags the image so the right one uploads (override with
+# an explicit GHCR_IMAGE_TAG for a versioned release). No SITE -> latest.
+GHCR_IMAGE_TAG ?= $(if $(SITE),$(SITE),latest)
 GHCR_IMAGE := $(GHCR_REGISTRY)/$(GHCR_OWNER)/$(DOCKER_IMAGE):$(GHCR_IMAGE_TAG)
 
 # Build mode is keyed off APP_ROLE (the same indicator used at runtime): a
@@ -90,6 +121,7 @@ help:
 	@echo "🐳 Docker Commands:"
 	@echo "  make build          - Build Docker image locally"
 	@echo "  make shop-build     - Build + stage a storefront export (SHOP_SRC, SHOP_DIST)"
+	@echo "  SITE=<name>         - dev: load sites/<name>.env; image build: tag the image"
 	@echo "  make build-business - Build the business image (orders + /shop + SMS)"
 	@echo "  make run            - Run container locally (requires ACCESS_CODES env var)"
 	@echo "  make deploy         - Complete deployment: build + push to ECR"
@@ -223,13 +255,14 @@ push-ghcr: login-ghcr
 	docker push $(GHCR_IMAGE)
 	@echo "Push complete: $(GHCR_IMAGE)"
 
-# Complete GHCR deployment (build + push). For the production business image,
-# pass APP_ROLE=both + the storefront paths, and the storefront build-time vars
-# (SHOP_URL is the storefront's public origin; it's baked into the export's
-# metadataBase, robots.txt, and sitemap.xml):
-#   TURNSTILE_SITE_KEY=... SOCIAL_URL=... SHOP_URL=... \
-#     make deploy-ghcr APP_ROLE=both \
-#       SHOP_SRC=../picnic-table-configurator SHOP_DIST=../picnic-table-configurator/out
+# Complete GHCR deployment (build + push). Build values come from the CLI on the
+# build machine; SITE tags the image so the right one uploads (GHCR_IMAGE_TAG
+# defaults to the SITE name). SHOP_URL is the storefront's public origin, baked
+# into its metadataBase, robots.txt, and sitemap.xml:
+#   GHCR_TOKEN=... TURNSTILE_SITE_KEY=... SOCIAL_URL=... SHOP_URL=... \
+#     make deploy-ghcr SITE=cavebatsoftware APP_ROLE=both \
+#       SITE_DOMAIN=cavebatsoftware.com \
+#       SHOP_SRC=../cavebatsoftware-site SHOP_DIST=../cavebatsoftware-site/out
 # Then on the server: docker compose -f docker-compose.prod.yml pull && up -d
 .PHONY: deploy-ghcr
 deploy-ghcr: build push-ghcr

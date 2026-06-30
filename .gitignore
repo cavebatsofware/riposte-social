@@ -35,6 +35,14 @@ coverage/
 *.pdf
 .env
 
+# Per-site DEV env files (sites/<name>.env): local config like .env. Tracked
+# templates are sites/<name>.env.example.
+sites/*.env
+sites/*.ts
+!sites/*.env.example
+!sites/index.ts
+!sites/manifest.ts
+
 # Operator deployment config lives in a separate private repo (../riposte-deploy),
 # symlinked into ./deploy here. Never tracked in the product.
 /deploy
