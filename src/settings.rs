@@ -387,7 +387,7 @@ impl SettingsService {
             .await
     }
 
-    /// Outgoing email provider: "ses" (default) or "sendgrid".
+    /// Outgoing email provider: "ses" (default), "sendgrid", or "resend".
     pub async fn get_email_provider(&self) -> Result<String> {
         let v = self.get("email_provider", Some("email"), None).await?;
         Ok(v.filter(|s| !s.is_empty())
@@ -408,6 +408,15 @@ impl SettingsService {
     pub async fn get_sendgrid_api_key(&self) -> Result<Option<String>> {
         let v = self
             .get_encrypted("secret_sendgrid_api_key", Some("email"), None)
+            .await?;
+        Ok(v.filter(|s| !s.is_empty()))
+    }
+
+    /// Resend API key, stored encrypted (the `secret_` prefix makes the admin
+    /// settings API encrypt it). `None` when unset.
+    pub async fn get_resend_api_key(&self) -> Result<Option<String>> {
+        let v = self
+            .get_encrypted("secret_resend_api_key", Some("email"), None)
             .await?;
         Ok(v.filter(|s| !s.is_empty()))
     }

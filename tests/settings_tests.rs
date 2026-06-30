@@ -281,6 +281,30 @@ async fn test_get_encrypted_returns_none_for_empty_placeholder(pool: sqlx::PgPoo
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_get_resend_api_key_seeded_placeholder_and_update(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    // The migration seeds an encrypted row with an empty value: a plaintext
+    // get() must error (proving the row exists and is flagged encrypted, not
+    // simply absent), while get_encrypted() reports the empty placeholder as
+    // "not set".
+    assert!(service
+        .get("secret_resend_api_key", Some("email"), None)
+        .await
+        .is_err());
+    let key = service.get_resend_api_key().await.unwrap();
+    assert_eq!(key, None);
+
+    service
+        .set_encrypted("secret_resend_api_key", "re-key", Some("email"), None)
+        .await
+        .unwrap();
+    let key = service.get_resend_api_key().await.unwrap();
+    assert_eq!(key.as_deref(), Some("re-key"));
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_get_email_provider_seeded_default_and_update(pool: sqlx::PgPool) {
     let (_server, _backend, db) = build_test_server(pool).await;
     let service = SettingsService::new(db);

@@ -23,7 +23,7 @@ A self-hosted, user-first social platform. Runs on a home server or scales to EC
 - **BM25 full-text search**: powered by pg_search / ParadeDB on top of PostgreSQL 18.
 - **OIDC/Keycloak SSO**: primary auth mode, federates to any OIDC provider. Local password + TOTP fallback when OIDC is disabled.
 - **Facebook export import**: drag-drop the FB data export ZIP; the server dedupes, re-hosts media, and preserves publish dates.
-- **Optional business module**: a storefront + order-intake surface gated behind the `business` cargo feature and the `APP_ROLE` setting, with Cloudflare Turnstile captcha, optional Twilio phone verification, and a choice of SES or SendGrid for email. See [Business module](#business--storefront-module).
+- **Optional business module**: a storefront + order-intake surface gated behind the `business` cargo feature and the `APP_ROLE` setting, with Cloudflare Turnstile captcha, optional Twilio phone verification, and a choice of SES, SendGrid, or Resend for email. See [Business module](#business--storefront-module).
 - **WCAG 2.1 AA accessibility**: full ARIA roles and labels, keyboard navigation, skip links, focus management, and screen-reader coverage across both SPAs. Cypress a11y suite gates every merge.
 - **Internationalization**: UI fully translated in 5 languages (English, German, Spanish, French, Chinese); locale auto-detected from browser preference.
 - **8 colorways**: 5 standard themes plus 3 accessible variants (deuteranopia, tritanopia, monochrome); user-selectable at runtime with no reload, with the per-site default (colorway + light/dark shade) configurable from the admin Settings UI. See [DESIGN.md](DESIGN.md) for color swatches and token reference.
@@ -288,7 +288,7 @@ The business module is compiled behind the `business` cargo feature and run by s
 - `shop`: only the storefront + order intake.
 - `both`: run both on one host, social on `PORT` and the storefront on `SHOP_PORT`.
 
-The storefront frontend is your own static site (any build that emits static HTML/JS), staged into `shop-assets/` and served by the shop server; its public origin is the `shop_url` setting. Order submissions hit `/api/orders` and are guarded by Cloudflare Turnstile. Optional add-ons: Twilio phone verification for orders, order SMS notifications, and a choice of SES or SendGrid for transactional email.
+The storefront frontend is your own static site (any build that emits static HTML/JS), staged into `shop-assets/` and served by the shop server; its public origin is the `shop_url` setting. Order submissions hit `/api/orders` and are guarded by Cloudflare Turnstile. Optional add-ons: Twilio phone verification for orders, order SMS notifications, and a choice of SES, SendGrid, or Resend for transactional email.
 
 Business-module settings (admin Settings UI):
 
@@ -300,7 +300,7 @@ Business-module settings (admin Settings UI):
 | `order_statuses` | Configurable order status list |
 | `phone_verification_enabled`, `twilio_account_sid`, `secret_twilio_auth_token` | Twilio phone verification |
 | `order_sms_enabled`, `secret_order_sms_to` | Order SMS notifications |
-| `email_provider`, `secret_sendgrid_api_key` | Email provider selection (SES or SendGrid) |
+| `email_provider`, `secret_sendgrid_api_key`, `secret_resend_api_key` | Email provider selection (SES, SendGrid, or Resend) |
 
 ## Development
 
