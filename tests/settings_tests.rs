@@ -295,6 +295,20 @@ async fn test_get_email_provider_seeded_default_and_update(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = false)]
+async fn test_get_shop_link_label_default_and_update(pool: sqlx::PgPool) {
+    let (_server, _backend, db) = build_test_server(pool).await;
+    let service = SettingsService::new(db);
+
+    assert_eq!(service.get_shop_link_label().await.unwrap(), "store");
+
+    service
+        .set("shop_link_label", "portfolio", Some("business"), None)
+        .await
+        .unwrap();
+    assert_eq!(service.get_shop_link_label().await.unwrap(), "portfolio");
+}
+
+#[sqlx::test(migrations = false)]
 async fn test_admin_get_settings_masks_encrypted_value(pool: sqlx::PgPool) {
     let (server, backend, db) = build_test_server(pool).await;
     let email = test_email("st-mask");

@@ -21,6 +21,11 @@
   "nav": {
     "feed": "动态",
     "store": "商店",
+    "shop": "店铺",
+    "portfolio": "作品集",
+    "home": "主页",
+    "business": "企业",
+    "website": "网站",
     "contact": "联系",
     "compose": "发布",
     "composeMenuAria": "打开发布菜单",

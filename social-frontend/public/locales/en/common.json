@@ -21,6 +21,11 @@
   "nav": {
     "feed": "Feed",
     "store": "Store",
+    "shop": "Shop",
+    "portfolio": "Portfolio",
+    "home": "Home",
+    "business": "Business",
+    "website": "Website",
     "contact": "Contact",
     "compose": "Compose",
     "composeMenuAria": "Open compose menu",

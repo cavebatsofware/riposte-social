@@ -60,7 +60,9 @@ export default function MobileDrawer({ open, onClose, navLinks, composeLinks = [
             rel="noopener noreferrer"
             onClick={onClose}
           >
-            {t("nav.store")}
+            {t(`nav.${site?.shop_link_label || "store"}`, {
+              defaultValue: t("nav.store"),
+            })}
           </a>
         ) : null}
         {composeLinks.length > 0 && (

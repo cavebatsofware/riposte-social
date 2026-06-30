@@ -21,6 +21,11 @@
   "nav": {
     "feed": "Feed",
     "store": "Shop",
+    "shop": "Laden",
+    "portfolio": "Portfolio",
+    "home": "Startseite",
+    "business": "Unternehmen",
+    "website": "Webseite",
     "contact": "Kontakt",
     "compose": "Verfassen",
     "composeMenuAria": "Verfassen-Menü öffnen",

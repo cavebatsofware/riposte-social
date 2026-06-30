@@ -358,3 +358,29 @@ async fn test_site_config_admin_includes_all_gates(pool: sqlx::PgPool) {
     assert!(json["commenter_invites_enabled"].is_boolean());
     assert!(json["fb_import_enabled"].is_boolean());
 }
+
+#[sqlx::test(migrations = false)]
+async fn test_site_config_exposes_shop_link_label_with_shop_url(pool: sqlx::PgPool) {
+    let (server, _backend, db) = build_test_server(pool).await;
+    let settings = SettingsService::new(db.clone());
+    settings
+        .set("shop_url", "https://shop.example.com", Some("business"), None)
+        .await
+        .unwrap();
+    settings
+        .set("shop_link_label", "portfolio", Some("business"), None)
+        .await
+        .unwrap();
+
+    let json: serde_json::Value = server.get("/api/site/config").await.json();
+    assert_eq!(json["shop_url"], "https://shop.example.com");
+    assert_eq!(json["shop_link_label"], "portfolio");
+}
+
+#[sqlx::test(migrations = false)]
+async fn test_site_config_omits_shop_link_label_without_shop_url(pool: sqlx::PgPool) {
+    let (server, _backend, _db) = build_test_server(pool).await;
+    let json: serde_json::Value = server.get("/api/site/config").await.json();
+    assert!(json.get("shop_url").is_none());
+    assert!(json.get("shop_link_label").is_none());
+}

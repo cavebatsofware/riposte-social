@@ -123,7 +123,8 @@ input:disabled + .toggle-slider {
   gap: var(--spacing-3);
 }
 
-.text-input {
+.text-input,
+.select-input {
   min-width: 300px;
   padding: var(--spacing-2) var(--spacing-3);
   border: 1px solid var(--color-gray-300);
@@ -134,13 +135,19 @@ input:disabled + .toggle-slider {
   transition: var(--transition-normal);
 }
 
-.text-input:focus {
+.select-input {
+  cursor: pointer;
+}
+
+.text-input:focus,
+.select-input:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
-.text-input:disabled {
+.text-input:disabled,
+.select-input:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   background: var(--color-gray-50);

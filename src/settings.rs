@@ -283,6 +283,14 @@ impl SettingsService {
         Ok(v.filter(|s| !s.is_empty()))
     }
 
+    /// Token selecting the storefront link's translated label in the social
+    /// header (e.g. "store", "portfolio"). Defaults to "store".
+    pub async fn get_shop_link_label(&self) -> Result<String> {
+        let v = self.get("shop_link_label", Some("business"), None).await?;
+        Ok(v.filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "store".to_string()))
+    }
+
     /// Configurable order-status workflow (admins edit the comma-separated list
     /// in settings). Falls back to a sensible default when unset/empty.
     pub async fn get_order_statuses(&self) -> Result<Vec<String>> {
