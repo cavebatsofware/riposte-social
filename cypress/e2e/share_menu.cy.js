@@ -111,6 +111,35 @@ describe("ShareMenu", () => {
     );
   });
 
+  it("mastodon: inline instance input validates the host and builds the share URL", () => {
+    cy.createPost({ body: "share ui mastodon post" }).then(({ body }) => {
+      cy.visit(`/post/${body.id}`, {
+        onBeforeLoad(win) {
+          cy.stub(win, "open").as("open");
+        },
+      });
+      cy.get(".share-picker-toggle", { timeout: 10000 }).click();
+      cy.contains(".share-picker-item", "Mastodon").click();
+      // The native prompt is gone; an in-app input appears instead.
+      cy.get(".share-picker-instance-input").should("be.visible");
+
+      // A userinfo-bearing value (the "good.example@evil.com" redirect
+      // trick) is rejected with an inline error and does not navigate.
+      cy.get(".share-picker-instance-input").type("evil.com@attacker.com");
+      cy.contains(".share-picker-instance-actions .btn-primary", "Share").click();
+      cy.get(".share-picker-instance-error").should("be.visible");
+      cy.get("@open").should("not.have.been.called");
+
+      // A valid instance opens that instance's /share endpoint.
+      cy.get(".share-picker-instance-input").clear().type("mastodon.social");
+      cy.contains(".share-picker-instance-actions .btn-primary", "Share").click();
+      cy.get("@open").should(
+        "have.been.calledWithMatch",
+        /^https:\/\/mastodon\.social\/share\?text=/,
+      );
+    });
+  });
+
   it("toggle exposes aria-expanded state and Escape closes the popover", () => {
     cy.createPost({ body: "share ui aria post" }).then(({ body }) => {
       cy.visit(`/post/${body.id}`);

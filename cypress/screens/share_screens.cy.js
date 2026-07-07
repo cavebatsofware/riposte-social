@@ -75,6 +75,18 @@ describe("ShareMenu screenshots", () => {
     });
   });
 
+  it("mastodon: inline instance input (design-system styled)", () => {
+    cy.createPost({ body: "Sharing to a Mastodon instance uses an in-app input." }).then(
+      ({ body }) => {
+        cy.visit(`/post/${body.id}`);
+        cy.get(".share-picker-toggle", { timeout: 10000 }).click();
+        cy.contains(".share-picker-item", "Mastodon").click();
+        cy.get(".share-picker-instance-input").should("be.visible").type("mastodon.social");
+        cy.screenshot("07-mastodon-instance-input", { capture: "viewport" });
+      },
+    );
+  });
+
   it("article card in the listing: share button bottom-right", () => {
     cy.createArticle({
       title: "Feed Card Share Placement",

@@ -88,19 +88,14 @@ async fn serve_favicon_svg() -> AppResult<impl IntoResponse> {
     Ok(response)
 }
 
-/// Substitute the per-site theme defaults into the SPA shell so the pre-paint
-/// no-flash script resolves the right theme without a round-trip. Empty values
-/// leave the design-system fallback (forest, OS shade) in effect.
+/// Fetch the per-site theme defaults and substitute them into the SPA shell
+/// so the pre-paint no-flash script resolves the right theme without a
+/// round-trip. The substitution itself lives in `shell::inject_theme_defaults`
+/// so the OG shells in `og.rs` share the exact same token handling.
 async fn inject_theme_defaults(html: String, settings: &SettingsService) -> String {
     let colorway = settings.get_default_colorway().await.unwrap_or_default();
     let shade = settings.get_default_shade().await.unwrap_or_default();
-    // Substitute the quoted placeholder string literals only. The same tokens
-    // also appear unquoted as the window.__RS_DEFAULT_* globals the SPA reads;
-    // matching the surrounding quotes leaves those identifiers intact. An
-    // unquoted replace rewrites `window.__RS_DEFAULT_COLORWAY__` to `window.`
-    // on an empty value, breaking the shell with a syntax error.
-    html.replace("\"__RS_DEFAULT_COLORWAY__\"", &format!("\"{colorway}\""))
-        .replace("\"__RS_DEFAULT_SHADE__\"", &format!("\"{shade}\""))
+    riposte_social::shell::inject_theme_defaults(html, &colorway, &shade)
 }
 
 async fn serve_spa(path: &str, settings: &SettingsService) -> AppResult<impl IntoResponse> {

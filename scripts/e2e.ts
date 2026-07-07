@@ -63,9 +63,16 @@ function parseArgs(argv: string[]): Options {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     switch (arg) {
-      case "--spec":
-        opts.spec = argv[++i];
+      case "--spec": {
+        const value = argv[++i];
+        if (value === undefined) {
+          throw new Error(
+            "--spec requires a value (all, screens, feature, share, a11y)",
+          );
+        }
+        opts.spec = value;
         break;
+      }
       case "--no-build":
         opts.build = false;
         break;

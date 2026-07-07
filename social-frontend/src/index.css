@@ -2338,6 +2338,43 @@ summary:focus-visible,
 .share-picker-status:empty {
   display: none;
 }
+/* Inline Mastodon instance input, shown in place of the target list.
+   Mirrors the feed-search input chrome so it reads as our design system,
+   not a browser prompt. */
+.share-picker-instance {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  min-width: 240px;
+}
+.share-picker-instance-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-muted);
+}
+.share-picker-instance-input {
+  font: inherit;
+  font-size: var(--font-size-base);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+.share-picker-instance-input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+  border-color: var(--color-primary);
+}
+.share-picker-instance-error {
+  font-size: var(--font-size-sm);
+  color: var(--color-danger, #c73a3a);
+}
+.share-picker-instance-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-2);
+}
 .article-view-share {
   margin-top: var(--spacing-3);
 }

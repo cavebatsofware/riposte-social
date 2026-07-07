@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   PopoverPicker,
@@ -30,10 +30,31 @@ export default function ShareMenu({
   const { t } = useTranslation("common");
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<null | "ok" | "fail">(null);
+  // Mastodon has no central share URL, so selecting it swaps the menu for
+  // an inline instance-domain input rather than a native window.prompt.
+  const [mastodonMode, setMastodonMode] = useState(false);
+  const [mastodonValue, setMastodonValue] = useState("");
+  const [mastodonError, setMastodonError] = useState(false);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const instanceRef = useRef<HTMLInputElement | null>(null);
+  const instanceId = useId();
 
-  useRovingFocus(popoverRef, open);
+  useRovingFocus(popoverRef, open && !mastodonMode);
+
+  useEffect(() => {
+    if (mastodonMode) instanceRef.current?.focus();
+  }, [mastodonMode]);
+
+  // Reset the Mastodon sub-view whenever the popover closes so it reopens
+  // on the target list.
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setMastodonMode(false);
+      setMastodonError(false);
+    }
+  }
 
   const url =
     typeof window !== "undefined" ? window.location.origin + path : path;
@@ -79,12 +100,35 @@ export default function ShareMenu({
     window.location.href = href;
   }
 
-  function shareMastodon() {
-    const raw = window.prompt(t("share.mastodonPrompt"));
-    if (!raw) return;
-    const instance = raw.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
-    if (!instance) return;
-    openTarget(`https://${instance}/share?text=${enc(`${text} ${url}`)}`);
+  // Build the instance share URL from user input. Strip any scheme and
+  // path, then parse it as a host through the URL API and reject userinfo:
+  // a raw interpolation would let a value like "good.example@evil.com"
+  // resolve to evil.com, sending the share to an origin the user did not
+  // intend. Returns null for anything that isn't a usable host.
+  function mastodonShareUrl(raw: string): string | null {
+    const host = raw.trim().replace(/^https?:\/\//i, "").replace(/[/?#].*$/, "");
+    if (!host) return null;
+    try {
+      const parsed = new URL(`https://${host}`);
+      if (parsed.username || parsed.password) return null;
+      const target = new URL("/share", parsed.origin);
+      target.searchParams.set("text", `${text} ${url}`);
+      return target.toString();
+    } catch {
+      return null;
+    }
+  }
+
+  function submitMastodon(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    const target = mastodonShareUrl(mastodonValue);
+    if (!target) {
+      setMastodonError(true);
+      return;
+    }
+    setMastodonMode(false);
+    setMastodonValue("");
+    openTarget(target);
   }
 
   const hasNativeShare =
@@ -94,7 +138,7 @@ export default function ShareMenu({
     <div className="share-picker-wrap">
       <PopoverPicker
         open={open}
-        onOpenChange={setOpen}
+        onOpenChange={handleOpenChange}
         className="share-picker"
         toggleAriaLabel={t("share.triggerAria")}
         popoverAriaLabel={t("share.menuAria")}
@@ -106,6 +150,56 @@ export default function ShareMenu({
           </>
         }
       >
+        {mastodonMode && (
+          <form
+            className="share-picker-instance"
+            aria-label={t("share.targets.mastodon")}
+            onSubmit={submitMastodon}
+          >
+            <label htmlFor={instanceId} className="share-picker-instance-label">
+              {t("share.mastodonPrompt")}
+            </label>
+            <input
+              id={instanceId}
+              ref={instanceRef}
+              name="mastodon-instance"
+              type="text"
+              inputMode="url"
+              autoComplete="off"
+              className="share-picker-instance-input"
+              placeholder="mastodon.social"
+              value={mastodonValue}
+              onChange={(e) => {
+                setMastodonValue(e.target.value);
+                setMastodonError(false);
+              }}
+              aria-invalid={mastodonError || undefined}
+              aria-describedby={mastodonError ? `${instanceId}-error` : undefined}
+            />
+            {mastodonError && (
+              <span
+                id={`${instanceId}-error`}
+                className="share-picker-instance-error"
+                role="alert"
+              >
+                {t("share.mastodonInvalid")}
+              </span>
+            )}
+            <div className="share-picker-instance-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setMastodonMode(false)}
+              >
+                {t("share.back")}
+              </button>
+              <button type="submit" className="btn-primary">
+                {t("share.trigger")}
+              </button>
+            </div>
+          </form>
+        )}
+        {!mastodonMode && (
         <div
           className="share-picker-list"
           role="menu"
@@ -218,13 +312,14 @@ export default function ShareMenu({
                 type="button"
                 role="menuitem"
                 className="share-picker-item"
-                onClick={shareMastodon}
+                onClick={() => setMastodonMode(true)}
               >
                 {t("share.targets.mastodon")}
               </button>
             </>
           )}
         </div>
+        )}
       </PopoverPicker>
       <span
         className="share-picker-status"

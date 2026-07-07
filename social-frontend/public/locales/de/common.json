@@ -88,6 +88,8 @@
     "email": "E-Mail",
     "sms": "SMS",
     "mastodonPrompt": "Gib die Domain deiner Mastodon-Instanz ein (zum Beispiel mastodon.social)",
+    "mastodonInvalid": "Gib eine gültige Instanz-Domain ein",
+    "back": "Zurück",
     "targets": {
       "x": "X",
       "facebook": "Facebook",

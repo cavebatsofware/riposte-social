@@ -88,6 +88,8 @@
     "email": "Correo electrónico",
     "sms": "Mensaje de texto",
     "mastodonPrompt": "Introduce el dominio de tu instancia de Mastodon (por ejemplo, mastodon.social)",
+    "mastodonInvalid": "Introduce un dominio de instancia válido",
+    "back": "Atrás",
     "targets": {
       "x": "X",
       "facebook": "Facebook",

@@ -88,6 +88,8 @@
     "email": "电子邮件",
     "sms": "短信",
     "mastodonPrompt": "输入你的 Mastodon 实例域名（例如 mastodon.social）",
+    "mastodonInvalid": "请输入有效的实例域名",
+    "back": "返回",
     "targets": {
       "x": "X",
       "facebook": "Facebook",

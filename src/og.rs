@@ -153,18 +153,17 @@ impl OgMeta {
     }
 }
 
-/// Read the SPA shell, apply the theme defaults (mirrors serve_spa's theme
-/// injection in main.rs), then inject `meta` immediately before `</head>`.
-/// An empty `meta` yields the generic shell unchanged.
+/// Read the SPA shell, apply the theme defaults via the shared
+/// `shell::inject_theme_defaults` (the same substitution serve_spa uses in
+/// main.rs), then inject `meta` immediately before `</head>`. An empty
+/// `meta` yields the generic shell unchanged.
 async fn serve_shell(settings: &SettingsService, meta: &str) -> AppResult<impl IntoResponse> {
     let html = tokio::fs::read_to_string("social-assets/index.html")
         .await
         .map_err(AppError::FileSystem)?;
     let colorway = settings.get_default_colorway().await.unwrap_or_default();
     let shade = settings.get_default_shade().await.unwrap_or_default();
-    let html = html
-        .replace("\"__RS_DEFAULT_COLORWAY__\"", &format!("\"{colorway}\""))
-        .replace("\"__RS_DEFAULT_SHADE__\"", &format!("\"{shade}\""));
+    let html = crate::shell::inject_theme_defaults(html, &colorway, &shade);
     let html = if meta.is_empty() {
         html
     } else {
