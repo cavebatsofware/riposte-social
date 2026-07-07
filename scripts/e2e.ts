@@ -1,10 +1,8 @@
 #!/usr/bin/env bun
-/// End-to-end test orchestrator. Owns the full lifecycle so bun is the
-/// single entry point: it brings up the containerized test stack
-/// (postgres + minio + the app-test container from
-/// docker-compose.test.yml), waits for the app health check, then runs
-/// Cypress against it in the pinned cypress/included container. This
-/// replaces the Makefile's test-app-up + cypress-* targets.
+/// End-to-end test orchestrator and single entry point for the containerized
+/// suite: it brings up the test stack (postgres + minio + the app-test
+/// container from docker-compose.test.yml), waits for the app health check,
+/// then runs Cypress against it in the pinned cypress/included container.
 ///
 /// Usage:
 ///   bun run scripts/e2e.ts [--spec <group>] [--no-build] [--down]
@@ -14,9 +12,8 @@
 /// Spec groups (see SPEC_GROUPS): omit --spec (or pass "all") to run every
 /// spec under cypress/e2e, so new specs are picked up automatically.
 ///
-/// The stack is left running after a test run (matching the previous
-/// Makefile behavior) so reruns are fast; pass --down to stop it, or run
-/// with --down-only.
+/// The stack is left running after a test run so reruns are fast; pass
+/// --down to stop it after the run, or run with --down-only.
 
 const COMPOSE_FILE = "docker-compose.test.yml";
 const CYPRESS_IMAGE = "cypress/included:15.14.2";

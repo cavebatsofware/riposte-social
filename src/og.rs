@@ -216,6 +216,12 @@ async fn build_post_meta(state: &OgState, id: &str) -> AppResult<String> {
     let Some(row) = anon_visible_post(&state.db, id).await? else {
         return Ok(String::new());
     };
+    // Albums and articles have their own routes; a wrong-kind id at
+    // `/post/{id}` gets the generic shell rather than a card whose
+    // `/post/{id}` canonical would 404 on click.
+    if row.kind != post::KIND_POST {
+        return Ok(String::new());
+    }
 
     let name = site_name(state).await;
     let title = match row.slug.as_deref() {

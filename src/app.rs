@@ -762,9 +762,8 @@ pub fn build_router(deps: RouterDeps) -> Router {
         settings: state.settings.clone(),
     });
 
-    // Open Graph shells: anonymous-only, DB-backed, no session/CSRF. The
-    // permalink pages serve the SPA shell with per-content share meta
-    // injected only for content an anonymous visitor may see.
+    // Open Graph shells: anonymous-only, no session or CSRF. Lives here
+    // (not main.rs) because meta generation queries the database.
     let og_routes = og::og_routes().with_state(og::OgState {
         db: state.db.clone(),
         settings: state.settings.clone(),

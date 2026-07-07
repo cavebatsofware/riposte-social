@@ -98,6 +98,17 @@ describe("Open Graph share meta", () => {
     });
   });
 
+  it("kind guard: an article id at /post/{id} injects no meta", () => {
+    cy.createArticle({ title: "Cross-kind OG article", body: "x" }).then(
+      ({ body }) => {
+        cy.request(`/post/${body.id}`).then(({ status, body: html }) => {
+          expect(status).to.eq(200);
+          expect(html).to.not.include(OG_TITLE);
+        });
+      },
+    );
+  });
+
   it("missing id: serves the shell with no meta", () => {
     cy.request(
       "/post/00000000-0000-0000-0000-000000000000",
