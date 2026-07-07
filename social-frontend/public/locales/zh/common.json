@@ -76,5 +76,26 @@
     "regionLabel": "Cookie 提示",
     "text": "Riposte Social 仅使用登录和安全所必需的 Cookie。我们不使用跟踪、分析或广告 Cookie。",
     "ack": "确定"
+  },
+  "share": {
+    "trigger": "分享",
+    "triggerAria": "分享此内容",
+    "menuAria": "分享选项",
+    "copyLink": "复制链接",
+    "linkCopied": "链接已复制",
+    "copyFailed": "无法复制链接",
+    "nativeShare": "更多应用…",
+    "email": "电子邮件",
+    "sms": "短信",
+    "mastodonPrompt": "输入你的 Mastodon 实例域名（例如 mastodon.social）",
+    "targets": {
+      "x": "X",
+      "facebook": "Facebook",
+      "linkedin": "LinkedIn",
+      "reddit": "Reddit",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "mastodon": "Mastodon"
+    }
   }
 }

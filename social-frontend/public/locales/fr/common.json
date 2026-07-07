@@ -76,5 +76,26 @@
     "regionLabel": "Avis sur les cookies",
     "text": "Riposte Social utilise des cookies strictement nécessaires à la connexion et à la sécurité. Nous n'utilisons pas de cookies de suivi, d'analytique ni publicitaires.",
     "ack": "OK"
+  },
+  "share": {
+    "trigger": "Partager",
+    "triggerAria": "Partager ceci",
+    "menuAria": "Options de partage",
+    "copyLink": "Copier le lien",
+    "linkCopied": "Lien copié",
+    "copyFailed": "Impossible de copier le lien",
+    "nativeShare": "Plus d'applications…",
+    "email": "E-mail",
+    "sms": "SMS",
+    "mastodonPrompt": "Saisissez le domaine de votre instance Mastodon (par exemple, mastodon.social)",
+    "targets": {
+      "x": "X",
+      "facebook": "Facebook",
+      "linkedin": "LinkedIn",
+      "reddit": "Reddit",
+      "whatsapp": "WhatsApp",
+      "telegram": "Telegram",
+      "mastodon": "Mastodon"
+    }
   }
 }

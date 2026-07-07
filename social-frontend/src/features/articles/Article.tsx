@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import CommentThread from "../engagement/CommentThread";
 import { SkeletonCard } from "@cavebatsofware/riposte-design-system/components";
+import ShareMenu from "../../components/ShareMenu";
 import { deleteArticle, fetchArticle } from "./api";
 
 /// Permalink page at `/articles/:id`. Renders the article cover as a
@@ -151,6 +152,18 @@ export default function Article() {
               <span aria-hidden="true"> · </span>
               <span>{t("card.readingTime", { count: article.reading_time_minutes })}</span>
             </p>
+            {!article.is_draft && (
+              <div className="article-view-share">
+                <ShareMenu
+                  path={`/articles/${article.id}`}
+                  title={article.title}
+                  isPublic={
+                    (article.effective_visibility || article.visibility) ===
+                    "public"
+                  }
+                />
+              </div>
+            )}
           </header>
 
           <div

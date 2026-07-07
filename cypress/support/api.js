@@ -50,6 +50,34 @@ Cypress.Commands.add("createAlbum", (fields) => {
   return postMultipart("/api/albums", { visibility: "public", ...fields });
 });
 
+/// Set a single admin setting via `PUT /api/admin/settings`. Caller must
+/// be logged in as an administrator (`cy.login()` uses the seeded test
+/// admin). CSRF-protected like the rest of the admin surface.
+Cypress.Commands.add("setSetting", (key, value, category) => {
+  return cy
+    .request("GET", "/api/auth/csrf-token")
+    .then(({ body: { token } }) =>
+      cy.request({
+        method: "PUT",
+        url: "/api/admin/settings",
+        headers: { "x-csrf-token": token },
+        body: { key, value, category },
+      }),
+    );
+});
+
+/// Toggle the `public_feed_enabled` feature flag. It is off by default
+/// (the row is unset and `get_bool` falls back to false), which both
+/// blocks anonymous reads and suppresses Open Graph meta injection, so
+/// share specs enable it before asserting either. Pass a boolean.
+Cypress.Commands.add("setPublicFeed", (enabled) => {
+  return cy.setSetting(
+    "public_feed_enabled",
+    enabled ? "true" : "false",
+    "features",
+  );
+});
+
 /// Create an article via `/api/articles`. JSON body, not multipart;
 /// `title` is required. `is_draft` defaults to false (i.e. published)
 /// for tests since the public surfaces are what we're asserting on;

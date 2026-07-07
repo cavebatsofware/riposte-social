@@ -36,6 +36,7 @@ pub mod invites;
 pub mod metrics;
 pub mod middleware;
 pub mod migration;
+pub mod og;
 #[cfg(feature = "business")]
 pub mod orders;
 pub mod posts;
