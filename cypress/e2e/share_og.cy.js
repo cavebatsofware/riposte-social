@@ -25,6 +25,13 @@ describe("Open Graph share meta", () => {
     cy.setPublicFeed(true);
   });
 
+  after(() => {
+    // Restore the default so the flag does not bleed into later specs on
+    // the persistent (non-reset) stack.
+    cy.login();
+    cy.setPublicFeed(false);
+  });
+
   it("public post: injects og:title, og:url, description, and a twitter card", () => {
     cy.createPost({ body: "OG public post body sentence." }).then(({ body }) => {
       const id = body.id;

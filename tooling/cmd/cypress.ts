@@ -7,6 +7,8 @@ const SUITES: Record<string, string> = {
   feature: "e2e:feature:docker",
   a11y: "a11y:smoke:docker",
   "a11y:strict": "a11y:smoke:strict:docker",
+  share: "e2e:share:docker",
+  screens: "e2e:screens:docker",
   all: "e2e:docker",
 };
 

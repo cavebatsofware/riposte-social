@@ -12,9 +12,13 @@ See CONTRIBUTING.md for branching, commits, and CI. PR template: .github/PULL_RE
 
 ## Development
 
+The `bun tooling/cli.ts` CLI is the task runner (`bun tooling/cli.ts help` lists verbs; `<site>` is a name from `sites/`).
+
 ```bash
-make dev            # db-up + frontend build + cargo-watch
-make test           # cargo test against test DB
+bun tooling/cli.ts dev <site>       # db up + frontend build + cargo-watch
+bun tooling/cli.ts test <site>      # cargo test against the test DB
+bun tooling/cli.ts cypress <suite>  # test app stack (:3001) + cypress: feature | a11y | a11y:strict | share | screens | all
+bun tooling/cli.ts db <site> <sub>  # up | down | logs | shell | migrate | reset
 cargo clippy        # lint; CI runs -D warnings
 bun run lint        # ESLint social-frontend
 bun run check:i18n  # verify i18n keys are in sync
@@ -23,7 +27,7 @@ bun run check:i18n  # verify i18n keys are in sync
 - Dev DB: `docker exec riposte-social-db psql -U riposte_social_user -d riposte_social`
 - Test DB: `docker exec riposte-social-test-db psql -U riposte_social_test_user -d riposte_social_test`
 - Do not mix the two; they are separate containers on separate ports
-- `make dev` runs with `--features e2e_testing`; bare `cargo run` breaks socket-address extraction and non-Secure cookies
+- `bun tooling/cli.ts dev` runs with `--features e2e_testing`; bare `cargo run` breaks socket-address extraction and non-Secure cookies
 - Edits to `social-frontend/public/locales/*` need `bun run build:social`; the backend serves from `social-assets/locales/`, not source
 - Use bun for all frontend tooling and scripting (deps, package scripts, ad-hoc scripts); never npm, never python
 - Design-system deps are `github:` npm deps + a cargo git dep (committed-`dist` model). A clean build needs `riposte-design-system` and `riposte-pickers` pushed; iterate locally with a `file:` / `bun link` / cargo `[patch]` override

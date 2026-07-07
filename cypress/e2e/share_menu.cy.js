@@ -17,6 +17,14 @@ describe("ShareMenu", () => {
     cy.setPublicFeed(true);
   });
 
+  after(() => {
+    // Restore the default so the flag does not bleed into later specs on
+    // the persistent (non-reset) stack. Re-login first: a test may have
+    // dropped the session (the anonymous case clears cookies).
+    cy.login();
+    cy.setPublicFeed(false);
+  });
+
   it("public post: menu offers copy link plus external targets", () => {
     cy.createPost({ body: "share ui public post" }).then(({ body }) => {
       cy.visit(`/post/${body.id}`);

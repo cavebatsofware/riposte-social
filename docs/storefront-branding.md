@@ -27,7 +27,7 @@ used. The store may be on a different subdomain than the social app (e.g.
 `shop.example.com` vs `www.example.com`); the assets are referenced by absolute
 store URL, which browsers load cross-origin without issue.
 
-Assets are served by the storefront itself: `make shop-build` copies the
+Assets are served by the storefront itself: `bun tooling/cli.ts shop-build <site>` copies the
 storefront's static export into `shop-assets/`, which the shop server serves at
 its root. So `${shop_url}/favicon.svg` resolves to `shop-assets/favicon.svg`.
 The files live in the operator's storefront project, never in riposte-social.

@@ -41,23 +41,25 @@ Two layers of test runners share one Postgres test DB on port 5433.
 
 ### Backend (`cargo test`)
 
-`make test` brings up the test DB via `docker-compose -f docker-compose.test.yml up -d` (the `postgres-test` service only) and runs `cargo test` with `DATABASE_URL` and `TEST_DATABASE_URL` pointed at it. CI's `test.yml` does the same with a GitHub Actions service container.
+`bun tooling/cli.ts test <site>` brings up the test DB via `docker compose -f docker-compose.test.yml up -d` (the `postgres-test` service only) and runs `cargo test` with `DATABASE_URL` and `TEST_DATABASE_URL` pointed at it. CI's `test.yml` does the same with a GitHub Actions service container.
 
 ### End-to-end (Cypress)
 
-`make test-app-up` brings up the FULL test stack: postgres-test plus `app-test`, a containerized riposte-social wired to the test DB. The app-test service runs migrations on start and seeds an idempotent admin row via `riposte-social seed-test-admin`. The app is published on host port `3001` so it can run alongside `make dev` (port 3000).
+`bun tooling/cli.ts cypress <suite>` brings up the FULL test stack (postgres-test plus `app-test`, a containerized riposte-social wired to the test DB) and runs a suite against it in the `cypress/included` image. The app-test service runs migrations on start and seeds an idempotent admin row via `riposte-social seed-test-admin`. The app is published on host port `3001` so it can run alongside `bun tooling/cli.ts dev <site>` (port 3000). The stack is left running after a suite so specs can be re-run.
 
-Smoke and functional specs against the test stack:
+Suites: `feature`, `a11y`, `a11y:strict`, `share`, `screens`, `all`. For example:
 
 ```
-make test-app-up
-npm run a11y:smoke:strict:docker      # CYPRESS_BASE_URL defaults to http://localhost:3001
-npm run e2e:docker                    # Run every cypress/e2e/*.cy.js spec
-make test-app-down                    # Stop (volume kept)
-make test-app-reset                   # Drop the postgres_test_data volume + rebuild
+bun tooling/cli.ts cypress all        # stack up (:3001) + every cypress/e2e/*.cy.js spec
+bun tooling/cli.ts cypress a11y:strict
+bun tooling/cli.ts cypress share
+docker compose -f docker-compose.test.yml --profile app down      # stop (volume kept)
+docker compose -f docker-compose.test.yml --profile app down -v   # drop the postgres_test_data volume
 ```
 
-The `postgres_test_data` volume persists across `test-app-up` / `test-app-down` cycles. If a spec or a manual session has mutated the DB and you need a deterministic seed-only starting point, use `make test-app-reset` to drop and reseed.
+The `screens` suite lives outside `cypress/e2e/` and writes ShareMenu screenshots to `cypress/screenshots/` (gitignored) for visual debugging; it is not part of `all`.
+
+The `postgres_test_data` volume persists while the stack stays up. If a spec or a manual session has mutated the DB and you need a deterministic seed-only starting point, bring the stack down with `-v` (above) so the next `cypress` run rebuilds and reseeds it.
 
 The Cypress support file ships `cy.login()` (in `cypress/support/auth.js`), which authenticates as the seeded admin via the GET-csrf-token + POST-login dance and persists the session cookie. Authed-route specs should call it in a `beforeEach`. See `cypress/e2e/auth.cy.js` for a working example.
 
@@ -71,7 +73,7 @@ The `app-test` container reads:
 | `TEST_ADMIN_PASSWORD` | `test_admin_password`  |
 | `SEED_TEST_ADMIN`     | `true` (in compose only)|
 
-The `riposte-social seed-test-admin <email> <password>` subcommand refuses to run unless `SEED_TEST_ADMIN=true` is set in the environment. The compose file sets it; production deployments must NOT. This is a defense-in-depth gate against accidentally provisioning a known-credential admin in a real container. Override the email/password via env at compose time (`TEST_ADMIN_EMAIL=foo@bar make test-app-up`) when a test needs a custom fixture.
+The `riposte-social seed-test-admin <email> <password>` subcommand refuses to run unless `SEED_TEST_ADMIN=true` is set in the environment. The compose file sets it; production deployments must NOT. This is a defense-in-depth gate against accidentally provisioning a known-credential admin in a real container. Override the email/password via env (`TEST_ADMIN_EMAIL=foo@bar bun tooling/cli.ts cypress all`) when a test needs a custom fixture.
 
 ## Code style
 
