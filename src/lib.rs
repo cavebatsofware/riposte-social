@@ -36,6 +36,7 @@ pub mod invites;
 pub mod metrics;
 pub mod middleware;
 pub mod migration;
+pub mod og;
 #[cfg(feature = "business")]
 pub mod orders;
 pub mod posts;
@@ -43,6 +44,7 @@ pub mod profile;
 pub mod s3;
 pub mod secret;
 pub mod settings;
+pub mod shell;
 pub mod sitemap;
 pub mod subscriptions;
 pub mod turnstile;

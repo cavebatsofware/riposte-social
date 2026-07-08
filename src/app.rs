@@ -30,6 +30,7 @@ use crate::middleware::rate_limit::AppRateLimitCallbacks;
 use crate::middleware::{
     csrf_middleware, require_admin, require_admin_or_poster, require_authenticated,
 };
+use crate::og;
 use crate::posts;
 use crate::profile;
 use crate::s3::S3Service;
@@ -761,6 +762,13 @@ pub fn build_router(deps: RouterDeps) -> Router {
         settings: state.settings.clone(),
     });
 
+    // Open Graph shells: anonymous-only, no session or CSRF. Lives here
+    // (not main.rs) because meta generation queries the database.
+    let og_routes = og::og_routes().with_state(og::OgState {
+        db: state.db.clone(),
+        settings: state.settings.clone(),
+    });
+
     // Public access-code serving routes (need AppState)
     let access_serving_routes = Router::new()
         .route("/access/{code}", get(serve_access))
@@ -801,6 +809,7 @@ pub fn build_router(deps: RouterDeps) -> Router {
         .merge(contact_routes)
         .merge(subscribe_routes)
         .merge(sitemap_routes)
+        .merge(og_routes)
         .merge(access_serving_routes)
 }
 

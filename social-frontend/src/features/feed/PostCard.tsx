@@ -9,6 +9,7 @@ import MediaLightbox from "../engagement/MediaLightbox";
 import ReactionBar from "../engagement/ReactionBar";
 import VisibilityBadge from "../../components/VisibilityBadge";
 import VisibilityMenu from "../../components/VisibilityMenu";
+import ShareMenu from "../../components/ShareMenu";
 import type { PostMediaResponse } from "../../types/api";
 
 /// Renders one post in the feed or on its permalink.
@@ -333,14 +334,23 @@ function PostActions({ post, variant, target }) {
   const { t } = useTranslation("feed");
   const commentCount = post.comment_count || 0;
   const showCommentCount = variant !== "permalink";
+  const isPublic =
+    (post.effective_visibility || post.visibility) === "public";
   return (
     <footer className="post-actions" aria-label={t("postCard.actionsAria")}>
       <ReactionBar target={target} state={post} />
-      {showCommentCount && (
-        <span className="post-actions-comments">
-          {t("postCard.commentCount", { count: commentCount })}
-        </span>
-      )}
+      <div className="post-actions-end">
+        {showCommentCount && (
+          <span className="post-actions-comments">
+            {t("postCard.commentCount", { count: commentCount })}
+          </span>
+        )}
+        <ShareMenu
+          path={`/post/${post.id}`}
+          title={post.slug || undefined}
+          isPublic={isPublic}
+        />
+      </div>
     </footer>
   );
 }

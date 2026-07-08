@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import ShareMenu from "../../components/ShareMenu";
 
 /// Feed/list preview card for an article. Wider and more horizontal than
 /// PostCard so the cover image (when present) can carry visual weight.
@@ -40,6 +41,7 @@ export default function ArticleCard({ post, summary, backLink }) {
         reactionCount: summary.reaction_count,
         publishedAt: summary.published_at,
         isDraft: summary.is_draft,
+        effectiveVisibility: summary.effective_visibility || summary.visibility,
       }
     : {
         id: post.id,
@@ -57,6 +59,7 @@ export default function ArticleCard({ post, summary, backLink }) {
         ),
         publishedAt: post.published_at,
         isDraft: false,
+        effectiveVisibility: post.effective_visibility || post.visibility,
       };
 
   const link = data.isDraft
@@ -133,6 +136,15 @@ export default function ArticleCard({ post, summary, backLink }) {
           <span aria-hidden="true"> · </span>
           <span>{t("card.comments", { count: data.commentCount })}</span>
         </p>
+        {!data.isDraft && (
+          <div className="article-card-share">
+            <ShareMenu
+              path={`/articles/${data.id}`}
+              title={data.title}
+              isPublic={data.effectiveVisibility === "public"}
+            />
+          </div>
+        )}
       </div>
     </article>
   );
