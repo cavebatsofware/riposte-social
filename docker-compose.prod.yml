@@ -94,6 +94,31 @@ services:
     networks:
       - riposte-net
 
+  app-grant:
+    image: ${RIPOSTE_IMAGE:-ghcr.io/cavebatsofware/riposte-social}:${GRANT_IMAGE_TAG:-grant}
+    container_name: rs-grant-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ./deploy/.env.prod.grant
+    environment:
+      AWS_SHARED_CREDENTIALS_FILE: /run/secrets/aws_credentials
+      MIGRATE_DB: "true"
+    secrets:
+      - source: secure_values_key_grant
+        target: secure_values_key
+      - source: postgres_password_grant
+        target: postgres_password
+      # Shared host IAM creds (same account), like app + app-cavebat.
+      - source: aws_credentials
+        target: aws_credentials
+    ports:
+      - "127.0.0.1:3004:3004"
+      - "127.0.0.1:3005:3005"
+    networks:
+      - riposte-net
+
 secrets:
   secure_values_key:
     file: ./deploy/secrets/secure_values_key
@@ -105,6 +130,10 @@ secrets:
     file: ./deploy/secrets-cavebat/secure_values_key
   postgres_password_cavebat:
     file: ./deploy/secrets-cavebat/postgres_password
+  secure_values_key_grant:
+    file: ./deploy/secrets-grant/secure_values_key
+  postgres_password_grant:
+    file: ./deploy/secrets-grant/postgres_password
 
 volumes:
   postgres_data:
